@@ -1182,7 +1182,8 @@ export class Editor {
     this.actions.bind('Ctrl+Shift+J', 'selection.layer-cut', { when: 'canSelectionLayer' });
     this.actions.bind('Ctrl+G', 'layer.group');
     this.actions.bind('Ctrl+E', 'layer.merge');
-    this.actions.bind('Ctrl+Shift+N', 'layer.reframe.normalize');
+    this.actions.bind('Insert', 'layer.new');
+    this.actions.bind('Ctrl+Shift+N', 'layer.new');
     this.actions.bind('F2', 'layer.rename');
     this.actions.bind('Space', 'view.pan', { hold: true });
     this.actions.bind('Ctrl+Z', 'history.undo');
