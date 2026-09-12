@@ -1,3 +1,4 @@
+import exportShader from '../shaders/generation-export.wgsl?raw';
 import pixelShader from '../shaders/read-pixel.wgsl?raw';
 import thumbnailShader from '../shaders/thumbnail.wgsl?raw';
 import histogramShader from '../shaders/histogram.wgsl?raw';
@@ -67,6 +68,33 @@ export class GpuReadback {
     } catch (error) { result.destroy(); readback.destroy(); frame.release(); throw error; }
     const data = new Float32Array(await this.read(readback));
     return requests.map((_, index): SampledColor => [data[index * 4], data[index * 4 + 1], data[index * 4 + 2], data[index * 4 + 3]]);
+  }
+
+  async rgba(source: Surface, mask = false): Promise<Uint8Array<ArrayBuffer>> {
+    const { device } = this.gpu;
+    const width = source.texture.width, height = source.texture.height;
+    const stride = Math.ceil(width * 4 / 256) * 256;
+    const buffer = device.createBuffer({ size: stride * height, usage: GPUBufferUsage.MAP_READ | GPUBufferUsage.COPY_DST });
+    const texture = device.createTexture({ size: [width, height], format: 'rgba8unorm', usage: GPUTextureUsage.STORAGE_BINDING | GPUTextureUsage.COPY_SRC });
+    const frame = this.gpu.beginFrame();
+    try {
+      const pipeline = this.pipeline(exportShader, 'Generation image transfer');
+      const pass = frame.encoder.beginComputePass();
+      pass.setPipeline(pipeline);
+      pass.setBindGroup(0, device.createBindGroup({ layout: pipeline.getBindGroupLayout(0), entries: [
+        { binding: 0, resource: source.view }, { binding: 1, resource: texture.createView() },
+        { binding: 2, resource: frame.uniform([Number(mask), 0, 0, 0]) },
+      ] }));
+      pass.dispatchWorkgroups(Math.ceil(width / 8), Math.ceil(height / 8));
+      pass.end();
+      frame.encoder.copyTextureToBuffer({ texture }, { buffer, bytesPerRow: stride }, [width, height]);
+      frame.submit();
+    } catch (error) { buffer.destroy(); frame.release(); throw error; }
+    finally { texture.destroy(); }
+    const mapped = new Uint8Array(await this.read(buffer));
+    const bytes = new Uint8Array(width * height * 4);
+    for (let row = 0; row < height; row++) bytes.set(mapped.subarray(row * stride, row * stride + width * 4), row * width * 4);
+    return bytes;
   }
 
   async thumbnails(sources: readonly Surface[]): Promise<ImageData[]> {

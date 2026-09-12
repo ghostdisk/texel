@@ -1,6 +1,9 @@
 const { app, BrowserWindow, dialog, ipcMain, Menu } = require('electron');
 const { readFile } = require('node:fs/promises');
 const path = require('node:path');
+const { NativeBackend } = require('./native-backend.cjs');
+const backend = new NativeBackend(path.join(__dirname, '..'));
+let quitting = false;
 
 async function createWindow() {
   const window = new BrowserWindow({
@@ -17,6 +20,9 @@ function ownerOf(event) {
   const owner = BrowserWindow.fromWebContents(event.sender);
   return owner && event.senderFrame === owner.webContents.mainFrame ? owner : null;
 }
+
+ipcMain.handle('generation:backend', (event) => ownerOf(event) ? backend.start() : { error: 'Invalid window.' });
+ipcMain.handle('generation:restart', (event) => ownerOf(event) ? backend.restart() : { error: 'Invalid window.' });
 
 ipcMain.handle('image:open', async (event) => {
   const owner = ownerOf(event);
@@ -65,6 +71,7 @@ ipcMain.handle('actions:set-menus', (event, menus) => {
 });
 
 app.whenReady().then(async () => {
+  void backend.start();
   Menu.setApplicationMenu(Menu.buildFromTemplate([
     { label: 'File', submenu: [{ role: 'quit' }] },
     { label: 'Edit', submenu: [{ role: 'cut' }, { role: 'copy' }, { role: 'paste' }] },
@@ -78,3 +85,10 @@ app.whenReady().then(async () => {
   app.on('activate', () => { if (BrowserWindow.getAllWindows().length === 0) void createWindow(); });
 });
 app.on('window-all-closed', () => { if (process.platform !== 'darwin') app.quit(); });
+
+app.on('before-quit', (event) => {
+  if (quitting) return;
+  event.preventDefault();
+  quitting = true;
+  void backend.stop().finally(() => app.quit());
+});

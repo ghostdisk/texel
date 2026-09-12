@@ -1,4 +1,6 @@
 import { ActionRegistry } from './actions';
+import { ImageGeneration } from './generation/image-generation';
+import { GenerationTool } from './tools/generation-tool';
 import { FilterRegistry } from './filters/filter';
 import type { Filter } from './filters/filter';
 import { BlurFilter } from './filters/blur-filter';
@@ -50,6 +52,7 @@ export class Editor {
   readonly filters = new FilterRegistry();
   readonly actions: ActionRegistry;
   readonly history: UndoStack;
+  readonly generation: ImageGeneration;
   readonly image: ImageDocument;
   readonly viewport = new Viewport();
   readonly tools = new Map<string, Tool>();
@@ -76,6 +79,7 @@ export class Editor {
   onChange?: () => void;
   onFrame?: (stats: RenderStats) => void;
   onNewDocument?: () => void;
+  onNewSizedLayer?: () => void;
   onRename?: () => void;
   commitEdits?: () => void;
   private scheduledFrame = 0;
@@ -121,13 +125,15 @@ export class Editor {
     this.tools.set('rectangle', new RectangleTool(this));
     this.tools.set('transform', new TransformTool(this));
     this.tools.set('eyedropper', new EyedropperTool(this));
+    this.generation = new ImageGeneration(this);
+    this.tools.set('generation', new GenerationTool(this));
     this.image.onInvalidated = () => this.requestRender();
     this.image.onChange = () => this.changed();
     this.history.onChange = () => { this.pickGeneration++; this.queuePreviews(); this.changed(); };
     this.viewport.onChange = () => { this.refreshHover(); this.requestRender(); };
     this.actions.beforeExecute = () => this.finishGesture();
     this.actions.blocked = () => this.halted || this.reframing;
-    this.actions.context = () => ({ hasSelection: !!this.image.selectionMask });
+    this.actions.context = () => ({ hasSelection: !!this.image.selectionMask, isGenerating: this.generation.busy });
     this.registerActions();
     this.attachInput();
     new ResizeObserver(() => this.resize()).observe(stage);
@@ -331,6 +337,7 @@ export class Editor {
   }
 
   changed(): void {
+    this.generation?.validate();
     if (this.editedMask && (this.image.selected !== this.editedMask || !this.image.allLayers().includes(this.editedMask))) {
       this.setMaskEditLayer(null);
     }
@@ -349,10 +356,11 @@ export class Editor {
       this.scheduledFrame = 0;
       this.pendingStamps.clear();
       this.run(() => {
+        this.generation.validate();
         const density = this.canvas.width / this.viewport.width;
         const stats = this.compositor.render(
           this.image.root, this.context.getCurrentTexture().createView(), this.viewport.bounds(), this.image.frame, this.viewport.scale * density,
-          this.image.selectionMask, this.selectionMode, this.editedMask,
+          this.image.selectionMask, this.selectionMode, this.editedMask, this.generation.visual,
         );
         this.overlay.replaceChildren();
         (this.tools.get('transform') as TransformTool).drawOverlay(this.activeTool.id === 'transform');
@@ -361,7 +369,7 @@ export class Editor {
           if (this.previewsRequested && !this.previewsRunning) void this.refreshPreviews().catch(this.report);
         }
         this.onFrame?.(stats);
-        if (this.image.selectionMask && !this.editedMask) this.requestRender();
+        if ((this.image.selectionMask && !this.editedMask) || this.generation.visual) this.requestRender();
       });
     });
   }
@@ -377,6 +385,7 @@ export class Editor {
   }
 
   reset(width: number, height: number): void {
+    this.generation.cancel();
     this.finishGesture();
     this.pickGeneration++;
     this.tools.get('eyedropper')?.cancel();
@@ -611,6 +620,7 @@ export class Editor {
       if (image) await this.addImage(image.name, new Blob([image.bytes]));
     } });
     register({ id: 'layer.new', label: 'New pixel layer', menu: 'Layer', execute: () => this.image.createPixelLayer() });
+    register({ id: 'layer.new-sized', label: 'New sized layer…', menu: 'Layer', execute: () => this.onNewSizedLayer?.() });
     register({ id: 'mask.new', label: 'New mask layer', menu: 'Layer', execute: () => this.image.createMask() });
     register({ id: 'group.new', label: 'New group', menu: 'Layer', execute: () => this.image.add(new GroupLayer('Group')) });
     register({ id: 'history.undo', label: () => `Undo${this.history.canUndo ? ` ${this.history.undoLabel}` : ''}`, menu: 'Edit', enabled: () => this.history.canUndo, execute: () => this.history.undo() });
@@ -677,6 +687,16 @@ export class Editor {
       id: 'colors.swap', label: 'Swap primary / secondary colors', menu: 'Tools', submenu: 'Colors',
       execute: () => this.setColors(this.secondaryColor, this.primaryColor),
     });
+    register({ id: 'tool.generation', label: 'Generate image', menu: 'Tools', execute: () => this.switchTool('generation') });
+    register({
+      id: 'generation.generate', label: 'Generate', menu: 'Tools', submenu: 'Generation',
+      enabled: () => this.generation.canGenerate, execute: () => this.generation.generate(),
+    });
+    register({
+      id: 'generation.cancel', label: 'Cancel generation', menu: 'Tools', submenu: 'Generation',
+      enabled: () => this.generation.busy, execute: () => this.generation.cancel(),
+    });
+    register({ id: 'generation.models', label: 'Refresh models', menu: 'Tools', submenu: 'Generation', execute: () => this.generation.refreshModels() });
     register({ id: 'tool.brush', label: 'Brush', menu: 'Tools', execute: () => this.switchTool('brush') });
     register({ id: 'tool.rectangle', label: 'Rectangle', menu: 'Tools', execute: () => this.switchTool('rectangle') });
     register({ id: 'tool.transform', label: 'Move / transform', menu: 'Tools', execute: () => this.switchTool('transform') });
@@ -698,6 +718,8 @@ export class Editor {
     register({ id: 'view.fit', label: 'Fit image', menu: 'View', execute: () => this.viewport.fit(this.image.frame) });
     this.actions.bind('D', 'colors.reset');
     this.actions.bind('X', 'colors.swap');
+    this.actions.bind('G', 'tool.generation');
+    this.actions.bind('Escape', 'generation.cancel', { when: 'isGenerating' });
     this.actions.bind('B', 'tool.brush');
     this.actions.bind('R', 'tool.rectangle');
     this.actions.bind('E', 'drawing.erase');

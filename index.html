@@ -3,7 +3,7 @@
   <head>
     <meta charset="UTF-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-    <meta http-equiv="Content-Security-Policy" content="default-src 'self'; script-src 'self'; style-src 'self' 'unsafe-inline'; img-src 'self' blob: data:; connect-src 'self' ws://127.0.0.1:5173" />
+    <meta http-equiv="Content-Security-Policy" content="default-src 'self'; script-src 'self'; style-src 'self' 'unsafe-inline'; img-src 'self' blob: data:; connect-src 'self' ws://127.0.0.1:*" />
     <title>imged</title>
   </head>
   <body>
@@ -15,6 +15,7 @@
         <button data-action="file.new">New</button>
         <button data-action="file.open">Add image…</button>
         <span class="document-name">Untitled <span id="frame-label"></span></span>
+        <button id="cancel-generation" data-action="generation.cancel" hidden>Cancel generation</button>
         <button data-action="history.undo" title="Undo (Ctrl+Z)">↶</button>
         <button data-action="history.redo" title="Redo (Ctrl+Shift+Z)">↷</button>
       </header>
@@ -26,6 +27,7 @@
           <button class="tool" data-action="tool.eyedropper" aria-label="Eyedropper (I)" title="Eyedropper (I) · Hold Alt with Brush">
             <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" aria-hidden="true"><path d="m15 4 5 5M14 5l-9 9-1 5 5-1 9-9M15 4l2-2 5 5-2 2M5 14l4 4"/></svg>
           </button>
+          <button class="tool" data-action="tool.generation" aria-label="Generate image (G)" title="Generate image (G)">✦</button>
           <div class="tool-modes">
             <button class="tool mode-tool" data-action="drawing.erase" aria-label="Erase mode (E)" aria-pressed="false" title="Toggle draw / erase (E)">
               <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" aria-hidden="true"><path d="m14 3 7 7-10 10H7l-5-5L14 3ZM7 10l7 7M11 20h10"/></svg>

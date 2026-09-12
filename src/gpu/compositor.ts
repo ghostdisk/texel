@@ -1,3 +1,5 @@
+import { GenerationOverlay } from './generation-overlay';
+import type { GenerationVisual } from './generation-overlay';
 import { IDENTITY, inverse, maxScale, multiply, transformBounds, unionBounds } from '../model/geometry';
 import type { Matrix, Rect } from '../model/geometry';
 import { GroupLayer, ImageLayer, Layer, layerIndex, validateLayerDependencies } from '../model/layers';
@@ -8,6 +10,11 @@ import { FilterMixer } from './filter-mix';
 import { SelectionOutline } from './selection-outline';
 import { createSurface, rasterBounds, MASK_FORMAT, WORKING_FORMAT } from './surface';
 import type { Surface } from './surface';
+
+export interface GenerationCapture {
+  input: Surface;
+  mask: Surface | null;
+}
 
 interface LayerCache {
   revision: number;
@@ -35,6 +42,7 @@ export class Compositor {
   private readonly mixer: FilterMixer;
   private readonly caches = new Map<Layer, LayerCache>();
   private readonly outline: SelectionOutline;
+  private readonly generationOverlay: GenerationOverlay;
   private index = new Map<string, Layer>();
   private evaluated = new Map<Layer, Evaluation>();
   private visiting = new Set<Layer>();
@@ -45,6 +53,50 @@ export class Compositor {
     this.quads = new QuadRenderer(gpu, canvasFormat);
     this.mixer = new FilterMixer(gpu);
     this.outline = new SelectionOutline(gpu, canvasFormat);
+    this.generationOverlay = new GenerationOverlay(gpu, canvasFormat);
+  }
+
+  private readonly capturePath = new Map<GroupLayer, Layer>();
+  private readonly generationPreviews = new Map<ImageLayer, Surface>();
+
+  setGenerationPreview(layer: ImageLayer, surface: Surface | null): void {
+    if (surface) this.generationPreviews.set(layer, surface);
+    else this.generationPreviews.delete(layer);
+    layer.invalidate();
+  }
+
+  captureGenerationInput(target: ImageLayer, selection: ImageLayer | null): GenerationCapture {
+    let root: Layer = target;
+    while (root.parent) root = root.parent;
+    const frame = this.gpu.beginFrame();
+    const input = createSurface(this.gpu.device, 'Generation input', target.source.bounds);
+    let mask: Surface | null = null;
+    try {
+      this.prepare(root);
+      this.encodePaint(frame);
+      for (let child: Layer = target; child.parent; child = child.parent) this.capturePath.set(child.parent, child);
+      const density = maxScale(inverse(target.worldTransform()));
+      const output = this.evaluate(frame, root, IDENTITY, density).surface;
+      this.capturePath.clear();
+      const pass = this.quads.begin(frame, input);
+      this.quads.draw(pass, frame, output, input, multiply(inverse(target.worldTransform()), root.worldTransform()), root.opacity);
+      pass.end();
+      if (selection) {
+        const output = this.evaluate(frame, selection, selection.parent?.worldTransform() ?? IDENTITY, density).surface;
+        mask = createSurface(this.gpu.device, 'Generation selection', target.source.bounds);
+        const pass = this.quads.begin(frame, mask);
+        this.quads.draw(pass, frame, output, mask, multiply(inverse(target.worldTransform()), selection.worldTransform()));
+        pass.end();
+      }
+      frame.submit();
+      this.operations.clear();
+      return { input, mask };
+    } catch (error) {
+      input.texture.destroy();
+      mask?.texture.destroy();
+      frame.release();
+      throw error;
+    } finally { this.capturePath.clear(); }
   }
 
   private prepare(layer: Layer): void {
@@ -79,7 +131,7 @@ export class Compositor {
 
   render(
     root: GroupLayer, view: GPUTextureView, viewport: Rect, framing: Rect, pixelsPerUnit: number,
-    selection: ImageLayer | null = null, editingSelection = false, maskEdit: ImageLayer | null = null,
+    selection: ImageLayer | null = null, editingSelection = false, maskEdit: ImageLayer | null = null, generation: GenerationVisual | null = null,
   ): RenderStats {
     const start = performance.now();
     const frame = this.gpu.beginFrame();
@@ -100,6 +152,7 @@ export class Compositor {
           this.outline.encode(frame, mask.surface, inverse(selection.worldTransform()), view, viewport, framing, pixelsPerUnit, editingSelection);
         }
       }
+      if (generation && !maskEdit) this.generationOverlay.encode(frame, view, viewport, framing, generation);
       frame.submit();
       this.operations.clear();
       this.stats.encodingMs = performance.now() - start;
@@ -132,7 +185,7 @@ export class Compositor {
 
   release(layer: Layer): void {
     if (layer instanceof GroupLayer) for (const child of layer.children) this.release(child);
-    if (layer instanceof ImageLayer) { this.operations.delete(layer); layer.sourceTexture.destroy(); }
+    if (layer instanceof ImageLayer) { this.operations.delete(layer); this.generationPreviews.delete(layer); layer.sourceTexture.destroy(); }
     const cache = this.caches.get(layer);
     if (cache) for (const surface of cache.surfaces.values()) surface.texture.destroy();
     this.caches.delete(layer);
@@ -151,8 +204,10 @@ export class Compositor {
     const children: EvaluatedChild[] = [];
     let childrenChanged = false;
     if (layer instanceof GroupLayer) {
-      for (const child of layer.children) {
-        if (!child.visibleInStack || child.opacity === 0) continue;
+      const cutoff = this.capturePath.get(layer);
+      const childrenToRender = cutoff ? layer.children.slice(0, layer.children.indexOf(cutoff) + 1) : layer.children;
+      for (const child of childrenToRender) {
+        if (child !== cutoff && (!child.visibleInStack || child.opacity === 0)) continue;
         const evaluated = this.evaluate(frame, child, world, pixelsPerUnit);
         children.push({ layer: child, surface: evaluated.surface });
         childrenChanged ||= evaluated.changed;
@@ -204,7 +259,7 @@ export class Compositor {
     };
     let content: Surface;
     if (layer instanceof ImageLayer) {
-      content = layer.source;
+      content = this.generationPreviews.get(layer) ?? layer.source;
       if (layer.channels === 1 && layer.filters.length > 0) {
         const expanded = surface('mask-input', content.bounds, 1);
         this.quads.copy(frame, content, expanded);

@@ -1,0 +1,10 @@
+{
+  "models": [
+    {
+      "id": "local/miaomiaoHarem_anima16",
+      "diffusion": "diffusion_models/miaomiaoHarem_anima16.safetensors",
+      "llm": "text_encoders/qwen_3_06b_base.safetensors",
+      "vae": "vae/qwen_image_vae.safetensors"
+    }
+  ]
+}

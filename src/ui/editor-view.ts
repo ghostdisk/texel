@@ -31,6 +31,7 @@ export class EditorView {
   private treeSignature = '';
   private rows = new Map<string, HTMLElement>();
   private optionsTool = '';
+  private sizedLayerDialog = false;
   private draggedLayer: Layer | null = null;
   private readonly layerPointerDrag: LayerPointerDrag;
   private layerDropTargets = new WeakMap<HTMLElement, (position: LayerDragPosition) => LayerDrop | null>();
@@ -50,6 +51,7 @@ export class EditorView {
       input('secondary-color').value = secondary;
     };
     editor.onNewDocument = () => this.showSizeDialog();
+    editor.onNewSizedLayer = () => this.showSizeDialog(true);
     editor.onRename = () => this.rename(editor.image.selected);
     editor.onFrame = () => {
       element('zoom-label').textContent = `${Math.round(editor.viewport.scale * 100)}%`;
@@ -76,7 +78,8 @@ export class EditorView {
       editor.run(() => {
         const width = input('new-width').valueAsNumber;
         const height = input('new-height').valueAsNumber;
-        editor.reset(width, height);
+        if (this.sizedLayerDialog) editor.image.createPixelLayer(width, height);
+        else editor.reset(width, height);
         element<HTMLDialogElement>('size-dialog').close();
       });
     };
@@ -91,6 +94,7 @@ export class EditorView {
     });
     this.bindLayerDrop(tree, (event) => event.target === tree && !event.shiftKey ?
       { kind: 'bottom', parent: this.editor.image.root, index: 0 } : null);
+    void editor.generation.refreshModels();
   }
 
   private createOpacityControl(): SliderInput {
@@ -139,6 +143,7 @@ export class EditorView {
     if (this.optionsTool !== editor.activeTool.id) {
       this.optionsTool = editor.activeTool.id;
       element('tool-options').replaceChildren();
+      element('tool-options').classList.remove('generation-options');
       editor.activeTool.drawUI(element('tool-options'));
       element('tool-options').closest<HTMLElement>('section')!.hidden = !element('tool-options').childElementCount;
     }
@@ -152,6 +157,8 @@ export class EditorView {
       }
     }
     this.renderFilters();
+    element('cancel-generation').hidden = !editor.generation.busy;
+    editor.generation.onChange?.();
   }
 
   private renderTree(force = false): void {
@@ -559,12 +566,14 @@ export class EditorView {
     };
   }
 
-  private showSizeDialog(): void {
-    element('dialog-title').textContent = 'New document';
-    element('dialog-description').textContent = 'Replace the current document and its history. These dimensions set the canonical canvas size and initial layer pixels.';
-    element('confirm-size').textContent = 'Create document';
-    input('new-width').value = String(this.editor.image.frame.width);
-    input('new-height').value = String(this.editor.image.frame.height);
+  private showSizeDialog(sizedLayer = false): void {
+    this.sizedLayerDialog = sizedLayer;
+    element('dialog-title').textContent = sizedLayer ? 'New sized layer' : 'New document';
+    element('dialog-description').textContent = sizedLayer ? 'Choose the new layer’s pixel dimensions.' :
+      'Replace the current document and its history. These dimensions set the canonical canvas size and initial layer pixels.';
+    element('confirm-size').textContent = sizedLayer ? 'Create layer' : 'Create document';
+    input('new-width').value = String(sizedLayer ? 512 : this.editor.image.frame.width);
+    input('new-height').value = String(sizedLayer ? 512 : this.editor.image.frame.height);
     for (const id of ['new-width', 'new-height']) input(id).max = String(this.editor.gpu.device.limits.maxTextureDimension2D);
     element<HTMLDialogElement>('size-dialog').showModal();
   }

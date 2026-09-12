@@ -1,0 +1,42 @@
+{
+  "version": 6,
+  "cmakeMinimumRequired": {
+    "major": 3,
+    "minor": 27,
+    "patch": 0
+  },
+  "configurePresets": [
+    {
+      "name": "clang-vulkan",
+      "displayName": "Clang + Vulkan",
+      "generator": "Ninja",
+      "binaryDir": "${sourceDir}/build/clang-vulkan",
+      "cacheVariables": {
+        "CMAKE_BUILD_TYPE": "Release",
+        "CMAKE_TOOLCHAIN_FILE": "${sourceDir}/cmake/clang.cmake",
+        "IMGED_VULKAN": "ON"
+      }
+    },
+    {
+      "name": "clang-cpu",
+      "displayName": "Clang + CPU",
+      "inherits": "clang-vulkan",
+      "binaryDir": "${sourceDir}/build/clang-cpu",
+      "cacheVariables": {
+        "IMGED_VULKAN": "OFF"
+      }
+    }
+  ],
+  "buildPresets": [
+    {
+      "name": "clang-vulkan",
+      "configurePreset": "clang-vulkan",
+      "jobs": 2
+    },
+    {
+      "name": "clang-cpu",
+      "configurePreset": "clang-cpu",
+      "jobs": 2
+    }
+  ]
+}

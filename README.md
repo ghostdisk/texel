@@ -13,6 +13,10 @@ npm run dev
 
 Closing Electron stops the development server. `npm run build` followed by `npm start` opens the production renderer. Changes to the Electron main process or preload require restarting the Electron application.
 
+## Local image generation
+
+Build the native backend with `npm run native:build`, then restart Electron. Press **G** to generate into the selected pixel layer with live previews, selection inpainting, cancellation, and undo. **Layer → New sized layer…** creates a separate layer at the desired resolution. See [native/README.md](native/README.md) for models, Clang/CMake setup, backend selection, and the provider protocol.
+
 ## Navigation and tools
 
 - Scroll to zoom around the cursor. Hold Space and drag to pan with either tool; middle-button dragging also pans. Click the zoom percentage or View → Fit image to fit the frame.
@@ -43,7 +47,7 @@ Each command produces one undo entry with full before/after GPU source snapshots
 
 The document has canonical pixel dimensions fixed at creation, exposed as "width" and "height" on ImageDocument. These dimensions define the canvas rectangle and initial layer size. Each image layer still has its own native resolution and affine transform into its parent. A 2000 × 2000 source stays at that resolution when transformed onto a 500 × 500 canvas. Groups rasterize their transformed children at a density chosen for the current view. Presentation clips to the canvas; layer pixels outside it remain available.
 
-Working textures contain premultiplied linear-light `rgba16float` pixels. Imports upload a temporary `ImageBitmap` into an sRGB texture, then convert and premultiply on the GPU. Presentation converts back to sRGB over a checkerboard. CPU-side arrays contain commands, parameters, and metadata. Readbacks are limited to sampled colors, histograms, bounds, and 64 × 64 layer previews; editable pixels remain on the GPU.
+Working textures contain premultiplied linear-light `rgba16float` pixels. Imports upload a temporary `ImageBitmap` into an sRGB texture, then convert and premultiply on the GPU. Presentation converts back to sRGB over a checkerboard. CPU-side arrays contain commands, parameters, and metadata. Readbacks include sampled colors, histograms, bounds, 64 × 64 layer previews, and explicit image-generation inputs; editable pixels remain on the GPU.
 
 Content edits invalidate their layer and ancestors. Placement edits invalidate the parent composite. The compositor processes children before parents and reuses clean results; panning only changes presentation. Pending paint, filters, and composition are submitted in order. Snapshot boundaries flush pending painting before copying pixels, without waiting for GPU completion on the CPU.
 
@@ -89,7 +93,7 @@ New edits discard redo entries. Evicted entries destroy their snapshots. History
 
 Textures remain monolithic. Group rasterization is capped to GPU texture limits and roughly 16 megapixels per group so zooming can magnify cached output without unbounded allocations. There is no tiled backing store, dirty-region evaluation, or complete GPU memory manager. Render statistics remain available internally; the status bar shows zoom.
 
-Project persistence, export, selection masks, device-loss recovery, and AI providers are still future work. Closing or replacing a document discards its GPU-resident contents and history.
+Project persistence, export, device-loss recovery, and remote AI providers are still future work. Closing or replacing a document discards its GPU-resident contents and history.
 
 ## Additional filters
 

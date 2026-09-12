@@ -69,11 +69,11 @@ export class ImageDocument implements UndoTarget {
     return this.allLayers().find((layer): layer is ImageLayer => layer instanceof ImageLayer && layer.isSelection) ?? null;
   }
 
-  createPixelLayer(): void {
+  createPixelLayer(width = this.width, height = this.height): void {
     const parent = this.destination();
-    const layer = createImageLayer(this.gpu, 'Pixel layer', this.width, this.height);
+    const layer = createImageLayer(this.gpu, 'Pixel layer', width, height);
     try {
-      layer.setTransform(inverse(parent.worldTransform()));
+      layer.setTransform(multiply(inverse(parent.worldTransform()), [1, 0, 0, 1, (this.width - width) / 2, (this.height - height) / 2]));
       this.add(layer, parent);
     } catch (error) { if (!layer.parent) this.compositor.release(layer); throw error; }
   }

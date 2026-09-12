@@ -2,3 +2,8 @@ node_modules/
 dist/
 *.log
 .DS_Store
+
+
+models/
+native/build/
+third_party/

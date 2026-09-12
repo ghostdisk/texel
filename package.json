@@ -8,7 +8,10 @@
   "scripts": {
     "dev": "node scripts/dev.mjs",
     "build": "vite build",
-    "start": "electron ."
+    "start": "electron .",
+    "native:setup": "node scripts/setup-native.mjs",
+    "native:build": "node scripts/build-native.mjs",
+    "native:smoke": "node scripts/generation-smoke.mjs"
   },
   "engines": {
     "node": ">=22.12.0"
