@@ -128,7 +128,7 @@ export class TitleBar {
         const submenu = document.createElement('div');
         submenu.className = 'app-menu-popup app-submenu';
         submenu.setAttribute('role', 'menu');
-        this.renderRows(submenu, this.rows(row.actions));
+        this.renderRows(submenu, row.actions.map((action) => ({ kind: 'action', action })));
         wrapper.append(button, submenu);
         wrapper.onpointerenter = () => {
           window.clearTimeout(this.submenuTimer);
