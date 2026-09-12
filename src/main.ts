@@ -29,6 +29,7 @@ async function boot(): Promise<void> {
     gpu, element<HTMLCanvasElement>('canvas'), element('stage'), overlay,
     element('brush-cursor'), element('tool-mode-cursor'), reportError,
   );
+  new TitleBar(editor.actions);
   new EditorView(editor);
   editor.actions.attach();
   window.desktop.onAction((id) => editor!.run(() => editor!.actions.execute(id)));
@@ -41,5 +42,4 @@ async function boot(): Promise<void> {
 }
 
 hydrateIcons();
-new TitleBar(reportError);
 void boot().catch(reportError);
