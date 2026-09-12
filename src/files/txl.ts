@@ -10,6 +10,8 @@ import { GroupLayer, ImageLayer, Layer, validateLayerDependencies } from '../mod
 import type { LayerProperties } from '../model/layers';
 import { inverse } from '../model/geometry';
 import type { Matrix } from '../model/geometry';
+import { TextLayer, validateText } from '../model/text-layer';
+import type { TextProperties } from '../model/text-layer';
 
 const MAGIC = 0x004c5854; // "TXL\0"
 const JSON_CHUNK = 0x4e4f534a;
@@ -28,11 +30,12 @@ interface TxlBuffer {
 }
 interface TxlLayer {
   id: string;
-  kind: 'image' | 'group';
+  kind: 'image' | 'group' | 'text';
   properties: LayerProperties;
   filters: SerializedFilter[];
   buffer: number | null;
   children: TxlLayer[];
+  text: TextProperties | null;
 }
 interface TxlDocument {
   width: number;
@@ -85,13 +88,14 @@ export class TxlFormat {
         binaryLength = align4(binaryLength + byteLength);
       } else if (!(layer instanceof GroupLayer)) throw new Error('Unsupported layer type: ' + layer.kind);
       return {
-        id: layer.id, kind: layer instanceof ImageLayer ? 'image' : 'group', properties: layer.properties(),
+        id: layer.id, kind: layer instanceof TextLayer ? 'text' : layer instanceof ImageLayer ? 'image' : 'group', properties: layer.properties(),
         filters: layer.filters.map((filter) => filter.serialize()), buffer,
         children: layer instanceof GroupLayer ? layer.children.map(serialize) : [],
+        text: layer instanceof TextLayer ? layer.textProperties : null,
       };
     };
     const manifest: TxlManifest = {
-      format: 'texel', schemaVersion: 1,
+      format: 'texel', schemaVersion: 2,
       document: {
         width: image.width, height: image.height, root: serialize(image.root),
         selectedLayerIds: image.selectedLayers.map((layer) => layer.id), activeLayerId: image.selected.id,
@@ -135,10 +139,10 @@ export class TxlFormat {
     try {
       const restore = (data: TxlLayer): Layer => {
         let layer: Layer;
-        if (data.kind === 'image') {
+        if (data.kind === 'image' || data.kind === 'text') {
           const buffer = manifest.buffers[data.buffer!];
           const surface = createSurface(this.gpu.device, data.properties.name + ': source', { x: 0, y: 0, width: buffer.width, height: buffer.height }, 1, buffer.format);
-          layer = new ImageLayer(data.properties.name, surface, data.id);
+          layer = data.kind === 'text' ? new TextLayer(data.properties.name, surface, data.text!, data.id) : new ImageLayer(data.properties.name, surface, data.id);
           created.push(layer);
           this.pixels.write(surface, binary.subarray(buffer.byteOffset, buffer.byteOffset + buffer.byteLength));
         } else {
@@ -217,7 +221,7 @@ export class TxlFormat {
     };
     const manifest = object(value);
     if (manifest.format !== 'texel') return bad('unrecognized document format.');
-    if (manifest.schemaVersion !== 1) throw new Error('Unsupported Texel document schema version ' + String(manifest.schemaVersion) + '.');
+    if (manifest.schemaVersion !== 1 && manifest.schemaVersion !== 2) throw new Error('Unsupported Texel document schema version ' + String(manifest.schemaVersion) + '.');
     const limit = this.gpu.device.limits.maxTextureDimension2D;
     const buffers = array(manifest.buffers).map((value): TxlBuffer => {
       const data = object(value);
@@ -243,7 +247,7 @@ export class TxlFormat {
       const id = text(data.id);
       if (ids.has(id)) return bad('duplicate layer ID.');
       ids.add(id);
-      if (data.kind !== 'image' && data.kind !== 'group') return bad('unsupported layer type.');
+      if (data.kind !== 'image' && data.kind !== 'group' && !(manifest.schemaVersion === 2 && data.kind === 'text')) return bad('unsupported layer type.');
       const props = object(data.properties);
       const name = text(props.name, 4096), transform = matrix(props.transform);
       if (typeof props.opacity !== 'number' || !Number.isFinite(props.opacity) || props.opacity < 0 || props.opacity > 1) return bad('invalid opacity.');
@@ -263,7 +267,7 @@ export class TxlFormat {
         return this.filters.deserialize(serialized as unknown as SerializedFilter).serialize();
       });
       let buffer: number | null = null;
-      if (data.kind === 'image') {
+      if (data.kind === 'image' || data.kind === 'text') {
         buffer = integer(data.buffer, 0, buffers.length - 1);
         pixelBytes += buffers[buffer].byteLength;
         if (pixelBytes > MAX_FILE_BYTES) return bad('decoded pixels exceed the 2 GiB limit.');
@@ -273,8 +277,10 @@ export class TxlFormat {
         selectionId = id;
       }
       const children = array(data.children);
-      if (data.kind === 'image' && children.length) return bad('pixel layers cannot contain children.');
-      return { id, kind: data.kind, properties, filters, buffer, children: children.map((child) => layer(child, depth + 1)) };
+      if (data.kind !== 'group' && children.length) return bad('image and text layers cannot contain children.');
+      const content = data.kind === 'text' ? validateText(data.text) : null;
+      if (content && (props.selection || buffer === null || buffers[buffer].format !== 'rgba16float')) return bad('text requires an RGBA image and cannot be a selection.');
+      return { id, kind: data.kind as TxlLayer['kind'], properties, filters, buffer, children: children.map((child) => layer(child, depth + 1)), text: content };
     };
     const doc = object(manifest.document);
     const width = integer(doc.width, 1, limit), height = integer(doc.height, 1, limit);
@@ -288,7 +294,7 @@ export class TxlFormat {
     if (doc.activeSelectionId !== null && doc.activeSelectionId !== selectionId) return bad('invalid active selection mask.');
     if (doc.activeSelectionId === null && selectionId && selectedLayerIds.includes(selectionId)) return bad('an inactive selection mask cannot be the selected layer.');
     return {
-      format: 'texel', schemaVersion: 1, buffers,
+      format: 'texel', schemaVersion: manifest.schemaVersion, buffers,
       document: { width, height, root, selectedLayerIds, activeLayerId, activeSelectionId: doc.activeSelectionId as string | null, generationLens: matrix(doc.generationLens) },
     };
   }

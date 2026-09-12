@@ -107,6 +107,15 @@ h2 { display: flex; align-items: center; gap: 7px; font-weight: 600; font-size: 
 .polygon-points { min-width: 58px; color: #aeb8d2; font-variant-numeric: tabular-nums; }
 .tool-checkbox { display: inline-flex; align-items: center; gap: 6px; flex-shrink: 0; white-space: nowrap; }
 .tool-status { color: #b6a3e9; white-space: nowrap; font-size: 11px; }
+.text-options { gap: 9px !important; }
+.text-options > label, .text-panel label { display: flex; align-items: center; gap: 6px; flex-shrink: 0; color: #c3c9dc; }
+.text-options input, .text-options select { height: 28px; }
+.text-fontFamily { width: 135px; }
+.text-fontSize, .text-lineHeight { width: 65px; }
+.text-options .text-color { width: 32px; padding: 2px; }
+.text-style[aria-pressed="true"] { background: #7753c74d; border-color: #9776e3; color: #f4edff; }
+.text-panel textarea { width: 100%; resize: vertical; min-height: 96px; margin-bottom: 10px; }
+.text-panel p { margin: 10px 0 0; color: #9da8c0; line-height: 1.5; }
 .eyedropper-preview { position: absolute; z-index: 3; display: flex; width: 66px; height: 34px; pointer-events: none; border: 1px solid #15171d; border-radius: 2px; overflow: hidden; box-shadow: 0 0 0 1px #ffffffb3, 0 3px 8px #0008; background: repeating-conic-gradient(#ddd 0 25%, #aaa 0 50%) 0 0 / 8px 8px; }
 .eyedropper-preview span { flex: 1; min-width: 0; }
 .eyedropper-hover { border-left: 1px solid #0006; }

@@ -42,6 +42,7 @@ import { EllipseTool } from './tools/ellipse-tool';
 import { FreehandLassoTool } from './tools/freehand-lasso-tool';
 import { PolygonLassoTool } from './tools/polygon-lasso-tool';
 import { FillTool } from './tools/fill-tool';
+import { TextTool } from './tools/text-tool';
 import { CropTool } from './tools/crop-tool';
 import { TransformTool } from './tools/transform-tool';
 import { EyedropperTool } from './tools/eyedropper-tool';
@@ -139,6 +140,7 @@ export class Editor {
     this.tools.set('freehand-lasso', new FreehandLassoTool(this));
     this.tools.set('polygon-lasso', new PolygonLassoTool(this));
     this.tools.set('fill', new FillTool(this));
+    this.tools.set('text', new TextTool(this));
     this.tools.set('crop', new CropTool(this));
     this.tools.set('transform', new TransformTool(this));
     this.tools.set('eyedropper', new EyedropperTool(this));
@@ -204,7 +206,7 @@ export class Editor {
 
   get paintTarget(): ImageLayer | null {
     if (this.selectionMode) return this.image.selectionLayer;
-    return this.image.selectedLayers.length === 1 && this.image.selected instanceof ImageLayer ? this.image.selected : null;
+    return this.image.selectedLayers.length === 1 && this.image.selected instanceof ImageLayer && this.image.selected.pixelEditable ? this.image.selected : null;
   }
 
   drawingColor(layer: ImageLayer, opacity: number): readonly [number, number, number, number] {
@@ -511,7 +513,7 @@ export class Editor {
     if (previous.id === 'crop' && tool !== previous) previous.cancel();
     this.pickGeneration++;
     this.baseTool = tool;
-    if (tool.id === 'generation' || tool.id === 'crop') this.setMaskEditLayer(null);
+    if (tool.id === 'generation' || tool.id === 'crop' || tool.id === 'text') this.setMaskEditLayer(null);
     this.panMode = false;
     this.eraseMode = false;
     this.canvas.style.cursor = this.panHeld ? 'grab' : this.activeTool.cursor;
@@ -738,6 +740,7 @@ export class Editor {
       if (image) await this.addImage(image.name, new Blob([image.bytes]));
     } });
     register({ id: 'layer.new', label: 'New pixel layer', menu: 'Layer', execute: () => this.image.createPixelLayer() });
+    register({ id: 'layer.new-text', label: 'New text layer', menu: 'Layer', execute: () => (this.tools.get('text') as TextTool).createAt() });
     register({ id: 'layer.new-sized', label: 'New sized layer…', menu: 'Layer', execute: () => this.onNewSizedLayer?.() });
     register({ id: 'mask.new', label: 'New mask layer', menu: 'Layer', execute: () => this.image.createMask() });
     register({ id: 'group.new', label: 'New group', menu: 'Layer', execute: () => this.image.add(new GroupLayer('Group')) });
@@ -755,7 +758,7 @@ export class Editor {
     });
     register({
       id: 'selection.layer-cut', label: 'Layer via Cut', menu: 'Layer',
-      enabled: () => !!this.layerViaSelectionTarget, execute: () => this.layerViaSelection(true),
+      enabled: () => !!this.layerViaSelectionTarget?.pixelEditable, execute: () => this.layerViaSelection(true),
     });
     register({ id: 'layer.group', label: 'Group layers', menu: 'Layer', enabled: () => this.image.selectedRoots.length > 0, execute: () => this.image.groupSelected() });
     register({
@@ -787,7 +790,7 @@ export class Editor {
     });
     const reframe = (mode: ReframeMode, label: string) => register({
       id: `layer.reframe.${mode}`, label, menu: 'Layer', submenu: 'Reframe',
-      enabled: () => this.image.selectedLayers.length === 1 && this.image.selected instanceof ImageLayer,
+      enabled: () => this.image.selectedLayers.length === 1 && this.image.selected instanceof ImageLayer && this.image.selected.pixelEditable,
       execute: () => this.editPixels(() => this.image.reframe(this.image.selected as ImageLayer, mode)),
     });
     reframe('normalize', 'Normalize to Canvas');
@@ -799,7 +802,7 @@ export class Editor {
     });
     register({
       id: 'filter.apply', label: 'Apply first filter', menu: 'Filter',
-      enabled: () => this.image.selectedLayers.length === 1 && this.image.selected instanceof ImageLayer && this.image.selected.filters.length > 0,
+      enabled: () => this.image.selectedLayers.length === 1 && this.image.selected instanceof ImageLayer && this.image.selected.pixelEditable && this.image.selected.filters.length > 0,
       execute: () => {
         const layer = this.image.selected;
         if (layer instanceof ImageLayer && layer.filters[0]) this.image.commands.applyFilter(layer, layer.filters[0]);
@@ -846,6 +849,7 @@ export class Editor {
     register({ id: 'tool.freehand-lasso', label: 'Freehand Lasso', menu: 'Tools', execute: () => this.switchTool('freehand-lasso') });
     register({ id: 'tool.polygon-lasso', label: 'Polygon Lasso', menu: 'Tools', execute: () => this.switchTool('polygon-lasso') });
     register({ id: 'tool.fill', label: 'Fill', menu: 'Tools', execute: () => this.switchTool('fill') });
+    register({ id: 'tool.text', label: 'Text', menu: 'Tools', execute: () => { this.setSelectionMode(false); this.switchTool('text'); } });
     register({
       id: 'polygon.apply', label: 'Apply polygon', menu: 'Tools', submenu: 'Polygon Lasso',
       enabled: () => this.activeTool.id === 'polygon-lasso' && (this.activeTool as PolygonLassoTool).canApply,
@@ -901,6 +905,7 @@ export class Editor {
     this.actions.bind('L', 'tool.freehand-lasso');
     this.actions.bind('P', 'tool.polygon-lasso');
     this.actions.bind('F', 'tool.fill');
+    this.actions.bind('T', 'tool.text');
     this.actions.bind('Enter', 'polygon.apply', { when: 'canApplyPolygon' });
     this.actions.bind('Escape', 'polygon.cancel', { when: 'hasPolygonPath' });
     this.actions.bind('Backspace', 'polygon.remove-point', { when: 'hasPolygonPath' });

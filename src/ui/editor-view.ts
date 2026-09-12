@@ -162,15 +162,16 @@ export class EditorView {
     if (this.optionsTool !== editor.activeTool.id) {
       this.optionsTool = editor.activeTool.id;
       const glyphs: Record<string, IconName> = {
-        brush: 'brush', rectangle: 'rectangle', ellipse: 'ellipse', fill: 'fill', 'freehand-lasso': 'freehand-lasso',
+        brush: 'brush', rectangle: 'rectangle', ellipse: 'ellipse', fill: 'fill', text: 'text', 'freehand-lasso': 'freehand-lasso',
         'polygon-lasso': 'polygon-lasso', crop: 'crop', transform: 'transform', eyedropper: 'eyedropper', generation: 'generate',
       };
       element('active-tool-icon').replaceChildren(icon(glyphs[editor.activeTool.id] ?? 'brush'));
       element('tool-options').replaceChildren();
-      element('tool-options').classList.remove('generation-options', 'crop-options', 'polygon-options');
+      element('tool-options').classList.remove('generation-options', 'crop-options', 'polygon-options', 'text-options');
       editor.generation.onChange = undefined;
       editor.activeTool.drawUI(element('tool-options'));
     }
+    editor.activeTool.syncUI();
     for (const button of document.querySelectorAll<HTMLButtonElement>('[data-action]')) {
       button.disabled = !editor.actions.enabled(button.dataset.action!);
       if (button.dataset.action!.startsWith('tool.')) {
@@ -554,7 +555,7 @@ export class EditorView {
       }),
       commit,
       remove: () => this.editor.run(() => this.editor.removeFilter(layer, filter)),
-      apply: layer instanceof ImageLayer && layer.filters[0] === filter ? () => this.editor.actions.execute('filter.apply') : undefined,
+      apply: layer instanceof ImageLayer && layer.pixelEditable && layer.filters[0] === filter ? () => this.editor.actions.execute('filter.apply') : undefined,
     });
     this.bindFilterDrag(card, layer, filter);
     stack.append(card);

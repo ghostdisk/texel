@@ -38,7 +38,7 @@ export class Popover {
     this.element.append(this.button, this.panel);
   }
 
-  private show(): void {
+  show(): void {
     this.panel.showPopover();
     const anchor = this.button.getBoundingClientRect(), bounds = this.panel.getBoundingClientRect();
     this.panel.style.left = Math.max(8, Math.min(anchor.left, window.innerWidth - bounds.width - 8)) + 'px';

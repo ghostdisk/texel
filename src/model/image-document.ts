@@ -12,6 +12,8 @@ import type { LayerProperties } from './layers';
 import { IDENTITY, inverse, multiply, transformBounds, unionBounds } from './geometry';
 import type { Matrix, Rect } from './geometry';
 import { LayerCommands } from './layer-commands';
+import { TextLayer, validateText } from './text-layer';
+import type { TextProperties } from './text-layer';
 
 export type ReframeMode = 'normalize' | 'trim' | 'extend';
 
@@ -25,6 +27,7 @@ export interface SerializedLayer extends JsonObject {
   channels: number;
   snapshotId: string | null;
   children: SerializedLayer[];
+  text: TextProperties | null;
 }
 
 export interface CanvasLayerState {
@@ -255,6 +258,7 @@ export class ImageDocument implements UndoTarget {
   }
 
   async reframe(layer: ImageLayer, mode: ReframeMode): Promise<void> {
+    if (!layer.pixelEditable) throw new Error('Text layers cannot be reframed as pixels.');
     this.flush();
     const documentId = this.id;
     const source = layer.source;
@@ -316,15 +320,17 @@ export class ImageDocument implements UndoTarget {
       channels: layer instanceof ImageLayer ? layer.channels : 4,
       snapshotId: layer instanceof ImageLayer ? this.capturePixels(layer, snapshots) : null,
       children: layer instanceof GroupLayer ? layer.children.map((child) => this.serializeLayer(child, snapshots)) : [],
+      text: layer instanceof TextLayer ? layer.textProperties : null,
     };
   }
 
   restoreLayer(data: SerializedLayer, snapshots: Map<string, Surface>, duplicates?: ReadonlyMap<string, string>): Layer {
     const id = duplicates?.get(data.id) ?? data.id;
     let layer: Layer;
-    if (data.kind === 'image') {
+    if (data.kind === 'image' || data.kind === 'text') {
+      const text = data.kind === 'text' ? validateText(data.text) : null;
       const surface = createSurface(this.gpu.device, `${data.properties.name}: source`, { x: 0, y: 0, width: data.width, height: data.height }, 1, data.channels === 1 ? MASK_FORMAT : WORKING_FORMAT);
-      layer = new ImageLayer(data.properties.name, surface, id);
+      layer = text ? new TextLayer(data.properties.name, surface, text, id) : new ImageLayer(data.properties.name, surface, id);
       const snapshot = snapshots.get(data.snapshotId!);
       if (!snapshot) { surface.texture.destroy(); throw new Error('Missing layer pixel snapshot.'); }
       (layer as ImageLayer).restorePixels(this.gpu, snapshot);

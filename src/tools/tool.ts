@@ -25,5 +25,6 @@ export abstract class Tool implements UndoTarget {
   abstract drawUI(container: HTMLElement): void;
   abstract applyUndo(operation: UndoOperation, direction: UndoDirection): void;
   drawOverlay(): void {}
+  syncUI(): void {}
   hover(_pointer: ToolPointer | null): void {}
 }

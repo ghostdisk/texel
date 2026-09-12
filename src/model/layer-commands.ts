@@ -242,6 +242,7 @@ export class LayerCommands {
   }
 
   async layerViaSelection(layer: ImageLayer, selection: ImageLayer, cut: boolean): Promise<void> {
+    if (cut && !layer.pixelEditable) throw new Error('Text layers cannot be cut as pixels. Use Layer via Copy to create a pixel layer.');
     const layers = this.image.allLayers();
     if (layer.isSelection || layer.channels !== 4 || !layer.parent || !layers.includes(layer) ||
       selection !== this.image.selectionMask || !selection.isSelection || !layers.includes(selection)) {
@@ -341,6 +342,7 @@ export class LayerCommands {
   }
 
   applyFilter(layer: ImageLayer, filter: Filter): void {
+    if (!layer.pixelEditable) throw new Error('Text layer filters must remain editable.');
     if (layer.filters[0] !== filter) throw new Error('Only the first filter can be applied to pixels.');
     this.compositor.flush();
     const resolved = this.compositor.resolve(layer, 1);

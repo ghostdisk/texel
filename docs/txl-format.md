@@ -16,20 +16,22 @@ TXL is a lossless project container. All integer fields are unsigned little-endi
 | after JSON + 4 | 4 | Chunk type: ASCII BIN followed by NUL |
 | after JSON + 8 | variable | Binary buffers, with zero padding |
 
-The container version governs framing and binary interpretation. JSON has a separate schemaVersion, currently 1. Unsupported container/schema versions are rejected explicitly; future breaking changes must increment the relevant version. Version 1 requires exactly these two chunks.
+The container version governs framing and binary interpretation. JSON has a separate schemaVersion, currently 2. The reader also accepts schema 1 documents. Unsupported container/schema versions are rejected explicitly; future breaking changes must increment the relevant version. Container version 1 requires exactly these two chunks.
 
 ## JSON metadata
 
 The top-level object contains:
 
 - format: "texel"
-- schemaVersion: 1
+- schemaVersion: 2 (schema 1 remains readable)
 - document: canonical width/height, root layer, selectedLayerIds, activeLayerId, activeSelectionId, and generationLens
 - buffers: descriptors for the binary pixel payloads
 
-A layer contains id, kind ("image" or "group"), properties, filters, buffer, and children. Properties contain name, transform (six affine matrix values), opacity, visible, blendMode, and selection. Children are ordered from bottom to top. Filters are ordered from first to last and use each filter class's serialized id, kind, enabled, mix, and properties fields. Mask filters reference layer IDs.
+A layer contains id, kind ("image", "group", or "text"), properties, filters, buffer, children, and text (null for other layer types). Properties contain name, transform (six affine matrix values), opacity, visible, blendMode, and selection. Children are ordered from bottom to top. Filters are ordered from first to last and use each filter class's serialized id, kind, enabled, mix, and properties fields. Mask filters reference layer IDs.
 
 Image layers have a buffer index and no children. Groups have a null buffer and may contain children. The root must be a group. Layer/filter IDs are unique and retained when opening a file, preserving cross-layer mask links.
+
+Schema 2 adds text layers. Their text object stores text, fontFamily, fontSize, bold, italic, align (left/center/right), lineHeight (a font-size multiplier), and color (#RRGGBB). Placement uses the ordinary layer transform. Text has an RGBA buffer containing cached glyph pixels, no children, and cannot be a selection mask. The cached image preserves appearance when opening on a machine with different fonts; changing the text rasterizes it using locally available fonts.
 
 activeSelectionId is the ID of the active temporary selection mask, or null. An inactive temporary mask may remain in the tree; its pixels and filter links are retained but it does not restrict editing. selectedLayerIds and activeLayerId describe layer selection independently of the pixel selection mask.
 
@@ -46,7 +48,7 @@ Each buffer descriptor contains byteOffset (relative to the BIN payload), byteLe
 
 Pixels are tightly packed in row-major order, left to right and top to bottom. Each 16-bit value is little-endian. There is no compression, color conversion, or quantization. Each buffer begins on a four-byte boundary; odd-sized single-channel buffers need two padding bytes.
 
-Only editable source pixels are stored. Filtered outputs, group composites, thumbnails, and undo snapshots are regenerated or discarded on opening. Each restored image layer owns its GPU texture, even if multiple layers refer to one buffer descriptor.
+Source pixels and cached text pixels are stored. Filtered outputs, group composites, thumbnails, and undo snapshots are regenerated or discarded on opening. Each restored image or text layer owns its GPU texture, even if multiple layers refer to one buffer descriptor.
 
 ## Loading and saving
 

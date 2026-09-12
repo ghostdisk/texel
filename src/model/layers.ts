@@ -142,11 +142,12 @@ export abstract class Layer implements UndoTarget {
 }
 
 export class ImageLayer extends Layer {
-  readonly kind = 'image';
+  readonly kind: string = 'image';
 
   constructor(name: string, private pixels: Surface, id?: string) { super(name, id); }
 
   get channels(): 1 | 4 { return isMaskSurface(this.source) ? 1 : 4; }
+  get pixelEditable(): boolean { return true; }
   override get visibleInStack(): boolean { return this.channels === 4 && super.visibleInStack; }
   get source(): Surface { return this.pixels; }
   get sourceTexture(): GPUTexture { return this.source.texture; }
