@@ -1,6 +1,7 @@
 struct Params {
-  frame: vec4f,
+  viewport: vec4f,
   source: vec4f,
+  framing: vec4f,
   info: vec4f,
 }
 
@@ -25,13 +26,14 @@ fn toSrgb(color: vec3f) -> vec3f {
 }
 
 @fragment fn fragmentMain(input: VertexOutput) -> @location(0) vec4f {
-  let local = params.frame.xy + input.uv * params.frame.zw;
-  let uv = (local - params.source.xy) / params.source.zw;
-  // Sample before branching so implicit derivatives remain uniform.
+  let world = params.viewport.xy + input.uv * params.viewport.zw;
+  let uv = (world - params.source.xy) / params.source.zw;
   let sampled = textureSample(image, imageSampler, uv);
-  let inside = all(uv >= vec2f(0)) && all(uv <= vec2f(1));
-  let color = select(vec4f(0), sampled * params.info.x, inside);
+  let insideSource = all(uv >= vec2f(0)) && all(uv <= vec2f(1));
+  let insideFrame = all(world >= params.framing.xy) && all(world <= params.framing.xy + params.framing.zw);
+  let color = select(vec4f(0), sampled * params.info.x, insideSource);
   let tile = vec2u(input.position.xy / 12);
   let background = vec3f(select(0.72, 0.86, (tile.x + tile.y) % 2u == 0u));
-  return vec4f(toSrgb(color.rgb + background * (1 - color.a)), 1);
+  let artwork = toSrgb(color.rgb + background * (1 - color.a));
+  return vec4f(select(vec3f(0.09, 0.098, 0.118), artwork, insideFrame), 1);
 }

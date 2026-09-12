@@ -20,6 +20,7 @@ const ADDITIVE: GPUBlendState = {
 export class QuadRenderer {
   private readonly layout: GPUBindGroupLayout;
   private readonly sampler: GPUSampler;
+  private readonly pointSampler: GPUSampler;
   private readonly pipelines: Record<BlendMode, GPURenderPipeline>;
   private readonly presentation: GPURenderPipeline;
 
@@ -31,6 +32,7 @@ export class QuadRenderer {
       { binding: 2, visibility: GPUShaderStage.VERTEX | GPUShaderStage.FRAGMENT, buffer: { type: 'uniform' } },
     ] });
     this.sampler = device.createSampler({ minFilter: 'linear', magFilter: 'linear' });
+    this.pointSampler = device.createSampler({ minFilter: 'nearest', magFilter: 'nearest' });
     const layout = device.createPipelineLayout({ bindGroupLayouts: [this.layout] });
     const module = device.createShaderModule({ label: 'Layer composite', code: compositeShader });
     const pipeline = (blend: GPUBlendState) => device.createRenderPipeline({
@@ -57,7 +59,7 @@ export class QuadRenderer {
 
   draw(
     pass: GPURenderPassEncoder, frame: GpuFrame, source: Surface, target: Surface,
-    matrix: Matrix = IDENTITY, opacity = 1, blend: BlendMode = 'normal', straightAlpha = false,
+    matrix: Matrix = IDENTITY, opacity = 1, blend: BlendMode = 'normal', straightAlpha = false, pointSampling = false,
   ): void {
     const [a, b, c, d, e, f] = matrix;
     const src = source.bounds;
@@ -68,7 +70,7 @@ export class QuadRenderer {
       opacity, Number(straightAlpha), 0, 0,
     ]);
     pass.setPipeline(this.pipelines[blend]);
-    pass.setBindGroup(0, this.bind(source, params));
+    pass.setBindGroup(0, this.bind(source, params, pointSampling));
     pass.draw(6);
   }
 
@@ -78,23 +80,23 @@ export class QuadRenderer {
     pass.end();
   }
 
-  present(frame: GpuFrame, source: Surface, view: GPUTextureView, bounds: Rect, opacity: number): void {
+  present(frame: GpuFrame, source: Surface, view: GPUTextureView, bounds: Rect, opacity: number, framing: Rect, pointSampling = false): void {
     const src = source.bounds;
     const params = frame.uniform([
       bounds.x, bounds.y, bounds.width, bounds.height,
-      src.x, src.y, src.width, src.height, opacity, 0, 0, 0,
+      src.x, src.y, src.width, src.height, framing.x, framing.y, framing.width, framing.height, opacity, 0, 0, 0,
     ]);
     const pass = frame.encoder.beginRenderPass({ colorAttachments: [{ view, loadOp: 'clear', storeOp: 'store' }] });
     pass.setPipeline(this.presentation);
-    pass.setBindGroup(0, this.bind(source, params));
+    pass.setBindGroup(0, this.bind(source, params, pointSampling));
     pass.draw(3);
     pass.end();
   }
 
-  private bind(source: Surface, params: GPUBufferBinding): GPUBindGroup {
+  private bind(source: Surface, params: GPUBufferBinding, pointSampling = false): GPUBindGroup {
     return this.gpu.device.createBindGroup({ layout: this.layout, entries: [
       { binding: 0, resource: source.view },
-      { binding: 1, resource: this.sampler },
+      { binding: 1, resource: pointSampling ? this.pointSampler : this.sampler },
       { binding: 2, resource: params },
     ] });
   }

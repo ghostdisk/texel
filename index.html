@@ -12,66 +12,67 @@
       <header class="topbar">
         <span class="wordmark">imged<span>.</span></span>
         <span class="separator"></span>
-        <button id="new-document">New</button>
-        <button id="open-image">Add image…</button>
+        <button data-action="file.new">New</button>
+        <button data-action="file.open">Add image…</button>
         <span class="document-name">Untitled <span id="frame-label"></span></span>
-        <span class="engine-indicator"><i></i> WebGPU</span>
+        <button data-action="history.undo" title="Undo (Ctrl+Z)">↶</button>
+        <button data-action="history.redo" title="Redo (Ctrl+Shift+Z)">↷</button>
       </header>
       <div class="workspace">
         <aside class="tools" aria-label="Tools">
-          <button class="tool active" aria-label="Brush" title="Brush">✎</button>
-          <span class="tool-label">BRUSH</span>
+          <button class="tool active" data-action="tool.brush" aria-label="Brush (B)" title="Brush (B)">✎</button>
+          <button class="tool" data-action="tool.transform" aria-label="Move and transform (V)" title="Move / transform (V)">↖</button>
+          <button class="tool" data-action="tool.eyedropper" aria-label="Eyedropper (I)" title="Eyedropper (I) · Hold Alt with Brush">
+            <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" aria-hidden="true"><path d="m15 4 5 5M14 5l-9 9-1 5 5-1 9-9M15 4l2-2 5 5-2 2M5 14l4 4"/></svg>
+          </button>
           <label class="color-control" title="Brush color"><input id="brush-color" type="color" value="#7357ff" aria-label="Brush color" /></label>
         </aside>
         <main class="workarea">
-          <div class="brush-bar">
-            <label>Size <input id="brush-size" type="range" min="1" max="200" value="36" /><output id="brush-size-label">36 px</output></label>
-            <label>Hardness <input id="brush-hardness" type="range" min="0" max="1" step="0.01" value="0.8" /></label>
-            <label>Flow <input id="brush-flow" type="range" min="0.01" max="1" step="0.01" value="1" /></label>
-          </div>
           <div id="stage" class="stage">
             <canvas id="canvas" aria-label="Image canvas"></canvas>
+            <svg id="tool-overlay" aria-hidden="true"></svg>
             <div id="brush-cursor" hidden></div>
-            <div class="stage-caption">Paint on a pixel layer · Paste an image to add a layer</div>
           </div>
-          <footer class="statusbar"><span id="selection-hint">Starting GPU…</span><span id="render-stats"></span></footer>
+          <footer class="statusbar">
+            <button id="zoom-label" data-action="view.fit" title="Fit image">100%</button>
+          </footer>
         </main>
         <aside class="sidebar">
+          <section class="tool-options-section">
+            <div class="section-heading"><h2 id="tool-name">Brush</h2></div>
+            <div id="tool-options"></div>
+          </section>
           <section class="layer-section">
             <div class="section-heading"><h2>Layers</h2><span id="layer-count"></span></div>
             <div class="layer-actions">
-              <button id="add-layer" title="Add pixel layer">+ Layer</button>
-              <button id="add-group" title="Add group">+ Group</button>
+              <button data-action="layer.new" title="Add pixel layer">+ Layer</button>
+              <button data-action="group.new" title="Add group">+ Group</button>
               <span class="spacer"></span>
               <button id="layer-up" title="Move up" aria-label="Move layer up">↑</button>
               <button id="layer-down" title="Move down" aria-label="Move layer down">↓</button>
-              <button id="remove-layer" title="Delete layer" aria-label="Delete layer">×</button>
+              <button data-action="layer.delete" title="Delete layer (Delete)" aria-label="Delete layer">×</button>
             </div>
             <div id="layer-tree" class="layer-tree" aria-label="Layer stack"></div>
           </section>
           <section class="properties">
             <div class="section-heading"><h2>Properties</h2><span id="layer-kind"></span></div>
-            <label class="field">Name <input id="layer-name" type="text" /></label>
             <p id="layer-size" class="muted"></p>
-            <label class="field" id="parent-field">Group <select id="layer-parent"></select></label>
-            <div class="field-pair">
-              <label class="field">Blend <select id="layer-blend"><option value="normal">Normal</option><option value="add">Add</option></select></label>
-              <label class="field">Opacity <input id="layer-opacity" type="number" min="0" max="100" value="100" /></label>
-            </div>
-            <div id="transform-fields">
+            <label class="field">Blend <select id="layer-blend"><option value="normal">Normal</option><option value="add">Add</option></select></label>
+            <div id="layer-opacity-control"></div>
+            <div id="transform-fields" hidden>
               <div class="field-pair">
                 <label class="field">X <input id="layer-x" type="number" step="1" /></label>
                 <label class="field">Y <input id="layer-y" type="number" step="1" /></label>
               </div>
               <div class="field-pair">
-                <label class="field">Scale % <input id="layer-scale" type="number" min="1" max="10000" step="1" /></label>
-                <label class="field">Rotation ° <input id="layer-angle" type="number" step="1" /></label>
+                <label class="field">Scale X % <input id="layer-scale-x" type="number" step="1" /></label>
+                <label class="field">Scale Y % <input id="layer-scale-y" type="number" step="1" /></label>
               </div>
+              <label class="field">Rotation ° <input id="layer-angle" type="number" step="1" /></label>
             </div>
           </section>
           <section class="effects-section">
-            <div class="section-heading"><h2>Filters</h2><button id="add-blur">+ Blur</button></div>
-            <p id="filter-hint" class="muted">Filters keep the original pixels intact.</p>
+            <div class="section-heading"><h2>Filters</h2><select id="add-filter" aria-label="Add filter"></select></div>
             <div id="filter-stack"></div>
           </section>
         </aside>
@@ -80,7 +81,7 @@
     <dialog id="size-dialog">
       <form id="size-form">
         <h2 id="dialog-title">New document</h2>
-        <p id="dialog-description">Choose the framing aspect and initial layer dimensions.</p>
+        <p id="dialog-description"></p>
         <label class="field" id="new-layer-name-field">Name <input id="new-layer-name" value="Pixel layer" /></label>
         <div class="field-pair">
           <label class="field">Width <input id="new-width" type="number" min="1" value="1000" required /></label>

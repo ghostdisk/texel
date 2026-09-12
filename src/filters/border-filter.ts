@@ -1,0 +1,47 @@
+import type { Surface } from '../gpu/surface';
+import { expandBounds } from '../model/geometry';
+import type { Rect } from '../model/geometry';
+import type { JsonObject } from '../history/undo';
+import { Filter } from './filter';
+import type { FilterRenderContext, FilterUIContext } from './filter';
+import { dilateAlpha, renderBehind } from './alpha-effect';
+import { drawFilterColor, drawFilterNumber, drawFilterSliderInput, filterColor, filterNumber } from './controls';
+
+export class BorderFilter extends Filter {
+  readonly kind = 'border';
+  readonly label = 'Border';
+  width = 4;
+  color = '#ffffff';
+  opacity = 1;
+
+  outputBounds(input: Rect): Rect { return this.width > 0 && this.opacity > 0 ? expandBounds(input, Math.ceil(this.width)) : input; }
+  protected properties(): JsonObject { return { width: this.width, color: this.color, opacity: this.opacity }; }
+
+  protected loadProperties(properties: JsonObject): void {
+    const width = filterNumber(properties, 'width', 0, 64);
+    const color = filterColor(properties, 'color');
+    const opacity = filterNumber(properties, 'opacity', 0, 1);
+    this.width = width;
+    this.color = color;
+    this.opacity = opacity;
+  }
+
+  render(context: FilterRenderContext, source: Surface): Surface {
+    if (this.width === 0 || this.opacity === 0) return source;
+    const bounds = this.outputBounds(source.bounds);
+    const reduction = Math.max(1, 2 ** Math.ceil(Math.log2(this.width * source.scale / 8)));
+    const scale = source.scale / reduction;
+    const input = context.surface('border-input', bounds, scale);
+    const mask = context.surface('border-mask', bounds, scale);
+    context.quads.copy(context.frame, source, input);
+    dilateAlpha(context, input, mask, this.width * scale);
+    return renderBehind(context, source, mask, bounds, this.color, this.opacity, { x: 0, y: 0 }, true);
+  }
+
+  protected drawParameters(container: HTMLElement, context: FilterUIContext): void {
+    drawFilterColor(container, context, 'Color', () => this.color, (value) => { this.color = value; });
+    drawFilterNumber(container, context, { label: 'Width · px', min: 0, max: 64, step: 0.5, get: () => this.width, set: (value) => { this.width = value; } });
+    drawFilterSliderInput(container, context, { label: 'Opacity', unit: '%', min: 0, max: 100, step: 1, get: () => this.opacity * 100, set: (value) => { this.opacity = value / 100; } });
+  }
+}
+
