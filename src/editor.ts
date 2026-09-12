@@ -41,6 +41,7 @@ import { RectangleTool } from './tools/rectangle-tool';
 import { EllipseTool } from './tools/ellipse-tool';
 import { FreehandLassoTool } from './tools/freehand-lasso-tool';
 import { PolygonLassoTool } from './tools/polygon-lasso-tool';
+import { FillTool } from './tools/fill-tool';
 import { CropTool } from './tools/crop-tool';
 import { TransformTool } from './tools/transform-tool';
 import { EyedropperTool } from './tools/eyedropper-tool';
@@ -137,6 +138,7 @@ export class Editor {
     this.tools.set('ellipse', new EllipseTool(this));
     this.tools.set('freehand-lasso', new FreehandLassoTool(this));
     this.tools.set('polygon-lasso', new PolygonLassoTool(this));
+    this.tools.set('fill', new FillTool(this));
     this.tools.set('crop', new CropTool(this));
     this.tools.set('transform', new TransformTool(this));
     this.tools.set('eyedropper', new EyedropperTool(this));
@@ -706,7 +708,7 @@ export class Editor {
     } catch (error) { if (!layer.parent) this.compositor.release(layer); throw error; }
   }
 
-  private async editPixels(edit: () => void | Promise<void>): Promise<void> {
+  async editPixels(edit: () => void | Promise<void>): Promise<void> {
     if (this.reframing) return;
     this.finishGesture();
     const app = document.getElementById('app');
@@ -843,6 +845,7 @@ export class Editor {
     register({ id: 'tool.ellipse', label: 'Ellipse', menu: 'Tools', execute: () => this.switchTool('ellipse') });
     register({ id: 'tool.freehand-lasso', label: 'Freehand Lasso', menu: 'Tools', execute: () => this.switchTool('freehand-lasso') });
     register({ id: 'tool.polygon-lasso', label: 'Polygon Lasso', menu: 'Tools', execute: () => this.switchTool('polygon-lasso') });
+    register({ id: 'tool.fill', label: 'Fill', menu: 'Tools', execute: () => this.switchTool('fill') });
     register({
       id: 'polygon.apply', label: 'Apply polygon', menu: 'Tools', submenu: 'Polygon Lasso',
       enabled: () => this.activeTool.id === 'polygon-lasso' && (this.activeTool as PolygonLassoTool).canApply,
@@ -897,6 +900,7 @@ export class Editor {
     this.actions.bind('O', 'tool.ellipse');
     this.actions.bind('L', 'tool.freehand-lasso');
     this.actions.bind('P', 'tool.polygon-lasso');
+    this.actions.bind('F', 'tool.fill');
     this.actions.bind('Enter', 'polygon.apply', { when: 'canApplyPolygon' });
     this.actions.bind('Escape', 'polygon.cancel', { when: 'hasPolygonPath' });
     this.actions.bind('Backspace', 'polygon.remove-point', { when: 'hasPolygonPath' });

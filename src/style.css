@@ -105,6 +105,8 @@ h2 { display: flex; align-items: center; gap: 7px; font-weight: 600; font-size: 
 .polygon-options { gap: 10px !important; }
 .polygon-options button { height: 28px; }
 .polygon-points { min-width: 58px; color: #aeb8d2; font-variant-numeric: tabular-nums; }
+.tool-checkbox { display: inline-flex; align-items: center; gap: 6px; flex-shrink: 0; white-space: nowrap; }
+.tool-status { color: #b6a3e9; white-space: nowrap; font-size: 11px; }
 .eyedropper-preview { position: absolute; z-index: 3; display: flex; width: 66px; height: 34px; pointer-events: none; border: 1px solid #15171d; border-radius: 2px; overflow: hidden; box-shadow: 0 0 0 1px #ffffffb3, 0 3px 8px #0008; background: repeating-conic-gradient(#ddd 0 25%, #aaa 0 50%) 0 0 / 8px 8px; }
 .eyedropper-preview span { flex: 1; min-width: 0; }
 .eyedropper-hover { border-left: 1px solid #0006; }

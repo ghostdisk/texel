@@ -88,4 +88,28 @@ export class PathRenderer {
       pass.draw(6);
     } };
   }
+
+  coverageOperation(coverage: Surface, color: readonly [number, number, number, number], erase = false,
+    selection: MaskInput | null = null): RenderOperation {
+    return { encode: (pass, { frame, target }) => {
+      const pipeline = this.pipeline(isMaskSurface(target) ? MASK_FORMAT : WORKING_FORMAT, erase);
+      const mask = selection?.surface ?? this.empty;
+      const [a, b, c, d, e, f] = selection?.transform ?? IDENTITY;
+      const maskBounds = mask.bounds;
+      const bounds = coverage.bounds;
+      const params = frame.uniform([
+        target.texture.width, target.texture.height, 0, Number(!!selection),
+        bounds.x, bounds.y, bounds.x + bounds.width, bounds.y + bounds.height,
+        a, c, e, 0, b, d, f, 0,
+        maskBounds.x, maskBounds.y, maskBounds.width, maskBounds.height,
+        ...color, Number(isMaskSurface(mask)), 0, 0, 0,
+      ]);
+      pass.setPipeline(pipeline);
+      pass.setBindGroup(0, this.gpu.device.createBindGroup({ layout: pipeline.getBindGroupLayout(0), entries: [
+        { binding: 0, resource: params }, { binding: 1, resource: coverage.view },
+        { binding: 2, resource: mask.view }, { binding: 3, resource: this.sampler },
+      ] }));
+      pass.draw(6);
+    } };
+  }
 }

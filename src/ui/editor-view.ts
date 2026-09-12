@@ -162,7 +162,7 @@ export class EditorView {
     if (this.optionsTool !== editor.activeTool.id) {
       this.optionsTool = editor.activeTool.id;
       const glyphs: Record<string, IconName> = {
-        brush: 'brush', rectangle: 'rectangle', ellipse: 'ellipse', 'freehand-lasso': 'freehand-lasso',
+        brush: 'brush', rectangle: 'rectangle', ellipse: 'ellipse', fill: 'fill', 'freehand-lasso': 'freehand-lasso',
         'polygon-lasso': 'polygon-lasso', crop: 'crop', transform: 'transform', eyedropper: 'eyedropper', generation: 'generate',
       };
       element('active-tool-icon').replaceChildren(icon(glyphs[editor.activeTool.id] ?? 'brush'));
