@@ -92,7 +92,7 @@ export class ActionRegistry {
   private actions = new Map<string, Action>();
   private bindings = new Map<string, Keybinding[]>();
   private held = new Map<string, Action>();
-  beforeExecute?: () => void;
+  beforeExecute?: (action: Action) => void;
   blocked?: () => boolean;
   context?: () => ActionContext;
 
@@ -127,7 +127,7 @@ export class ActionRegistry {
     const action = this.actions.get(id);
     if (!action || this.blocked?.()) return;
     try {
-      this.beforeExecute?.();
+      this.beforeExecute?.(action);
       if (!(action.enabled?.() ?? true)) return;
       void Promise.resolve(action.execute()).catch(this.reportError);
     } catch (error) { this.reportError(error); }

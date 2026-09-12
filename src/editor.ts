@@ -19,6 +19,7 @@ import type { Surface } from './gpu/surface';
 import type { MaskInput } from './gpu/mask';
 import { Brush } from './gpu/brush';
 import type { BrushStamp } from './gpu/brush';
+import { PathRenderer } from './gpu/path';
 import { Compositor } from './gpu/compositor';
 import type { RenderStats } from './gpu/compositor';
 import type { Gpu } from './gpu/device';
@@ -37,6 +38,9 @@ import { inverse, multiply } from './model/geometry';
 import type { Point } from './model/geometry';
 import { BrushTool } from './tools/brush-tool';
 import { RectangleTool } from './tools/rectangle-tool';
+import { EllipseTool } from './tools/ellipse-tool';
+import { FreehandLassoTool } from './tools/freehand-lasso-tool';
+import { PolygonLassoTool } from './tools/polygon-lasso-tool';
 import { CropTool } from './tools/crop-tool';
 import { TransformTool } from './tools/transform-tool';
 import { EyedropperTool } from './tools/eyedropper-tool';
@@ -52,6 +56,7 @@ interface PointerGesture {
 export class Editor {
   readonly compositor: Compositor;
   readonly brush: Brush;
+  readonly paths: PathRenderer;
   readonly filters = new FilterRegistry();
   readonly actions: ActionRegistry;
   readonly history: UndoStack;
@@ -110,6 +115,7 @@ export class Editor {
     context.configure({ device: gpu.device, format, alphaMode: 'opaque', colorSpace: 'srgb' });
     this.compositor = new Compositor(gpu, format);
     this.brush = new Brush(gpu);
+    this.paths = new PathRenderer(gpu);
     this.readback = new GpuReadback(gpu);
     this.previews = new LayerPreviews(this.readback);
     this.picker = new PixelPicker(this.compositor, this.readback);
@@ -128,6 +134,9 @@ export class Editor {
     this.baseTool = new BrushTool(this);
     this.tools.set(this.activeTool.id, this.activeTool);
     this.tools.set('rectangle', new RectangleTool(this));
+    this.tools.set('ellipse', new EllipseTool(this));
+    this.tools.set('freehand-lasso', new FreehandLassoTool(this));
+    this.tools.set('polygon-lasso', new PolygonLassoTool(this));
     this.tools.set('crop', new CropTool(this));
     this.tools.set('transform', new TransformTool(this));
     this.tools.set('eyedropper', new EyedropperTool(this));
@@ -147,13 +156,17 @@ export class Editor {
       }
     };
     this.viewport.onChange = () => { this.refreshHover(); this.requestRender(); };
-    this.actions.beforeExecute = () => this.finishGesture();
+    this.actions.beforeExecute = (action) => {
+      if (!action.id.startsWith('polygon.')) this.finishGesture();
+    };
     this.actions.blocked = () => this.halted || this.reframing || this.files.busy;
     this.actions.context = () => ({
       hasSelection: !!this.image.selectionMask,
       canSelectionLayer: !!this.layerViaSelectionTarget,
       isGenerating: this.generation.busy,
       isCropping: this.activeTool.id === 'crop',
+      hasPolygonPath: this.activeTool.id === 'polygon-lasso' && (this.activeTool as PolygonLassoTool).hasPath,
+      canApplyPolygon: this.activeTool.id === 'polygon-lasso' && (this.activeTool as PolygonLassoTool).canApply,
     });
     this.registerActions();
     this.attachInput();
@@ -417,7 +430,11 @@ export class Editor {
         );
         this.overlay.replaceChildren();
         if (this.activeTool.id === 'generation' || this.activeTool.id === 'crop') this.activeTool.drawOverlay();
-        else (this.tools.get('transform') as TransformTool).drawOverlay(this.activeTool.id === 'transform');
+        else if (this.activeTool.id === 'transform') this.activeTool.drawOverlay();
+        else {
+          this.activeTool.drawOverlay();
+          (this.tools.get('transform') as TransformTool).drawOverlay(false);
+        }
         if (!this.interacting) {
           if (this.previewsReady) { this.previewsReady = false; this.onPreviews?.(); }
           if (this.previewsRequested && !this.previewsRunning) void this.refreshPreviews().catch(this.report);
@@ -538,7 +555,7 @@ export class Editor {
 
   private updatePanCursor(): void {
     if (this.panHeld && this.pointer?.mode === 'tool') {
-      this.activeTool.finish();
+      if (!(this.activeTool instanceof PolygonLassoTool && this.activeTool.hasPath)) this.activeTool.finish();
       this.pointer.mode = 'pan';
     }
     this.brushCursor.hidden = true;
@@ -823,6 +840,24 @@ export class Editor {
     register({ id: 'generation.models', label: 'Refresh models', menu: 'Tools', submenu: 'Generation', execute: () => this.generation.refreshModels() });
     register({ id: 'tool.brush', label: 'Brush', menu: 'Tools', execute: () => this.switchTool('brush') });
     register({ id: 'tool.rectangle', label: 'Rectangle', menu: 'Tools', execute: () => this.switchTool('rectangle') });
+    register({ id: 'tool.ellipse', label: 'Ellipse', menu: 'Tools', execute: () => this.switchTool('ellipse') });
+    register({ id: 'tool.freehand-lasso', label: 'Freehand Lasso', menu: 'Tools', execute: () => this.switchTool('freehand-lasso') });
+    register({ id: 'tool.polygon-lasso', label: 'Polygon Lasso', menu: 'Tools', execute: () => this.switchTool('polygon-lasso') });
+    register({
+      id: 'polygon.apply', label: 'Apply polygon', menu: 'Tools', submenu: 'Polygon Lasso',
+      enabled: () => this.activeTool.id === 'polygon-lasso' && (this.activeTool as PolygonLassoTool).canApply,
+      execute: () => (this.tools.get('polygon-lasso') as PolygonLassoTool).apply(),
+    });
+    register({
+      id: 'polygon.cancel', label: 'Cancel polygon', menu: 'Tools', submenu: 'Polygon Lasso',
+      enabled: () => this.activeTool.id === 'polygon-lasso' && (this.activeTool as PolygonLassoTool).hasPath,
+      execute: () => (this.tools.get('polygon-lasso') as PolygonLassoTool).cancel(),
+    });
+    register({
+      id: 'polygon.remove-point', label: 'Remove last polygon point', menu: 'Tools', submenu: 'Polygon Lasso',
+      enabled: () => this.activeTool.id === 'polygon-lasso' && (this.activeTool as PolygonLassoTool).hasPath,
+      execute: () => (this.tools.get('polygon-lasso') as PolygonLassoTool).removeLast(),
+    });
     register({
       id: 'tool.crop', label: 'Crop', menu: 'Tools',
       enabled: () => !this.generation.busy, execute: () => this.switchTool('crop'),
@@ -859,6 +894,12 @@ export class Editor {
     this.actions.bind('Escape', 'generation.cancel', { when: 'isGenerating' });
     this.actions.bind('B', 'tool.brush');
     this.actions.bind('R', 'tool.rectangle');
+    this.actions.bind('O', 'tool.ellipse');
+    this.actions.bind('L', 'tool.freehand-lasso');
+    this.actions.bind('P', 'tool.polygon-lasso');
+    this.actions.bind('Enter', 'polygon.apply', { when: 'canApplyPolygon' });
+    this.actions.bind('Escape', 'polygon.cancel', { when: 'hasPolygonPath' });
+    this.actions.bind('Backspace', 'polygon.remove-point', { when: 'hasPolygonPath' });
     this.actions.bind('C', 'tool.crop');
     this.actions.bind('Enter', 'crop.apply', { when: 'isCropping' });
     this.actions.bind('Escape', 'crop.cancel', { when: 'isCropping && !isGenerating' });
@@ -913,7 +954,7 @@ export class Editor {
       if (this.pointer || !event.isPrimary || (event.button !== 0 && event.button !== 1)) return;
       event.preventDefault();
       this.pickGeneration++;
-      this.finishGesture();
+      if (!(this.activeTool instanceof PolygonLassoTool && this.activeTool.hasPath)) this.finishGesture();
       this.canvas.focus({ preventScroll: true });
       this.setAltHeld(event.altKey);
       const mode = this.panHeld || event.button === 1 ? 'pan' : 'tool';
@@ -942,14 +983,28 @@ export class Editor {
     this.canvas.addEventListener('pointerup', (event) => this.run(() => {
       if (this.pointer?.id !== event.pointerId) return;
       this.hoverPointer = pointerData(event);
-      if (this.pointer.mode === 'tool' && ['transform', 'rectangle', 'crop', 'eyedropper'].includes(this.activeTool.id)) {
+      if (this.pointer.mode === 'tool' && ['transform', 'rectangle', 'ellipse', 'freehand-lasso', 'crop', 'eyedropper'].includes(this.activeTool.id)) {
         this.activeTool.pointerMove(this.hoverPointer);
+      }
+      if (this.activeTool instanceof PolygonLassoTool && this.activeTool.hasPath) {
+        const pointer = this.pointer;
+        this.pointer = null;
+        if (this.canvas.hasPointerCapture(pointer.id)) this.canvas.releasePointerCapture(pointer.id);
+        this.canvas.style.cursor = this.panHeld ? 'grab' : this.activeTool.cursor;
+        this.requestRender();
+        this.refreshHover();
+        return;
       }
       this.finishGesture();
       this.refreshHover();
     }));
     this.canvas.addEventListener('pointercancel', () => this.run(() => this.cancelGesture()));
     this.canvas.addEventListener('lostpointercapture', () => { if (this.pointer) this.run(() => this.cancelGesture()); });
+    this.canvas.addEventListener('dblclick', (event) => this.run(() => {
+      if (event.button !== 0 || !(this.activeTool instanceof PolygonLassoTool) || !this.activeTool.hasPath) return;
+      event.preventDefault();
+      this.activeTool.apply();
+    }));
     this.canvas.addEventListener('pointerleave', () => {
       this.hoverPointer = null;
       this.activeTool.hover(null);

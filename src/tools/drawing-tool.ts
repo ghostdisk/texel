@@ -3,6 +3,7 @@ import type { MaskInput } from '../gpu/mask';
 import type { Surface } from '../gpu/surface';
 import { UndoOperation } from '../history/undo';
 import type { UndoDirection } from '../history/undo';
+import type { Point } from '../model/geometry';
 import { ImageLayer } from '../model/layers';
 import { Tool } from './tool';
 
@@ -38,6 +39,13 @@ export abstract class DrawingTool extends Tool {
   protected paint(stamp: BrushStamp): void {
     const drawing = this.drawing;
     if (drawing) this.editor.paint(drawing.layer, stamp, drawing.erase, drawing.selection);
+  }
+
+  protected paintPath(points: readonly Point[], opacity: number): void {
+    const drawing = this.drawing;
+    if (!drawing) return;
+    const color = this.editor.drawingColor(drawing.layer, opacity);
+    this.editor.compositor.enqueue(drawing.layer, this.editor.paths.operation(points, color, drawing.erase, drawing.selection));
   }
 
   protected restoreBeforePreview(): void {
