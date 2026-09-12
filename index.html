@@ -1,0 +1,94 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <meta http-equiv="Content-Security-Policy" content="default-src 'self'; script-src 'self'; style-src 'self' 'unsafe-inline'; img-src 'self' blob: data:; connect-src 'self' ws://127.0.0.1:5173" />
+    <title>imged</title>
+  </head>
+  <body>
+    <div id="error" role="alert" hidden></div>
+    <div id="app" inert>
+      <header class="topbar">
+        <span class="wordmark">imged<span>.</span></span>
+        <span class="separator"></span>
+        <button id="new-document">New</button>
+        <button id="open-image">Add image…</button>
+        <span class="document-name">Untitled <span id="frame-label"></span></span>
+        <span class="engine-indicator"><i></i> WebGPU</span>
+      </header>
+      <div class="workspace">
+        <aside class="tools" aria-label="Tools">
+          <button class="tool active" aria-label="Brush" title="Brush">✎</button>
+          <span class="tool-label">BRUSH</span>
+          <label class="color-control" title="Brush color"><input id="brush-color" type="color" value="#7357ff" aria-label="Brush color" /></label>
+        </aside>
+        <main class="workarea">
+          <div class="brush-bar">
+            <label>Size <input id="brush-size" type="range" min="1" max="200" value="36" /><output id="brush-size-label">36 px</output></label>
+            <label>Hardness <input id="brush-hardness" type="range" min="0" max="1" step="0.01" value="0.8" /></label>
+            <label>Flow <input id="brush-flow" type="range" min="0.01" max="1" step="0.01" value="1" /></label>
+          </div>
+          <div id="stage" class="stage">
+            <canvas id="canvas" aria-label="Image canvas"></canvas>
+            <div id="brush-cursor" hidden></div>
+            <div class="stage-caption">Paint on a pixel layer · Paste an image to add a layer</div>
+          </div>
+          <footer class="statusbar"><span id="selection-hint">Starting GPU…</span><span id="render-stats"></span></footer>
+        </main>
+        <aside class="sidebar">
+          <section class="layer-section">
+            <div class="section-heading"><h2>Layers</h2><span id="layer-count"></span></div>
+            <div class="layer-actions">
+              <button id="add-layer" title="Add pixel layer">+ Layer</button>
+              <button id="add-group" title="Add group">+ Group</button>
+              <span class="spacer"></span>
+              <button id="layer-up" title="Move up" aria-label="Move layer up">↑</button>
+              <button id="layer-down" title="Move down" aria-label="Move layer down">↓</button>
+              <button id="remove-layer" title="Delete layer" aria-label="Delete layer">×</button>
+            </div>
+            <div id="layer-tree" class="layer-tree" aria-label="Layer stack"></div>
+          </section>
+          <section class="properties">
+            <div class="section-heading"><h2>Properties</h2><span id="layer-kind"></span></div>
+            <label class="field">Name <input id="layer-name" type="text" /></label>
+            <p id="layer-size" class="muted"></p>
+            <label class="field" id="parent-field">Group <select id="layer-parent"></select></label>
+            <div class="field-pair">
+              <label class="field">Blend <select id="layer-blend"><option value="normal">Normal</option><option value="add">Add</option></select></label>
+              <label class="field">Opacity <input id="layer-opacity" type="number" min="0" max="100" value="100" /></label>
+            </div>
+            <div id="transform-fields">
+              <div class="field-pair">
+                <label class="field">X <input id="layer-x" type="number" step="1" /></label>
+                <label class="field">Y <input id="layer-y" type="number" step="1" /></label>
+              </div>
+              <div class="field-pair">
+                <label class="field">Scale % <input id="layer-scale" type="number" min="1" max="10000" step="1" /></label>
+                <label class="field">Rotation ° <input id="layer-angle" type="number" step="1" /></label>
+              </div>
+            </div>
+          </section>
+          <section class="effects-section">
+            <div class="section-heading"><h2>Filters</h2><button id="add-blur">+ Blur</button></div>
+            <p id="filter-hint" class="muted">Filters keep the original pixels intact.</p>
+            <div id="filter-stack"></div>
+          </section>
+        </aside>
+      </div>
+    </div>
+    <dialog id="size-dialog">
+      <form id="size-form">
+        <h2 id="dialog-title">New document</h2>
+        <p id="dialog-description">Choose the framing aspect and initial layer dimensions.</p>
+        <label class="field" id="new-layer-name-field">Name <input id="new-layer-name" value="Pixel layer" /></label>
+        <div class="field-pair">
+          <label class="field">Width <input id="new-width" type="number" min="1" value="1000" required /></label>
+          <label class="field">Height <input id="new-height" type="number" min="1" value="750" required /></label>
+        </div>
+        <div class="dialog-actions"><button id="cancel-size" type="button">Cancel</button><button class="primary" id="confirm-size" type="submit">Create document</button></div>
+      </form>
+    </dialog>
+    <script type="module" src="/src/main.ts"></script>
+  </body>
+</html>
