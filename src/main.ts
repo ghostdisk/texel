@@ -1,7 +1,8 @@
-import './style.css';
 import { Gpu } from './gpu/device';
 import { Editor } from './editor';
 import { EditorView, element } from './ui/editor-view';
+import { hydrateIcons } from './ui/icons';
+import { TitleBar } from './ui/titlebar';
 
 function reportError(error: unknown): void {
   const banner = element('error');
@@ -36,4 +37,6 @@ async function boot(): Promise<void> {
   }
 }
 
+hydrateIcons();
+new TitleBar(reportError);
 void boot().catch(reportError);

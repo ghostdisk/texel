@@ -59,15 +59,35 @@ export interface UndoTarget {
   applyUndo(operation: UndoOperation, direction: UndoDirection): void;
 }
 
+export interface HistoryState {
+  id: string;
+  label: string;
+  operation: UndoPayload | null;
+}
+
 export class UndoStack {
   private entries: UndoOperation[] = [];
   private position = 0;
   private states: string[] = [crypto.randomUUID()];
+  private initialLabel = 'Initial state';
   onChange?: (operation?: UndoOperation, direction?: UndoDirection) => void;
 
   constructor(private readonly apply: (operation: UndoOperation, direction: UndoDirection) => void) {}
 
   get stateId(): string { return this.states[this.position]; }
+  get currentIndex(): number { return this.position; }
+  get timeline(): readonly HistoryState[] {
+    return this.states.map((id, index) => ({
+      id, label: index ? this.entries[index - 1].label : this.initialLabel, operation: this.entries[index - 1]?.redo ?? null,
+    }));
+  }
+
+  goTo(stateId: string): void {
+    const target = this.states.indexOf(stateId);
+    if (target < 0) return;
+    while (this.position > target) this.undo();
+    while (this.position < target) this.redo();
+  }
 
   get canUndo(): boolean { return this.position > 0; }
   get canRedo(): boolean { return this.position < this.entries.length; }
@@ -84,6 +104,7 @@ export class UndoStack {
     let bytes = this.entries.reduce((total, entry) => total + entry.bytes, 0);
     while (this.entries.length > 1 && (this.entries.length > 100 || bytes > 256 * 1024 * 1024)) {
       const removed = this.entries.shift()!;
+      this.initialLabel = removed.label;
       this.states.shift();
       bytes -= removed.bytes;
       removed.dispose();
@@ -111,6 +132,7 @@ export class UndoStack {
     this.entries = [];
     this.position = 0;
     this.states = [crypto.randomUUID()];
+    this.initialLabel = 'Initial state';
     this.onChange?.();
   }
 }

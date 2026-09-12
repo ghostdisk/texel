@@ -30,4 +30,4 @@ install(FILES "${CMAKE_CURRENT_SOURCE_DIR}/../third_party/stable-diffusion.cpp/L
 install(FILES "${CMAKE_CURRENT_SOURCE_DIR}/../third_party/stable-diffusion.cpp/ggml/LICENSE" DESTINATION licenses RENAME ggml.txt COMPONENT texel-runtime)
 install(FILES "${CMAKE_CURRENT_SOURCE_DIR}/../third_party/IXWebSocket/LICENSE.txt" DESTINATION licenses RENAME IXWebSocket.txt COMPONENT texel-runtime)
 install(FILES "${CMAKE_CURRENT_SOURCE_DIR}/../third_party/vision.cpp/LICENSE" DESTINATION licenses RENAME vision.cpp.txt COMPONENT texel-runtime)
-install(FILES "${CMAKE_CURRENT_SOURCE_DIR}/../third_party/vision.cpp/depend/llama/ggml/LICENSE" DESTINATION licenses RENAME vision-ggml.txt COMPONENT texel-runtime)
+install(FILES "${CMAKE_CURRENT_SOURCE_DIR}/../third_party/vision.cpp/depend/llama/LICENSE" DESTINATION licenses RENAME vision-ggml.txt COMPONENT texel-runtime)

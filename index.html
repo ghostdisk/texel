@@ -5,108 +5,111 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
     <meta http-equiv="Content-Security-Policy" content="default-src 'self'; script-src 'self'; style-src 'self' 'unsafe-inline'; img-src 'self' blob: data:; connect-src 'self' ws://127.0.0.1:*" />
     <title>Texel</title>
+    <link rel="stylesheet" href="/src/style.css" />
+    <link rel="icon" type="image/svg+xml" href="/assets/branding/icon.svg" />
   </head>
   <body>
     <div id="error" role="alert" hidden></div>
     <div id="app" inert>
-      <header class="topbar">
-        <span class="wordmark">Texel<span>.</span></span>
-        <span class="separator"></span>
-        <button data-action="file.new">New</button>
-        <button data-action="file.open" title="Open (Ctrl+O)">Open…</button>
-        <button data-action="file.save" title="Save (Ctrl+S)">Save</button>
-        <button data-action="file.import" title="Add image (Ctrl+Shift+O)">Add image…</button>
-        <span class="document-name"><span id="document-title">Untitled</span><span id="frame-label"></span></span>
-        <button id="cancel-generation" data-action="generation.cancel" hidden>Cancel generation</button>
-        <button data-action="history.undo" title="Undo (Ctrl+Z)">↶</button>
-        <button data-action="history.redo" title="Redo (Ctrl+Shift+Z)">↷</button>
+      <header class="titlebar">
+        <div class="titlebar-content">
+          <div class="wordmark"><img src="/assets/branding/icon.svg" width="28" height="28" alt="" />Texel</div>
+          <nav class="app-menus" aria-label="Application menu">
+            <button data-menu="File" data-mnemonic="f" aria-haspopup="menu" aria-expanded="false">File</button>
+            <button data-menu="Edit" data-mnemonic="e" aria-haspopup="menu" aria-expanded="false">Edit</button>
+            <button data-menu="Layer" data-mnemonic="l" aria-haspopup="menu" aria-expanded="false">Layer</button>
+            <button data-menu="Select" data-mnemonic="s" aria-haspopup="menu" aria-expanded="false">Select</button>
+            <button data-menu="Filter" data-mnemonic="i" aria-haspopup="menu" aria-expanded="false">Filter</button>
+            <button data-menu="Tools" data-mnemonic="t" aria-haspopup="menu" aria-expanded="false">Tools</button>
+            <button data-menu="View" data-mnemonic="v" aria-haspopup="menu" aria-expanded="false">View</button>
+          </nav>
+        </div>
       </header>
+      <div class="tool-options-bar" aria-label="Tool options">
+        <div class="active-tool-heading"><span id="active-tool-icon" data-icon="brush"></span><h2 id="tool-name">Brush</h2></div>
+        <div id="tool-options"></div>
+        <div id="transform-fields" hidden>
+          <label class="field">X <input id="layer-x" type="number" step="1" /></label>
+          <label class="field">Y <input id="layer-y" type="number" step="1" /></label>
+          <label class="field">Scale X <span class="input-unit"><input id="layer-scale-x" type="number" step="1" /><span>%</span></span></label>
+          <label class="field">Scale Y <span class="input-unit"><input id="layer-scale-y" type="number" step="1" /><span>%</span></span></label>
+          <label class="field">Rotation <span class="input-unit"><input id="layer-angle" type="number" step="1" /><span>°</span></span></label>
+        </div>
+      </div>
       <div class="workspace">
         <aside class="tools" aria-label="Tools">
-          <button class="tool active" data-action="tool.brush" aria-label="Brush (B)" title="Brush (B)">✎</button>
-          <button class="tool" data-action="tool.rectangle" aria-label="Rectangle (R)" title="Rectangle (R)">▭</button>
-          <button class="tool" data-action="tool.transform" aria-label="Move and transform (V)" title="Move / transform (V)">↖</button>
-          <button class="tool" data-action="tool.eyedropper" aria-label="Eyedropper (I)" title="Eyedropper (I) · Hold Alt with Brush">
-            <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" aria-hidden="true"><path d="m15 4 5 5M14 5l-9 9-1 5 5-1 9-9M15 4l2-2 5 5-2 2M5 14l4 4"/></svg>
-          </button>
-          <button class="tool" data-action="tool.generation" aria-label="Generate image (G)" title="Generate image (G)">✦</button>
-          <button class="tool" id="remove-selection" data-action="selection.remove" aria-label="Remove selection" title="Remove selection">
-            <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" aria-hidden="true"><path d="m13 7 6 6-7 7H7l-4-4L13 7ZM7 12l6 6M12 20h9M18 2v6M15 5h6"/></svg>
-          </button>
+          <button class="tool active" data-action="tool.brush" data-icon="brush" aria-label="Brush (B)" title="Brush (B)"></button>
+          <button class="tool" data-action="tool.rectangle" data-icon="rectangle" aria-label="Rectangle (R)" title="Rectangle (R)"></button>
+          <button class="tool" data-action="tool.transform" data-icon="transform" aria-label="Move and transform (V)" title="Move / transform (V)"></button>
+          <button class="tool" data-action="tool.eyedropper" data-icon="eyedropper" aria-label="Eyedropper (I)" title="Eyedropper (I) · Hold Alt with Brush"></button>
           <div class="tool-modes">
-            <button class="tool mode-tool" data-action="drawing.erase" aria-label="Erase mode (E)" aria-pressed="false" title="Toggle draw / erase (E)">
-              <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" aria-hidden="true"><path d="m14 3 7 7-10 10H7l-5-5L14 3ZM7 10l7 7M11 20h10"/></svg>
-            </button>
-            <button class="tool mode-tool" data-action="selection.mode" aria-label="Edit selection (S)" aria-pressed="false" title="Toggle selection editing (S)">
-              <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" aria-hidden="true"><rect x="3" y="3" width="18" height="18" stroke-dasharray="3 2"/></svg>
-            </button>
+            <button class="tool mode-tool" data-action="drawing.erase" data-icon="eraser" aria-label="Erase mode (E)" aria-pressed="false" title="Toggle draw / erase (E)"></button>
+            <button class="tool mode-tool" data-action="selection.mode" data-icon="selection" aria-label="Edit selection (S)" aria-pressed="false" title="Toggle selection editing (S)"></button>
+          </div>
+          <div class="tool-modes generative-tools">
+            <button class="tool" data-action="tool.generation" data-icon="generate" aria-label="Generate image (G)" title="Generate image (G)"></button>
+            <button class="tool" id="remove-selection" data-action="selection.remove" data-icon="remove" aria-label="Remove selection" title="Remove selection"></button>
           </div>
           <div class="color-palette" role="group" aria-label="Drawing colors">
             <input id="secondary-color" class="secondary-color" type="color" value="#ffffff" aria-label="Secondary color" title="Secondary color" />
             <input id="brush-color" class="primary-color" type="color" value="#000000" aria-label="Primary color" title="Primary color" />
-            <button class="color-swap" data-action="colors.swap" title="Swap colors (X)" aria-label="Swap primary and secondary colors (X)">
-              <svg width="14" height="14" viewBox="0 0 14 14" fill="none" stroke="currentColor" stroke-width="1.2" aria-hidden="true"><path d="M2 4h9M8 1l3 3-3 3M12 10H3m3-3-3 3 3 3"/></svg>
-            </button>
-            <button class="color-defaults" data-action="colors.reset" title="Default colors (D)" aria-label="Default black and white colors (D)">
-              <svg width="14" height="14" viewBox="0 0 14 14" aria-hidden="true"><rect x="5" y="5" width="8" height="8" fill="white" stroke="#9298a8"/><rect x="1" y="1" width="8" height="8" fill="black" stroke="#9298a8"/></svg>
-            </button>
+            <button class="color-swap" data-action="colors.swap" data-icon="swap" title="Swap colors (X)" aria-label="Swap drawing colors (X)"></button>
+            <button class="color-defaults" data-action="colors.reset" data-icon="colors" title="Default black and white colors (D)" aria-label="Default black and white colors (D)"></button>
           </div>
         </aside>
         <main class="workarea">
+          <div class="document-heading">
+            <div class="document-name"><img src="/assets/branding/txl.svg" width="20" height="20" alt="" /><span id="document-title">Untitled</span></div>
+            <div class="document-actions">
+              <button id="cancel-generation" data-action="generation.cancel" hidden>Cancel generation</button>
+              <button class="icon-button" data-action="history.undo" data-icon="undo" title="Undo (Ctrl+Z)" aria-label="Undo"></button>
+              <button class="icon-button" data-action="history.redo" data-icon="redo" title="Redo (Ctrl+Shift+Z)" aria-label="Redo"></button>
+            </div>
+          </div>
           <div id="stage" class="stage">
             <canvas id="canvas" aria-label="Image canvas"></canvas>
             <svg id="tool-overlay" aria-hidden="true"></svg>
             <div id="brush-cursor" hidden></div>
           </div>
-          <footer class="statusbar">
-            <button id="zoom-label" data-action="view.fit" title="Fit image">100%</button>
-            <span id="image-operation-status" role="status"></span>
-          </footer>
         </main>
-        <aside class="sidebar">
-          <section class="tool-options-section">
-            <div class="section-heading"><h2 id="tool-name">Brush</h2></div>
-            <div id="tool-options"></div>
-          </section>
-          <section class="layer-section">
-            <div class="section-heading"><h2>Layers</h2><span id="layer-count"></span></div>
-            <div class="layer-actions">
-              <button data-action="layer.new" title="Add pixel layer">+ Layer</button>
-              <button data-action="group.new" title="Add group">+ Group</button>
-              <span class="spacer"></span>
-              <button id="layer-up" data-action="layer.up" title="Move up" aria-label="Move layer up">↑</button>
-              <button id="layer-down" data-action="layer.down" title="Move down" aria-label="Move layer down">↓</button>
-              <button data-action="layer.delete" title="Delete layer" aria-label="Delete layer">×</button>
-            </div>
-            <div id="layer-tree" class="layer-tree" aria-label="Layer stack"></div>
-          </section>
-          <section class="properties">
-            <div class="section-heading"><h2>Properties</h2><span id="layer-kind"></span></div>
-            <p id="layer-size" class="muted"></p>
-            <div id="selection-actions" class="selection-actions" hidden>
-              <button data-action="selection.promote">Promote to mask</button>
-              <button data-action="selection.deselect">Deselect</button>
-            </div>
-            <label class="field">Blend <select id="layer-blend"><option value="normal">Normal</option><option value="add">Add</option></select></label>
-            <div id="layer-opacity-control"></div>
-            <div id="transform-fields" hidden>
-              <div class="field-pair">
-                <label class="field">X <input id="layer-x" type="number" step="1" /></label>
-                <label class="field">Y <input id="layer-y" type="number" step="1" /></label>
+        <aside class="sidebar" aria-label="Document panels">
+          <div id="document-panels">
+            <section id="layers-panel">
+              <div class="layer-compositing">
+                <select id="layer-blend" aria-label="Layer blend mode"><option value="normal">Normal</option><option value="add">Add</option></select>
+                <div id="layer-opacity-control"></div>
               </div>
-              <div class="field-pair">
-                <label class="field">Scale X % <input id="layer-scale-x" type="number" step="1" /></label>
-                <label class="field">Scale Y % <input id="layer-scale-y" type="number" step="1" /></label>
+              <div id="layer-tree" class="layer-tree" aria-label="Layer stack"></div>
+              <div class="layer-details"><span id="layer-kind"></span><span id="layer-size"></span></div>
+              <div id="selection-actions" class="selection-actions" hidden>
+                <button data-action="selection.promote">Promote to mask</button>
+                <button data-action="selection.deselect">Deselect</button>
               </div>
-              <label class="field">Rotation ° <input id="layer-angle" type="number" step="1" /></label>
-            </div>
-          </section>
+              <div class="layer-actions">
+                <button class="icon-button" data-action="layer.new" data-icon="plus" title="Add pixel layer" aria-label="Add pixel layer"></button>
+                <button class="icon-button" data-action="group.new" data-icon="folder" title="Add group" aria-label="Add group"></button>
+                <span id="layer-count" title="Layers"></span><span class="spacer"></span>
+                <button class="icon-button" id="layer-up" data-action="layer.up" data-icon="up" title="Move layer up" aria-label="Move layer up"></button>
+                <button class="icon-button" id="layer-down" data-action="layer.down" data-icon="down" title="Move layer down" aria-label="Move layer down"></button>
+                <button class="icon-button" data-action="layer.delete" data-icon="trash" title="Delete layer" aria-label="Delete layer"></button>
+              </div>
+            </section>
+            <section id="history-panel" hidden>
+              <div id="history-list" aria-label="Document history"></div>
+              <p class="panel-hint">Select a state to return to it.</p>
+            </section>
+          </div>
           <section class="effects-section">
-            <div class="section-heading"><h2>Filters</h2><select id="add-filter" aria-label="Add filter"></select></div>
+            <div class="section-heading"><h2><span data-icon="settings"></span>Filters</h2><select id="add-filter" aria-label="Add filter"></select></div>
             <div id="filter-stack"></div>
           </section>
         </aside>
       </div>
+      <footer class="statusbar">
+        <span id="frame-label"></span><span class="separator"></span>
+        <button id="zoom-label" data-action="view.fit" title="Fit image">100%</button>
+        <span id="image-operation-status" role="status"></span><span class="spacer"></span><span>RGBA · 16-bit float</span>
+      </footer>
     </div>
     <dialog id="size-dialog">
       <form id="size-form">

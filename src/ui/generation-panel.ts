@@ -1,5 +1,7 @@
 import type { Editor } from '../editor';
 import { SliderInput } from './slider-input';
+import { Popover } from './popover';
+import { icon } from './icons';
 
 export class GenerationPanel {
   private readonly model = document.createElement('select');
@@ -13,11 +15,15 @@ export class GenerationPanel {
   private readonly fit = document.createElement('button');
   private readonly lensFields = new Map<string, HTMLInputElement>();
   private modelSignature = '';
+  private readonly result = new Popover('Preview', 'image');
 
   constructor(private readonly editor: Editor, container: HTMLElement) {
     const generation = editor.generation;
     container.classList.add('generation-options');
     this.settings.className = 'generation-settings';
+    const advanced = new Popover('Settings', 'settings');
+    advanced.panel.classList.add('generation-details');
+    this.result.panel.classList.add('generation-result');
     const label = (name: string, control: HTMLElement) => {
       const field = document.createElement('label');
       field.className = 'field';
@@ -26,13 +32,17 @@ export class GenerationPanel {
     };
     this.model.setAttribute('aria-label', 'Generation model');
     this.model.onchange = () => { generation.model = this.model.value; editor.changed(); };
-    this.settings.append(label('Model', this.model));
+    const modelField = label('Model', this.model);
+    modelField.classList.add('core-field', 'generation-model');
+    this.settings.append(modelField);
     const prompt = document.createElement('textarea');
-    prompt.rows = 3;
+    prompt.rows = 1;
     prompt.value = generation.prompt;
     prompt.placeholder = 'Describe the image…';
     prompt.oninput = () => { generation.prompt = prompt.value; editor.changed(); };
-    this.settings.append(label('Prompt', prompt));
+    const promptField = label('Prompt', prompt);
+    promptField.classList.add('core-field', 'generation-prompt');
+    this.settings.append(promptField, advanced.element);
     const dimensions = document.createElement('div');
     dimensions.className = 'field-pair';
     const position = document.createElement('details');
@@ -92,7 +102,7 @@ export class GenerationPanel {
       input: (value) => { generation.feather = value; editor.changed(); },
     });
     feather.element.title = 'Fade the lens edges in canvas units';
-    this.settings.append(dimensions, position, scaleRow, scales, feather.element);
+    advanced.panel.append(dimensions, position, scaleRow, scales, feather.element);
     const details = document.createElement('details');
     const summary = document.createElement('summary');
     summary.textContent = 'Negative prompt';
@@ -102,7 +112,7 @@ export class GenerationPanel {
     negative.setAttribute('aria-label', 'Negative prompt');
     negative.oninput = () => { generation.negativePrompt = negative.value; };
     details.append(summary, negative);
-    this.settings.append(details);
+    advanced.panel.append(details);
     const fields = document.createElement('div');
     fields.className = 'generation-numbers';
     for (const [name, key, min, max, step] of [
@@ -119,15 +129,15 @@ export class GenerationPanel {
       };
       fields.append(label(name, control));
     }
-    this.settings.append(fields);
+    advanced.panel.append(fields);
     const denoise = new SliderInput({
       label: 'Denoise', min: 1, max: 100, step: 1, unit: '%', get: () => generation.strength * 100,
       input: (value) => { generation.strength = value / 100; },
     });
-    this.settings.append(denoise.element);
+    advanced.panel.append(denoise.element);
     const actions = document.createElement('div');
     actions.className = 'generation-actions';
-    this.generate.textContent = 'Generate';
+    this.generate.append(icon('generate'), document.createTextNode('Generate'));
     this.generate.className = 'primary';
     this.generate.dataset.action = 'generation.generate';
     this.generate.onclick = () => editor.actions.execute('generation.generate');
@@ -140,7 +150,8 @@ export class GenerationPanel {
     this.progress.max = 1;
     this.status.className = 'generation-status';
     this.error.className = 'generation-error';
-    container.append(this.settings, actions, this.preview, this.progress, this.status, this.error);
+    this.result.panel.append(this.preview, this.progress, this.status, this.error);
+    container.append(this.settings, actions, this.result.element);
     generation.onChange = () => this.update();
     this.update();
   }
@@ -173,5 +184,8 @@ export class GenerationPanel {
     if (generation.previewUrl && this.preview.getAttribute('src') !== generation.previewUrl) this.preview.src = generation.previewUrl;
     this.error.textContent = generation.error || generation.sizeError;
     this.error.hidden = !this.error.textContent;
+    this.result.button.classList.toggle('has-error', !!this.error.textContent);
+    this.result.button.title = this.error.textContent || this.status.textContent || 'Generation preview';
+    this.result.button.setAttribute('aria-busy', String(generation.busy));
   }
 }

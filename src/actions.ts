@@ -155,7 +155,8 @@ export class ActionRegistry {
 
   attach(): () => void {
     const keydown = (event: KeyboardEvent) => {
-      if (event.isComposing || isEditingText(event.target) || document.querySelector('dialog[open]') || document.getElementById('app')?.inert) return;
+      if (event.isComposing || isEditingText(event.target) || document.querySelector('dialog[open], [popover]:popover-open') ||
+          document.getElementById('app')?.inert) return;
       const key = event.code.replace(/^Key/, '').replace(/^Digit/, '');
       const chord = event.code.startsWith('Alt') ? 'alt' : [event.ctrlKey || event.metaKey ? 'ctrl' : '', event.altKey ? 'alt' : '', event.shiftKey ? 'shift' : '', key.toLowerCase()].filter(Boolean).join('+');
       const context = this.context?.() ?? {};

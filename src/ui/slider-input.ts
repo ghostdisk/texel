@@ -1,3 +1,5 @@
+import { Popover } from './popover';
+
 export interface SliderInputOptions {
   label: string;
   min: number;
@@ -5,6 +7,7 @@ export interface SliderInputOptions {
   sliderMax?: number;
   step: number;
   unit?: string;
+  compact?: boolean;
   get(): number;
   begin?(): void;
   input(value: number): void;
@@ -49,7 +52,7 @@ export class SliderInput {
     this.number.onkeydown = (event) => {
       if (event.key === 'Enter') { event.preventDefault(); this.commit(); }
     };
-    const value = document.createElement('span');
+    const value = document.createElement('div');
     value.className = 'slider-value';
     value.append(this.number);
     if (options.unit) {
@@ -58,7 +61,14 @@ export class SliderInput {
       unit.textContent = options.unit;
       value.append(unit);
     }
-    controls.append(this.range, value);
+    if (options.compact) {
+      this.element.classList.add('slider-compact');
+      const popup = new Popover(options.label, 'chevron-down', true);
+      popup.panel.classList.add('slider-popover');
+      popup.panel.append(this.range);
+      value.append(popup.element);
+      controls.append(value);
+    } else controls.append(this.range, value);
     this.element.append(label, controls);
     this.sync(true);
   }
@@ -66,6 +76,8 @@ export class SliderInput {
   sync(force = false): void {
     const value = Number(this.options.get().toFixed(8));
     this.range.value = String(value);
+    const fraction = Math.max(0, Math.min(1, (value - this.options.min) / ((this.options.sliderMax ?? this.options.max) - this.options.min)));
+    this.range.style.setProperty('--slider-fill', fraction * 100 + '%');
     this.range.setAttribute('aria-valuetext', `${value}${this.options.unit ?? ''}`);
     if (force || document.activeElement !== this.number) this.number.value = String(value);
   }

@@ -5,6 +5,10 @@ import { UndoOperation } from '../history/undo';
 import { GroupLayer, ImageLayer, Layer, canReferenceLayer, validateLayerDependencies } from '../model/layers';
 import type { BlendMode, LayerProperties } from '../model/layers';
 import { SliderInput } from './slider-input';
+import { icon } from './icons';
+import type { IconName } from './icons';
+import { TabGroup } from './tabs';
+import { HistoryPanel } from './history-panel';
 import { LayerPointerDrag } from './layer-pointer-drag';
 import type { LayerDragPosition } from './layer-pointer-drag';
 import type { Matrix } from '../model/geometry';
@@ -41,10 +45,17 @@ export class EditorView {
   private layerDropParent: HTMLElement | null = null;
   private paintedPreviews = new WeakMap<HTMLCanvasElement, ImageData>();
   private readonly opacityControl: SliderInput;
+  private readonly panels: TabGroup;
+  private readonly historyPanel: HistoryPanel;
   private draggedFilterId: string | null = null;
   private draggedFilterLayer: Layer | null = null;
 
   constructor(private readonly editor: Editor) {
+    this.panels = new TabGroup(element('document-panels'), [
+      { id: 'layers', label: 'Layers', panel: element('layers-panel') },
+      { id: 'history', label: 'History', panel: element('history-panel') },
+    ], 'Document panels');
+    this.historyPanel = new HistoryPanel(editor, element('history-list'));
     editor.onChange = () => this.render();
     editor.onPreviews = () => this.renderPreviews();
     editor.onColorChange = (primary, secondary) => {
@@ -115,7 +126,7 @@ export class EditorView {
       this.editor.requestRender();
     };
     return new SliderInput({
-      label: 'Opacity', min: 0, max: 100, step: 1, unit: '%', get: () => this.editor.image.selected.opacity * 100,
+      label: 'Opacity', min: 0, max: 100, step: 1, unit: '%', compact: true, get: () => this.editor.image.selected.opacity * 100,
       begin: () => this.editor.run(() => {
         if (before) return;
         this.editor.finishGesture();
@@ -130,6 +141,7 @@ export class EditorView {
 
   render(): void {
     this.renderTree();
+    this.historyPanel.render();
     const { editor } = this;
     const layer = editor.image.selected;
     element('document-title').textContent = editor.files.name + (editor.files.dirty ? ' *' : '');
@@ -149,14 +161,20 @@ export class EditorView {
     element('tool-name').textContent = editor.activeTool.label;
     if (this.optionsTool !== editor.activeTool.id) {
       this.optionsTool = editor.activeTool.id;
+      const glyphs: Record<string, IconName> = { brush: 'brush', rectangle: 'rectangle', transform: 'transform', eyedropper: 'eyedropper', generation: 'generate' };
+      element('active-tool-icon').replaceChildren(icon(glyphs[editor.activeTool.id] ?? 'brush'));
       element('tool-options').replaceChildren();
       element('tool-options').classList.remove('generation-options');
+      editor.generation.onChange = undefined;
       editor.activeTool.drawUI(element('tool-options'));
-      element('tool-options').closest<HTMLElement>('section')!.hidden = !element('tool-options').childElementCount;
     }
     for (const button of document.querySelectorAll<HTMLButtonElement>('[data-action]')) {
       button.disabled = !editor.actions.enabled(button.dataset.action!);
-      if (button.dataset.action!.startsWith('tool.')) button.classList.toggle('active', button.dataset.action === `tool.${editor.activeTool.id}`);
+      if (button.dataset.action!.startsWith('tool.')) {
+        const active = button.dataset.action === `tool.${editor.activeTool.id}`;
+        button.classList.toggle('active', active);
+        button.setAttribute('aria-pressed', String(active));
+      }
       if (button.dataset.action === 'drawing.erase' || button.dataset.action === 'selection.mode') {
         const enabled = button.dataset.action === 'drawing.erase' ? editor.eraseMode : editor.selectionMode;
         button.classList.toggle('active', enabled);
@@ -186,7 +204,7 @@ export class EditorView {
         if (layer.isSelection && layer !== image.selectionMask) return;
         const row = document.createElement('div');
         row.className = `layer-row${layer.isSelection ? ' selection-layer' : layer instanceof ImageLayer && layer.channels === 1 ? ' mask-layer' : ''}`;
-        row.style.paddingLeft = `${8 + depth * 14}px`;
+        row.style.paddingLeft = `${3 + depth * 12}px`;
         row.style.setProperty('--layer-indent', row.style.paddingLeft);
         row.draggable = false;
         const visibility = document.createElement('button');
@@ -227,7 +245,7 @@ export class EditorView {
           [...layer.children].reverse().forEach((child) => visit(child, depth + 1));
           const end = document.createElement('div');
           end.className = 'layer-drop-end';
-          end.style.marginLeft = `${8 + (depth + 1) * 14}px`;
+          end.style.marginLeft = `${3 + (depth + 1) * 12}px`;
           const label = document.createElement('span');
           label.textContent = `Bottom of ${layer.name}`;
           const path = [layer.name];
@@ -251,7 +269,9 @@ export class EditorView {
       const visibility = row.querySelector<HTMLButtonElement>('.visibility')!;
       const isMask = layer instanceof ImageLayer && layer.channels === 1;
       const shown = isMask ? layer === editedMask : layer.visible;
-      visibility.textContent = shown ? '●' : '○';
+      const glyph = shown ? 'eye' : 'eye-off';
+      if (visibility.dataset.glyph !== glyph) { visibility.replaceChildren(icon(glyph)); visibility.dataset.glyph = glyph; }
+      visibility.classList.toggle('visibility-off', !shown);
       visibility.classList.toggle('mask-edit-muted', !!editedMask && layer !== editedMask);
       visibility.classList.toggle('mask-edit-active', layer === editedMask);
       visibility.setAttribute('aria-pressed', String(shown));
@@ -280,6 +300,7 @@ export class EditorView {
   }
 
   rename(layer: Layer): void {
+    this.panels.select('layers');
     this.editor.select(layer);
     const row = this.rows.get(layer.id);
     const label = row?.querySelector('.select-layer');
@@ -481,6 +502,14 @@ export class EditorView {
     }
     add.onchange = () => { if (add.value) this.editor.actions.execute(`filter.${add.value}`); };
     for (const filter of layer.filters) this.drawFilter(layer, filter, stack);
+    if (!layer.filters.length) {
+      const empty = document.createElement('div');
+      empty.className = 'filter-empty';
+      const label = document.createElement('span');
+      label.textContent = 'No filters on this layer';
+      empty.append(icon('settings'), label);
+      stack.append(empty);
+    }
   }
 
   private drawFilter(layer: Layer, filter: Filter, stack: HTMLElement): void {

@@ -1,5 +1,6 @@
 import type { Gpu, GpuFrame } from '../gpu/device';
 import { drawFilterSliderInput } from './controls';
+import { icon } from '../ui/icons';
 import type { QuadRenderer } from '../gpu/quad';
 import type { Surface } from '../gpu/surface';
 import type { MaskInput } from '../gpu/mask';
@@ -76,11 +77,11 @@ export abstract class Filter implements UndoTarget {
     const collapse = document.createElement('button');
     collapse.type = 'button';
     collapse.className = 'filter-collapse';
-    collapse.innerHTML = '<span aria-hidden="true">▾</span>';
+    collapse.append(icon('chevron-down'));
     collapse.setAttribute('aria-controls', `filter-details-${this.id}`);
     const grip = document.createElement('span');
     grip.className = 'filter-grip';
-    grip.textContent = '⠿';
+    grip.append(icon('grip'));
     grip.setAttribute('aria-hidden', 'true');
     const toggle = document.createElement('input');
     toggle.type = 'checkbox';
@@ -95,7 +96,8 @@ export abstract class Filter implements UndoTarget {
     title.textContent = this.label;
     title.className = 'filter-title';
     const remove = document.createElement('button');
-    remove.textContent = '×';
+    remove.append(icon('close'));
+    remove.setAttribute('aria-label', `Remove ${this.label}`);
     remove.title = `Remove ${this.label}`;
     remove.onclick = context.remove;
     header.append(collapse, grip, toggle, title);

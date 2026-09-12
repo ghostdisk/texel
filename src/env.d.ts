@@ -17,6 +17,7 @@ interface GenerationEndpoint {
 
 interface Window {
   desktop: {
+    openMenu(label: string, x: number, y: number): Promise<void>;
     openImage(): Promise<ImportedImage | null>;
     openDocument(): Promise<DocumentFileHandle | null>;
     documentReady(): Promise<void>;

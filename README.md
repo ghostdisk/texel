@@ -64,14 +64,16 @@ With a selection active, click **Remove selection** in the left toolbar (or **Ed
 ## Navigation and tools
 
 - Scroll to zoom around the cursor. Hold Space and drag to pan with either tool; middle-button dragging also pans. Click the zoom percentage or View → Fit image to fit the frame.
-- **B** selects Brush. Size, hardness, and flow are above the layer list. Size is a diameter in the layer's native pixels; pen pressure changes that diameter.
+- **B** selects Brush. Size, hardness, and flow appear in the horizontal tool-options bar. Size is a diameter in the layer's native pixels; pen pressure changes that diameter.
 - **V** selects Move / transform. Ctrl-click visible pixels to select their layer; transparent areas pass through to layers below. Drag the selected layer to move it, drag its eight bounds handles to resize, and drag the round handle to rotate. Shift constrains movement, corner resizing, or rotation. Position, scale, and rotation fields appear only in this tool.
 - **I** selects Eyedropper. Hold **Alt** with Brush to sample temporarily; releasing Alt restores Brush. Samples come from the filtered composition, excluding the checkerboard, and update the foreground color.
 - **Delete** deletes the selected layer or group. **Ctrl+J** duplicates it, including independent source pixels, descendants, and filters.
 - **F2** or a double-click on a layer label starts inline renaming. Enter commits; Escape cancels.
 - Drag a layer near the top/bottom of a row to reorder it. Drop in the middle of a group to reparent it. Dropping on Document moves it into the root. Reparenting preserves placement in document coordinates and rejects cycles.
-- **Ctrl+Z** undoes; **Ctrl+Shift+Z** or **Ctrl+Y** redoes. Text input keeps its ordinary editing shortcuts.
+- **Ctrl+Z** undoes; **Ctrl+Shift+Z** or **Ctrl+Y** redoes. The **History** tab beside **Layers** lists retained states; clicking a row returns to that state. Text input keeps its ordinary editing shortcuts.
 - File provides document/layer creation and native image import. Images can also be pasted or dropped. Filter is populated from registered filter classes and applies to the selected layer, including Document.
+
+The custom titlebar contains the application menus and native window controls. **F10** focuses the menu bar; arrow keys navigate its buttons. Layers and History share the upper sidebar, with Filters below. Layer visibility uses the eye button; layer opacity supports numeric entry and a dropdown slider. Generate keeps its model and prompt in the tool-options bar, with additional settings and its preview in popovers.
 
 ## Selection painting
 
@@ -105,7 +107,7 @@ Normal uses premultiplied source-over. Add uses additive RGB with source-over al
 
 ## Actions and tools
 
-`src/actions.ts` contains `ActionRegistry`. An action has an ID, label, handler, optional enabled predicate, and optional menu group. Buttons, native menu clicks, and keybindings dispatch those same IDs. Initial bindings are assigned in `Editor.registerActions()`; there is no rebinding UI. Hold actions have a release handler, used for temporary Space-panning. Key handling skips editable controls and open dialogs and clears held actions on focus loss.
+`src/actions.ts` contains `ActionRegistry`. An action has an ID, label, handler, optional enabled predicate, and optional menu group. Buttons, native menu clicks, and keybindings dispatch those same IDs. Initial bindings are assigned in `Editor.registerActions()`; there is no rebinding UI. Hold actions have a release handler, used for temporary Space-panning. Key handling skips editable controls, open dialogs, and popovers, and clears held actions on focus loss.
 
 `src/tools/tool.ts` defines the `Tool` base class: pointer gestures, completion/cancellation, options UI, overlay rendering, and `applyUndo`. Brush and transform implementations live beside it. The editor owns camera gestures above the active tool, so Space works regardless of tool selection. Switching tools or invoking a document action finishes the current gesture first.
 
@@ -136,6 +138,10 @@ New edits discard redo entries. Evicted entries destroy their snapshots. History
 
 - `src/editor.ts`: coordination, action setup, input routing, and history dispatch.
 - `src/ui/editor-view.ts`: layer dragging, inline renaming, inspector, and filter UI contexts.
+- `src/ui/tabs.ts`, `src/ui/popover.ts`: reusable panel navigation and compact control popovers.
+- `src/ui/history-panel.ts`, `src/ui/titlebar.ts`: history navigation and custom titlebar menus.
+- `src/assets/icons.svg`: shared tool and interface SVG symbols, including gradient AI icons.
+- `assets/branding/`: app and TXL file icons, plus the titlebar mark; packaging uses this resource directory.
 - `src/model/`: image structure, layer types, serialization, and affine geometry.
 - `src/history/`, `src/tools/`, `src/filters/`: operation history and extensible editing classes.
 - `src/gpu/`, `src/shaders/`: GPU allocation, painting, composition, blur, and presentation.
@@ -170,7 +176,7 @@ Levels displays a histogram of its input before the filter, with black, midtone,
 Both effects expand their output bounds, remain editable on layers/groups/root, and use the existing serialization and undo paths.
 ## Opacity, Mix, and filter order
 
-Opacity controls share a slider with an adjacent numeric input. This widget also provides precise brush size, hardness, and flow editing. Layer opacity and effect opacity update live and record one undo entry when the edit is committed.
+Opacity controls share a slider with a numeric input; layer opacity puts the slider in a dropdown to keep the blend controls compact. This widget also provides precise brush size, hardness, and flow editing. Layer opacity and effect opacity update live and record one undo entry when the edit is committed.
 
 Every filter has Mix, defaulting to 100%, with a slider and numeric input in its card. During compositing, a filter at 100% adds no mixing pass. Below 100%, the compositor runs a pass that reapplies that filter's input at strength 1 - Mix, interpolating premultiplied color and alpha. The result feeds the next filter, so 0% restores the input immediately before this filter. Mix serializes with the filter and uses filter undo/redo and ordinary layer invalidation.
 

@@ -1,9 +1,10 @@
-const { app, BrowserWindow, dialog, ipcMain, Menu } = require('electron');
+const { app, BrowserWindow, dialog, ipcMain, Menu, nativeTheme } = require('electron');
 const { readFile } = require('node:fs/promises');
 const path = require('node:path');
 const { NativeBackend } = require('./native-backend.cjs');
 const { registerDocumentFiles } = require('./document-files.cjs');
 app.setName('Texel');
+nativeTheme.themeSource = 'dark';
 
 if (!app.requestSingleInstanceLock()) app.quit();
 else startApplication();
@@ -33,10 +34,14 @@ function startApplication() {
 
   async function createWindow() {
     const window = new BrowserWindow({
-      title: 'Texel', width: 1440, height: 960, minWidth: 1000, minHeight: 680, backgroundColor: '#181a1f',
+      title: 'Texel', width: 1440, height: 960, minWidth: 1000, minHeight: 680, backgroundColor: '#171b25',
+      icon: path.join(__dirname, '../assets/branding/icon.png'), titleBarStyle: 'hidden',
+      // The renderer paints the 36px titlebar and its borders; leave its bottom pixel clear.
+      ...(process.platform !== 'darwin' ? { titleBarOverlay: { color: '#00000000', symbolColor: '#e6e8f5', height: 35 } } : {}),
       webPreferences: { preload: path.join(__dirname, 'preload.cjs'), contextIsolation: true, nodeIntegration: false, sandbox: true },
     });
     editorWindow = window;
+    window.setMenuBarVisibility(false);
     window.on('closed', () => { if (editorWindow === window) editorWindow = null; });
     documentFiles.attachWindow(window);
     window.webContents.setWindowOpenHandler(() => ({ action: 'deny' }));
@@ -62,6 +67,19 @@ function startApplication() {
     });
     if (canceled || !filePaths[0]) return null;
     return { name: path.basename(filePaths[0]), bytes: new Uint8Array(await readFile(filePaths[0])) };
+  });
+
+  ipcMain.handle('window:open-menu', (event, label, x, y) => {
+    const owner = ownerOf(event);
+    if (!owner || typeof label !== 'string' || !Number.isFinite(x) || !Number.isFinite(y)) return;
+    const menu = Menu.getApplicationMenu()?.items.find((item) => item.label === label)?.submenu;
+    if (!menu) return;
+    const [width, height] = owner.getContentSize();
+    const zoom = owner.webContents.getZoomFactor();
+    return new Promise((resolve) => menu.popup({
+      window: owner, x: Math.max(0, Math.min(width, Math.round(x * zoom))), y: Math.max(0, Math.min(height, Math.round(y * zoom))),
+      callback: () => resolve(),
+    }));
   });
 
   ipcMain.handle('actions:set-menus', (event, menus) => {
@@ -97,6 +115,7 @@ function startApplication() {
       template.push({ label: group.label, submenu });
     }
     Menu.setApplicationMenu(Menu.buildFromTemplate(template));
+    owner.setMenuBarVisibility(false);
   });
 
   app.whenReady().then(async () => {

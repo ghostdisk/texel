@@ -1,6 +1,7 @@
 const { contextBridge, ipcRenderer } = require('electron');
 
 contextBridge.exposeInMainWorld('desktop', {
+  openMenu: (label, x, y) => ipcRenderer.invoke('window:open-menu', label, x, y),
   openImage: () => ipcRenderer.invoke('image:open'),
   openDocument: () => ipcRenderer.invoke('document:open'),
   documentReady: () => ipcRenderer.invoke('document:ready'),
