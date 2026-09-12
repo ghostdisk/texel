@@ -94,7 +94,47 @@
           <div id="document-panels">
             <section id="layers-panel">
               <div class="layer-compositing">
-                <select id="layer-blend" aria-label="Layer blend mode"><option value="normal">Normal</option><option value="add">Add</option><option value="screen">Screen</option><option value="exclusion">Exclusion</option></select>
+                <select id="layer-blend" aria-label="Layer blend mode">
+                  <optgroup label="Normal">
+                    <option value="normal">Normal</option>
+                    <option value="dissolve">Dissolve</option>
+                  </optgroup>
+                  <optgroup label="Darken">
+                    <option value="darken">Darken</option>
+                    <option value="multiply">Multiply</option>
+                    <option value="color-burn">Color Burn</option>
+                    <option value="linear-burn">Linear Burn</option>
+                    <option value="darker-color">Darker Color</option>
+                  </optgroup>
+                  <optgroup label="Lighten">
+                    <option value="lighten">Lighten</option>
+                    <option value="screen">Screen</option>
+                    <option value="color-dodge">Color Dodge</option>
+                    <option value="add">Linear Dodge (Add)</option>
+                    <option value="lighter-color">Lighter Color</option>
+                  </optgroup>
+                  <optgroup label="Contrast">
+                    <option value="overlay">Overlay</option>
+                    <option value="soft-light">Soft Light</option>
+                    <option value="hard-light">Hard Light</option>
+                    <option value="vivid-light">Vivid Light</option>
+                    <option value="linear-light">Linear Light</option>
+                    <option value="pin-light">Pin Light</option>
+                    <option value="hard-mix">Hard Mix</option>
+                  </optgroup>
+                  <optgroup label="Inversion">
+                    <option value="difference">Difference</option>
+                    <option value="exclusion">Exclusion</option>
+                    <option value="subtract">Subtract</option>
+                    <option value="divide">Divide</option>
+                  </optgroup>
+                  <optgroup label="Component">
+                    <option value="hue">Hue</option>
+                    <option value="saturation">Saturation</option>
+                    <option value="color">Color</option>
+                    <option value="luminosity">Luminosity</option>
+                  </optgroup>
+                </select>
                 <div id="layer-opacity-control"></div>
               </div>
               <div id="layer-tree" class="layer-tree" aria-label="Layer stack"></div>
