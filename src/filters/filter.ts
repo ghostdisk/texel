@@ -33,6 +33,7 @@ export abstract class Filter implements UndoTarget {
   abstract readonly label: string;
   enabled = true;
   mix = 1;
+  private collapsed = false;
 
   constructor(readonly id: string = crypto.randomUUID()) {}
 
@@ -63,6 +64,11 @@ export abstract class Filter implements UndoTarget {
     container.className = 'filter';
     const header = document.createElement('div');
     header.className = 'filter-header';
+    const collapse = document.createElement('button');
+    collapse.type = 'button';
+    collapse.className = 'filter-collapse';
+    collapse.innerHTML = '<span aria-hidden="true">▾</span>';
+    collapse.setAttribute('aria-controls', `filter-details-${this.id}`);
     const grip = document.createElement('span');
     grip.className = 'filter-grip';
     grip.textContent = '⠿';
@@ -83,18 +89,35 @@ export abstract class Filter implements UndoTarget {
     remove.textContent = '×';
     remove.title = `Remove ${this.label}`;
     remove.onclick = context.remove;
-    header.append(grip, toggle, title, remove);
+    header.append(collapse, grip, toggle, title, remove);
     const body = document.createElement('div');
+    body.id = `filter-details-${this.id}`;
     body.className = 'filter-body';
-    container.append(header, body);
-    this.drawParameters(body, context);
-    const mix = document.createElement('div');
-    mix.className = 'filter-mix';
-    drawFilterSliderInput(mix, context, {
-      label: 'Mix', min: 0, max: 100, step: 1, unit: '%',
-      get: () => this.mix * 100, set: (value) => { this.mix = value / 100; },
-    });
-    body.append(mix);
+    container.append(header);
+    const drawDetails = () => {
+      container.classList.toggle('filter-collapsed', this.collapsed);
+      collapse.setAttribute('aria-expanded', String(!this.collapsed));
+      collapse.setAttribute('aria-label', `${this.collapsed ? 'Expand' : 'Collapse'} ${this.label}`);
+      collapse.title = this.collapsed ? 'Expand details' : 'Collapse details';
+      body.replaceChildren();
+      if (this.collapsed) { body.remove(); return; }
+      const mix = document.createElement('div');
+      mix.className = 'filter-mix';
+      drawFilterSliderInput(mix, context, {
+        label: 'Mix', min: 0, max: 100, step: 1, unit: '%',
+        get: () => this.mix * 100, set: (value) => { this.mix = value / 100; },
+      });
+      body.append(mix);
+      container.append(body);
+      this.drawParameters(body, context);
+    };
+    collapse.onclick = (event) => {
+      event.stopPropagation();
+      this.collapsed = !this.collapsed;
+      context.commit();
+      if (container.isConnected) drawDetails();
+    };
+    drawDetails();
   }
 }
 

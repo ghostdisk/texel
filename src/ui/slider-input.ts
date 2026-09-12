@@ -21,6 +21,7 @@ export class SliderInput {
     const label = document.createElement('span');
     label.className = 'slider-label';
     label.textContent = options.label;
+    label.title = options.label;
     const controls = document.createElement('div');
     controls.className = 'slider-input';
     this.range.type = 'range';

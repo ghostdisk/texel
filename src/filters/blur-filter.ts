@@ -5,6 +5,7 @@ import { expandBounds } from '../model/geometry';
 import type { Rect } from '../model/geometry';
 import type { JsonObject } from '../history/undo';
 import { Filter } from './filter';
+import { drawFilterSlider } from './controls';
 import type { FilterRenderContext, FilterUIContext } from './filter';
 
 export class BlurFilter extends Filter {
@@ -42,25 +43,9 @@ export class BlurFilter extends Filter {
   }
 
   protected drawParameters(container: HTMLElement, context: FilterUIContext): void {
-    const controls = document.createElement('div');
-    controls.className = 'filter-controls';
-    const range = document.createElement('input');
-    range.type = 'range';
-    range.min = '0';
-    range.max = '32';
-    range.step = '0.25';
-    range.value = String(this.sigma);
-    range.setAttribute('aria-label', 'Blur sigma in local pixels');
-    const value = document.createElement('output');
-    value.textContent = `${this.sigma} px`;
-    range.oninput = () => {
-      context.begin('Change blur');
-      context.preview(() => { this.sigma = range.valueAsNumber; });
-      value.textContent = `${this.sigma} px`;
-    };
-    range.onchange = () => context.commit();
-    range.onblur = () => context.commit();
-    controls.append(range, value);
-    container.append(controls);
+    drawFilterSlider(container, context, {
+      label: 'Sigma', min: 0, max: 32, step: 0.25, format: (value) => `${value} px`,
+      get: () => this.sigma, set: (value) => { this.sigma = value; },
+    });
   }
 }

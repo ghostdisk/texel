@@ -18,6 +18,7 @@ export function drawFilterSlider(container: HTMLElement, context: FilterUIContex
   label.className = 'filter-parameter';
   const heading = document.createElement('span');
   heading.textContent = options.label;
+  heading.title = options.label;
   const controls = document.createElement('span');
   controls.className = 'filter-controls';
   const slider = document.createElement('input');
