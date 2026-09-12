@@ -1277,7 +1277,7 @@ export class Editor {
       event.preventDefault();
       this.finishGesture();
       if (!this.image.selectionMask) return;
-      const items = this.actions.menuItems(['selection.layer-copy', 'selection.layer-cut']);
+      const items = this.actions.menuItems(['selection.promote', 'selection.layer-copy', 'selection.layer-cut']);
       void window.desktop.openContextMenu(items, event.clientX, event.clientY).catch(this.report);
     }));
     this.canvas.addEventListener('wheel', (event) => {
