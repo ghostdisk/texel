@@ -37,6 +37,7 @@ import { inverse, multiply } from './model/geometry';
 import type { Point } from './model/geometry';
 import { BrushTool } from './tools/brush-tool';
 import { RectangleTool } from './tools/rectangle-tool';
+import { CropTool } from './tools/crop-tool';
 import { TransformTool } from './tools/transform-tool';
 import { EyedropperTool } from './tools/eyedropper-tool';
 import type { Tool, ToolPointer } from './tools/tool';
@@ -127,6 +128,7 @@ export class Editor {
     this.baseTool = new BrushTool(this);
     this.tools.set(this.activeTool.id, this.activeTool);
     this.tools.set('rectangle', new RectangleTool(this));
+    this.tools.set('crop', new CropTool(this));
     this.tools.set('transform', new TransformTool(this));
     this.tools.set('eyedropper', new EyedropperTool(this));
     this.generation = new ImageGeneration(this);
@@ -147,7 +149,7 @@ export class Editor {
     this.viewport.onChange = () => { this.refreshHover(); this.requestRender(); };
     this.actions.beforeExecute = () => this.finishGesture();
     this.actions.blocked = () => this.halted || this.reframing || this.files.busy;
-    this.actions.context = () => ({ hasSelection: !!this.image.selectionMask, isGenerating: this.generation.busy });
+    this.actions.context = () => ({ hasSelection: !!this.image.selectionMask, isGenerating: this.generation.busy, isCropping: this.activeTool.id === 'crop' });
     this.registerActions();
     this.attachInput();
     new ResizeObserver(() => this.resize()).observe(stage);
@@ -394,7 +396,7 @@ export class Editor {
           this.image.selectionMask, this.selectionMode, this.editedMask, this.generation.visual,
         );
         this.overlay.replaceChildren();
-        if (this.activeTool.id === 'generation') this.activeTool.drawOverlay();
+        if (this.activeTool.id === 'generation' || this.activeTool.id === 'crop') this.activeTool.drawOverlay();
         else (this.tools.get('transform') as TransformTool).drawOverlay(this.activeTool.id === 'transform');
         if (!this.interacting) {
           if (this.previewsReady) { this.previewsReady = false; this.onPreviews?.(); }
@@ -464,11 +466,13 @@ export class Editor {
   switchTool(id: string): void {
     const tool = this.tools.get(id);
     if (!tool || (tool === this.baseTool && !this.panMode && !this.selectionMode && !this.eraseMode)) return;
+    const previous = this.activeTool;
     this.finishGesture();
-    this.activeTool.hover(null);
+    previous.hover(null);
+    if (previous.id === 'crop' && tool !== previous) previous.cancel();
     this.pickGeneration++;
     this.baseTool = tool;
-    if (tool.id === 'generation') this.setMaskEditLayer(null);
+    if (tool.id === 'generation' || tool.id === 'crop') this.setMaskEditLayer(null);
     this.panMode = false;
     this.eraseMode = false;
     this.canvas.style.cursor = this.panHeld ? 'grab' : this.activeTool.cursor;
@@ -791,6 +795,19 @@ export class Editor {
     register({ id: 'generation.models', label: 'Refresh models', menu: 'Tools', submenu: 'Generation', execute: () => this.generation.refreshModels() });
     register({ id: 'tool.brush', label: 'Brush', menu: 'Tools', execute: () => this.switchTool('brush') });
     register({ id: 'tool.rectangle', label: 'Rectangle', menu: 'Tools', execute: () => this.switchTool('rectangle') });
+    register({
+      id: 'tool.crop', label: 'Crop', menu: 'Tools',
+      enabled: () => !this.generation.busy, execute: () => this.switchTool('crop'),
+    });
+    register({
+      id: 'crop.apply', label: 'Apply crop', menu: 'Tools', submenu: 'Crop',
+      enabled: () => this.activeTool.id === 'crop' && (this.tools.get('crop') as CropTool).canApply,
+      execute: () => (this.tools.get('crop') as CropTool).apply(),
+    });
+    register({
+      id: 'crop.cancel', label: 'Cancel crop', menu: 'Tools', submenu: 'Crop',
+      enabled: () => this.activeTool.id === 'crop', execute: () => (this.tools.get('crop') as CropTool).cancel(),
+    });
     register({ id: 'tool.transform', label: 'Move / transform', menu: 'Tools', execute: () => this.switchTool('transform') });
     register({
       id: 'tool.eyedropper', label: 'Eyedropper', menu: 'Tools', execute: () => this.switchTool('eyedropper'),
@@ -814,6 +831,9 @@ export class Editor {
     this.actions.bind('Escape', 'generation.cancel', { when: 'isGenerating' });
     this.actions.bind('B', 'tool.brush');
     this.actions.bind('R', 'tool.rectangle');
+    this.actions.bind('C', 'tool.crop');
+    this.actions.bind('Enter', 'crop.apply', { when: 'isCropping' });
+    this.actions.bind('Escape', 'crop.cancel', { when: 'isCropping && !isGenerating' });
     this.actions.bind('E', 'drawing.erase');
     this.actions.bind('S', 'selection.mode');
     this.actions.bind('Ctrl+A', 'selection.all');
@@ -892,7 +912,7 @@ export class Editor {
     this.canvas.addEventListener('pointerup', (event) => this.run(() => {
       if (this.pointer?.id !== event.pointerId) return;
       this.hoverPointer = pointerData(event);
-      if (this.pointer.mode === 'tool' && ['transform', 'rectangle', 'eyedropper'].includes(this.activeTool.id)) {
+      if (this.pointer.mode === 'tool' && ['transform', 'rectangle', 'crop', 'eyedropper'].includes(this.activeTool.id)) {
         this.activeTool.pointerMove(this.hoverPointer);
       }
       this.finishGesture();

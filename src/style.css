@@ -52,6 +52,11 @@ h2 { display: flex; align-items: center; gap: 7px; font-weight: 600; font-size: 
 #tool-options > .slider-field .slider-input { flex: 1; }
 #tool-options > .slider-field .slider-value { order: -1; width: 61px; flex-basis: 61px; }
 #tool-options > .slider-field .slider-label { color: #c3c9dc; }
+.crop-options { gap: 8px !important; }
+.crop-options label { display: flex; align-items: center; gap: 7px; color: #c3c9dc; white-space: nowrap; }
+.crop-options select { width: 108px; height: 28px; }
+.crop-options button { height: 28px; }
+.crop-size { min-width: 92px; color: #aeb8d2; font-variant-numeric: tabular-nums; text-align: center; }
 #transform-fields { display: flex; gap: 18px; align-items: center; min-width: 0; overflow-x: auto; height: 100%; }
 #transform-fields .field { flex-direction: row; align-items: center; margin: 0; white-space: nowrap; gap: 7px; }
 #transform-fields input { width: 66px; height: 27px; }
@@ -91,6 +96,10 @@ h2 { display: flex; align-items: center; gap: 7px; font-weight: 600; font-size: 
 .transform-outline { fill: none; stroke: #b4a1ff; stroke-width: 1.25; vector-effect: non-scaling-stroke; }
 .transform-handle { fill: #f1ebff; stroke: #7253cf; stroke-width: 1.5; vector-effect: non-scaling-stroke; }
 .selection-outline { fill: none; stroke: #c3c8d7; stroke-opacity: .38; stroke-width: 1; vector-effect: non-scaling-stroke; }
+.crop-shade { fill: #080b14; fill-opacity: .68; }
+.crop-outline { fill: none; stroke: #f4f1ff; stroke-width: 1.25; vector-effect: non-scaling-stroke; }
+.crop-grid { stroke: #f4f1ff; stroke-opacity: .42; stroke-width: 1; vector-effect: non-scaling-stroke; }
+.crop-handle { fill: #f4f1ff; stroke: #7253cf; stroke-width: 1.5; vector-effect: non-scaling-stroke; }
 .eyedropper-preview { position: absolute; z-index: 3; display: flex; width: 66px; height: 34px; pointer-events: none; border: 1px solid #15171d; border-radius: 2px; overflow: hidden; box-shadow: 0 0 0 1px #ffffffb3, 0 3px 8px #0008; background: repeating-conic-gradient(#ddd 0 25%, #aaa 0 50%) 0 0 / 8px 8px; }
 .eyedropper-preview span { flex: 1; min-width: 0; }
 .eyedropper-hover { border-left: 1px solid #0006; }

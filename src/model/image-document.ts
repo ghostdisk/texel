@@ -27,6 +27,11 @@ export interface SerializedLayer extends JsonObject {
   children: SerializedLayer[];
 }
 
+export interface CanvasLayerState {
+  layerId: string;
+  transform: Matrix;
+}
+
 export class ImageDocument implements UndoTarget {
   id: string = crypto.randomUUID();
   root = new GroupLayer('Document');
@@ -56,10 +61,26 @@ export class ImageDocument implements UndoTarget {
     this.commands = new LayerCommands(this, gpu, compositor, history);
   }
 
-  /** Canonical pixel dimensions, fixed when the document is created. */
+  /** Canonical pixel dimensions used for presentation and export. */
   get width(): number { return this.canvasWidth; }
   get height(): number { return this.canvasHeight; }
   get frame(): Rect { return { x: 0, y: 0, width: this.width, height: this.height }; }
+
+  setCanvasState(width: number, height: number, layers: readonly CanvasLayerState[], selection: JsonObject): void {
+    const limit = this.gpu.device.limits.maxTextureDimension2D;
+    if (!Number.isSafeInteger(width) || !Number.isSafeInteger(height) || width < 1 || height < 1 || width > limit || height > limit) {
+      throw new Error(`Canvas dimensions must be whole pixels from 1 to ${limit}.`);
+    }
+    const children = new Map(this.root.children.map((layer) => [layer.id, layer]));
+    if (layers.length !== children.size || new Set(layers.map((entry) => entry.layerId)).size !== children.size || layers.some((entry) => !children.has(entry.layerId))) {
+      throw new Error('Crop layer state does not match the document.');
+    }
+    this.canvasWidth = width;
+    this.canvasHeight = height;
+    for (const entry of layers) children.get(entry.layerId)!.setTransform(entry.transform);
+    this.restoreSelection(selection);
+    this.root.invalidate();
+  }
 
   allLayers(): Layer[] {
     const result: Layer[] = [];

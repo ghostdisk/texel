@@ -161,10 +161,10 @@ export class EditorView {
     element('tool-name').textContent = editor.activeTool.label;
     if (this.optionsTool !== editor.activeTool.id) {
       this.optionsTool = editor.activeTool.id;
-      const glyphs: Record<string, IconName> = { brush: 'brush', rectangle: 'rectangle', transform: 'transform', eyedropper: 'eyedropper', generation: 'generate' };
+      const glyphs: Record<string, IconName> = { brush: 'brush', rectangle: 'rectangle', crop: 'crop', transform: 'transform', eyedropper: 'eyedropper', generation: 'generate' };
       element('active-tool-icon').replaceChildren(icon(glyphs[editor.activeTool.id] ?? 'brush'));
       element('tool-options').replaceChildren();
-      element('tool-options').classList.remove('generation-options');
+      element('tool-options').classList.remove('generation-options', 'crop-options');
       editor.generation.onChange = undefined;
       editor.activeTool.drawUI(element('tool-options'));
     }
