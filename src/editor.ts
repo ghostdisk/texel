@@ -1234,12 +1234,12 @@ export class Editor {
       if (this.pointer && this.pointer.id !== event.pointerId) return;
       const data = pointerData(event);
       this.hoverPointer = data;
+      this.refreshHover();
       if (this.pointer?.mode === 'pan') {
         this.viewport.pan(data.screen.x - this.pointer.last.x, data.screen.y - this.pointer.last.y);
         this.pointer.last = data.screen;
         return;
       }
-      this.activeTool.hover(data);
       if (this.pointer?.mode !== 'tool') return;
       const coalesced = event.getCoalescedEvents?.() ?? [];
       for (const sample of coalesced.length ? coalesced : [event]) this.activeTool.pointerMove(pointerData(sample));
@@ -1272,7 +1272,7 @@ export class Editor {
     }));
     this.canvas.addEventListener('pointerleave', () => {
       this.hoverPointer = null;
-      this.activeTool.hover(null);
+      this.refreshHover();
     });
     this.canvas.addEventListener('contextmenu', (event) => this.run(() => {
       event.preventDefault();
