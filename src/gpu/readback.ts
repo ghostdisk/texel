@@ -94,7 +94,7 @@ export class GpuReadback {
     return new Uint32Array(await this.read(readback))[0] === 0;
   }
 
-  async rgba(source: Surface, mask = false): Promise<Uint8Array<ArrayBuffer>> {
+  async rgba(source: Surface, mask = false, transparent = false): Promise<Uint8Array<ArrayBuffer>> {
     const { device } = this.gpu;
     const width = source.texture.width, height = source.texture.height;
     const stride = Math.ceil(width * 4 / 256) * 256;
@@ -107,7 +107,7 @@ export class GpuReadback {
       pass.setPipeline(pipeline);
       pass.setBindGroup(0, device.createBindGroup({ layout: pipeline.getBindGroupLayout(0), entries: [
         { binding: 0, resource: source.view }, { binding: 1, resource: texture.createView() },
-        { binding: 2, resource: frame.uniform([Number(mask), 0, 0, 0]) },
+        { binding: 2, resource: frame.uniform([Number(mask), Number(transparent), 0, 0]) },
       ] }));
       pass.dispatchWorkgroups(Math.ceil(width / 8), Math.ceil(height / 8));
       pass.end();

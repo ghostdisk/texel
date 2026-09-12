@@ -101,6 +101,30 @@ export class Compositor {
     }
   }
 
+  /** Render the committed document into its canonical canvas, without presentation-only overlays or previews. */
+  captureDocument(root: GroupLayer, bounds: Rect): Surface {
+    const frame = this.gpu.beginFrame();
+    const result = createSurface(this.gpu.device, 'Document export', bounds);
+    const preview = this.generationPreview;
+    this.generationPreview = null;
+    try {
+      this.prepare(root);
+      this.encodePaint(frame);
+      const output = this.evaluate(frame, root, IDENTITY, 1).surface;
+      const pass = this.quads.begin(frame, result);
+      this.quads.draw(pass, frame, output, result, root.worldTransform(), root.visible ? root.opacity : 0);
+      pass.end();
+      frame.submit();
+      this.operations.clear();
+      return result;
+    } catch (error) {
+      result.texture.destroy();
+      for (const cache of this.caches.values()) cache.revision = -1;
+      frame.release();
+      throw error;
+    } finally { this.generationPreview = preview; }
+  }
+
   /** Bake selected branches in their common parent's coordinates, retaining partial ancestor effects. */
   captureLayers(layers: readonly Layer[], parent: GroupLayer): {
     surface: Surface;

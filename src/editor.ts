@@ -688,6 +688,8 @@ export class Editor {
     register({ id: 'file.open', label: 'Open…', menu: 'File', execute: () => this.files.open() });
     register({ id: 'file.save', label: 'Save', menu: 'File', execute: () => this.files.save() });
     register({ id: 'file.save-as', label: 'Save as…', menu: 'File', execute: () => this.files.save(true) });
+    register({ id: 'file.export-png', label: 'PNG image…', menu: 'File', submenu: 'Export', execute: () => this.files.exportImage('png') });
+    register({ id: 'file.export-webp', label: 'WebP image…', menu: 'File', submenu: 'Export', execute: () => this.files.exportImage('webp') });
     register({ id: 'file.import', label: 'Add image…', menu: 'File', execute: async () => {
       const image = await window.desktop.openImage();
       if (image) await this.addImage(image.name, new Blob([image.bytes]));

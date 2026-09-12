@@ -113,6 +113,30 @@ export class DocumentFiles {
 
   async save(saveAs = false): Promise<void> { await this.exclusive(() => this.saveCurrent(saveAs)); }
 
+  async exportImage(format: ImageExportFormat): Promise<void> {
+    await this.exclusive(async () => {
+      const baseName = this.name.replace(/\.txl$/i, '') || 'Untitled';
+      const handle = await window.desktop.chooseImageExport(format, baseName);
+      if (!handle) return;
+      this.editor.flushPaint();
+      const source = this.editor.compositor.captureDocument(this.editor.image.root, this.editor.image.frame);
+      try {
+        const bytes = await this.editor.readback.rgba(source, false, true);
+        const canvas = document.createElement('canvas');
+        canvas.width = this.editor.image.width;
+        canvas.height = this.editor.image.height;
+        const context = canvas.getContext('2d');
+        if (!context) throw new Error('Could not create an image export canvas.');
+        const pixels = new Uint8ClampedArray(bytes.buffer, bytes.byteOffset, bytes.byteLength);
+        context.putImageData(new ImageData(pixels, canvas.width, canvas.height), 0, 0);
+        const mime = format === 'png' ? 'image/png' : 'image/webp';
+        const blob = await new Promise<Blob | null>((resolve) => canvas.toBlob(resolve, mime));
+        if (!blob) throw new Error(`Could not encode the ${format.toUpperCase()} image.`);
+        await window.desktop.writeImageExport(handle.token, new Uint8Array(await blob.arrayBuffer()));
+      } finally { source.texture.destroy(); }
+    });
+  }
+
   private async saveCurrent(saveAs: boolean): Promise<boolean> {
     const handle = await window.desktop.chooseDocumentSave(this.handle?.token ?? null, saveAs);
     if (!handle) return false;

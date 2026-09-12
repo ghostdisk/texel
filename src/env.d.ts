@@ -8,6 +8,13 @@ interface ImportedImage {
   bytes: Uint8Array<ArrayBuffer>;
 }
 
+type ImageExportFormat = 'png' | 'webp';
+
+interface ImageExportHandle {
+  token: string;
+  name: string;
+}
+
 interface GenerationEndpoint {
   url?: string;
   token?: string;
@@ -19,6 +26,8 @@ interface Window {
   desktop: {
     openMenu(label: string, x: number, y: number): Promise<void>;
     openImage(): Promise<ImportedImage | null>;
+    chooseImageExport(format: ImageExportFormat, name: string): Promise<ImageExportHandle | null>;
+    writeImageExport(token: string, bytes: Uint8Array<ArrayBuffer>): Promise<void>;
     openDocument(): Promise<DocumentFileHandle | null>;
     documentReady(): Promise<void>;
     onOpenRequest(callback: (files: DocumentFileHandle[]) => void): () => void;

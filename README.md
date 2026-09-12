@@ -51,7 +51,7 @@ The packaging script does not publish artifacts. Signing is optional and can be 
 
 ## Documents
 
-**Ctrl+N** creates a document, **Ctrl+O** opens a Texel .txl file, **Ctrl+S** saves, and **Ctrl+Shift+S** saves under a new name. **Add image… / Ctrl+Shift+O** imports an image as a layer. New, Open, and closing the window offer Save / Discard / Cancel when the document has unsaved edits.
+**Ctrl+N** creates a document, **Ctrl+O** opens a Texel .txl file, **Ctrl+S** saves, and **Ctrl+Shift+S** saves under a new name. **File → Export** writes the full-resolution visible composition as a transparent PNG or WebP, separately from the editable .txl project. **Add image… / Ctrl+Shift+O** imports an image as a layer. New, Open, and closing the window offer Save / Discard / Cancel when the document has unsaved edits.
 
 TXL version 1 uses a small binary header, a JSON metadata chunk, and a binary chunk of lossless half-float source pixels. It retains canonical dimensions, layer/group structure, transforms, filters, masks, selections, and the generation lens. See [the format specification](docs/txl-format.md).
 
@@ -149,7 +149,7 @@ New edits discard redo entries. Evicted entries destroy their snapshots. History
 
 Textures remain monolithic. Group rasterization is capped to GPU texture limits and roughly 16 megapixels per group so zooming can magnify cached output without unbounded allocations. There is no tiled backing store, dirty-region evaluation, or complete GPU memory manager. Render statistics remain available internally; the status bar shows zoom.
 
-TXL project files persist editable source pixels and document structure. Undo history remains session-local. Image export, device-loss recovery, and remote AI providers are still future work.
+TXL project files persist editable source pixels and document structure. Undo history remains session-local. Device-loss recovery and remote AI providers are still future work.
 
 ## Additional filters
 

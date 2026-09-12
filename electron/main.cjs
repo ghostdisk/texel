@@ -3,6 +3,7 @@ const { readFile } = require('node:fs/promises');
 const path = require('node:path');
 const { NativeBackend } = require('./native-backend.cjs');
 const { registerDocumentFiles } = require('./document-files.cjs');
+const { registerImageFiles } = require('./image-files.cjs');
 app.setName('Texel');
 nativeTheme.themeSource = 'dark';
 
@@ -11,6 +12,7 @@ else startApplication();
 
 function startApplication() {
   const documentFiles = registerDocumentFiles({ ipcMain, dialog }, ownerOf);
+  registerImageFiles({ ipcMain, dialog }, ownerOf);
   let backend;
   let quitting = false;
   let editorWindow = null;

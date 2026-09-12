@@ -3,6 +3,8 @@ const { contextBridge, ipcRenderer } = require('electron');
 contextBridge.exposeInMainWorld('desktop', {
   openMenu: (label, x, y) => ipcRenderer.invoke('window:open-menu', label, x, y),
   openImage: () => ipcRenderer.invoke('image:open'),
+  chooseImageExport: (format, name) => ipcRenderer.invoke('image:choose-export', format, name),
+  writeImageExport: (token, bytes) => ipcRenderer.invoke('image:write-export', token, bytes),
   openDocument: () => ipcRenderer.invoke('document:open'),
   documentReady: () => ipcRenderer.invoke('document:ready'),
   onOpenRequest: (callback) => {
