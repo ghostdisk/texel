@@ -62,7 +62,7 @@ export interface UndoTarget {
 export class UndoStack {
   private entries: UndoOperation[] = [];
   private position = 0;
-  onChange?: () => void;
+  onChange?: (operation?: UndoOperation, direction?: UndoDirection) => void;
 
   constructor(private readonly apply: (operation: UndoOperation, direction: UndoDirection) => void) {}
 
@@ -83,21 +83,21 @@ export class UndoStack {
       removed.dispose();
       this.position--;
     }
-    this.onChange?.();
+    this.onChange?.(operation, 'redo');
   }
 
   undo(): void {
     if (!this.canUndo) return;
     this.apply(this.entries[this.position - 1], 'undo');
     this.position--;
-    this.onChange?.();
+    this.onChange?.(this.entries[this.position], 'undo');
   }
 
   redo(): void {
     if (!this.canRedo) return;
     this.apply(this.entries[this.position], 'redo');
     this.position++;
-    this.onChange?.();
+    this.onChange?.(this.entries[this.position - 1], 'redo');
   }
 
   clear(): void {

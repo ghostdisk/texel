@@ -33,6 +33,7 @@ export class EditorView {
   private optionsTool = '';
   private sizedLayerDialog = false;
   private draggedLayer: Layer | null = null;
+  private draggedLayers: Layer[] = [];
   private readonly layerPointerDrag: LayerPointerDrag;
   private layerDropTargets = new WeakMap<HTMLElement, (position: LayerDragPosition) => LayerDrop | null>();
   private groupDropEnds = new Map<GroupLayer, HTMLElement>();
@@ -65,9 +66,12 @@ export class EditorView {
     this.opacityControl = this.createOpacityControl();
     element('layer-opacity-control').append(this.opacityControl.element);
     element<HTMLSelectElement>('layer-blend').onchange = () => editor.run(() => {
-      const layer = editor.image.selected;
+      editor.finishGesture();
+      const layers = editor.image.selectedLayers;
+      const before = layers.map((layer) => layer.properties());
       const blend = element<HTMLSelectElement>('layer-blend').value as BlendMode;
-      editor.changeLayer(layer, 'Change blend mode', () => layer.setBlendMode(blend));
+      for (const layer of layers) layer.setBlendMode(blend);
+      editor.recordLayerChanges(layers, before, 'Change blend mode');
     });
     for (const id of ['layer-x', 'layer-y', 'layer-scale-x', 'layer-scale-y', 'layer-angle']) {
       input(id).onchange = () => editor.run(() => this.changeTransform(id));
@@ -98,16 +102,16 @@ export class EditorView {
   }
 
   private createOpacityControl(): SliderInput {
-    let editedLayer: Layer | null = null;
-    let before: LayerProperties | null = null;
+    let editedLayers: Layer[] = [];
+    let before: LayerProperties[] | null = null;
     const commit = () => {
-      if (!before || !editedLayer) return;
-      const layer = editedLayer;
+      if (!before) return;
+      const layers = editedLayers;
       const previous = before;
       before = null;
-      editedLayer = null;
+      editedLayers = [];
       if (this.editor.commitEdits === commit) this.editor.commitEdits = undefined;
-      this.editor.recordLayerChange(layer, previous, 'Change opacity');
+      this.editor.recordLayerChanges(layers, previous, 'Change opacity');
       this.editor.requestRender();
     };
     return new SliderInput({
@@ -115,27 +119,28 @@ export class EditorView {
       begin: () => this.editor.run(() => {
         if (before) return;
         this.editor.finishGesture();
-        editedLayer = this.editor.image.selected;
-        before = editedLayer.properties();
+        editedLayers = this.editor.image.selectedLayers;
+        before = editedLayers.map((layer) => layer.properties());
         this.editor.commitEdits = commit;
       }),
-      input: (value) => this.editor.run(() => editedLayer?.setOpacity(value / 100)),
+      input: (value) => this.editor.run(() => { for (const layer of editedLayers) layer.setOpacity(value / 100); }),
       commit: () => this.editor.run(commit),
     });
   }
+
   render(): void {
     this.renderTree();
     const { editor } = this;
     const layer = editor.image.selected;
     element('frame-label').textContent = `${editor.image.width} × ${editor.image.height} px`;
-    element('layer-kind').textContent = layer.isSelection ? 'SELECTION' : layer instanceof ImageLayer && layer.channels === 1 ? 'MASK' : layer === editor.image.root ? 'ROOT' : layer.kind.toUpperCase();
-    element('layer-size').textContent = layer instanceof ImageLayer ? `${layer.width} × ${layer.height} native pixels` : `${(layer as GroupLayer).children.length} children · isolated group`;
+    element('layer-kind').textContent = editor.image.selectedLayers.length > 1 ? editor.image.selectedLayers.length + ' LAYERS' : layer.isSelection ? 'SELECTION' : layer instanceof ImageLayer && layer.channels === 1 ? 'MASK' : layer === editor.image.root ? 'ROOT' : layer.kind.toUpperCase();
+    element('layer-size').textContent = editor.image.selectedLayers.length > 1 ? '' : layer instanceof ImageLayer ? `${layer.width} × ${layer.height} native pixels` : `${(layer as GroupLayer).children.length} children · isolated group`;
     element('selection-actions').hidden = !layer.isSelection;
     this.opacityControl.sync(!editor.commitEdits);
     const blend = element<HTMLSelectElement>('layer-blend');
     blend.value = layer.blendMode;
     blend.disabled = !layer.parent;
-    element('transform-fields').hidden = editor.activeTool.id !== 'transform' || !layer.parent;
+    element('transform-fields').hidden = editor.activeTool.id !== 'transform' || !layer.parent || editor.image.selectedLayers.length > 1;
     this.updateTransformFields();
     input('brush-color').value = editor.primaryColor;
     input('secondary-color').value = editor.secondaryColor;
@@ -163,7 +168,7 @@ export class EditorView {
 
   private renderTree(force = false): void {
     const { image } = this.editor;
-    const layers = image.allLayers();
+    const layers = image.allLayers().filter((layer) => !layer.isSelection || layer === image.selectionMask);
     const signature = JSON.stringify(layers.map((layer) => [layer.id, layer.name, layer.visible, layer.parent?.id, layer.filters.length, layer.isSelection]));
     if (force || signature !== this.treeSignature) {
       this.endLayerDrag();
@@ -173,6 +178,7 @@ export class EditorView {
       this.rows.clear();
       this.groupDropEnds.clear();
       const visit = (layer: Layer, depth: number) => {
+        if (layer.isSelection && layer !== image.selectionMask) return;
         const row = document.createElement('div');
         row.className = `layer-row${layer.isSelection ? ' selection-layer' : layer instanceof ImageLayer && layer.channels === 1 ? ' mask-layer' : ''}`;
         row.style.paddingLeft = `${8 + depth * 14}px`;
@@ -193,7 +199,8 @@ export class EditorView {
         title.className = 'layer-title';
         title.textContent = layer.name;
         choose.append(preview, title);
-        choose.onclick = () => { if (image.selected !== layer) this.editor.select(layer); };
+        choose.onclick = (event) => this.editor.select(layer, event.shiftKey ? 'range' : event.ctrlKey || event.metaKey ? 'toggle' : 'replace',
+          [...this.rows.keys()].map((id) => image.find(id)));
         choose.ondblclick = (event) => { event.preventDefault(); this.rename(layer); };
         row.append(visibility, choose);
         if (layer instanceof ImageLayer && layer.channels === 1) {
@@ -233,8 +240,9 @@ export class EditorView {
     for (const layer of layers) {
       const row = this.rows.get(layer.id);
       if (!row) continue;
-      row.classList.toggle('selected', layer === image.selected);
-      row.querySelector('.select-layer')?.setAttribute('aria-pressed', String(layer === image.selected));
+      row.classList.toggle('selected', image.isSelected(layer));
+      row.classList.toggle('active-layer', layer === image.selected);
+      row.querySelector('.select-layer')?.setAttribute('aria-pressed', String(image.isSelected(layer)));
       const visibility = row.querySelector<HTMLButtonElement>('.visibility')!;
       const isMask = layer instanceof ImageLayer && layer.channels === 1;
       const shown = isMask ? layer === editedMask : layer.visible;
@@ -248,9 +256,8 @@ export class EditorView {
       visibility.setAttribute('aria-label', action);
     }
     element('layer-count').textContent = String(layers.length - 1);
-    const index = image.selected.parent?.children.indexOf(image.selected) ?? -1;
-    element<HTMLButtonElement>('layer-up').disabled = !image.selected.parent || index === image.selected.parent.children.length - 1;
-    element<HTMLButtonElement>('layer-down').disabled = !image.selected.parent || index === 0;
+    element<HTMLButtonElement>('layer-up').disabled = !this.editor.actions.enabled('layer.up');
+    element<HTMLButtonElement>('layer-down').disabled = !this.editor.actions.enabled('layer.down');
   }
 
   private drawPreview(canvas: HTMLCanvasElement, layer: Layer): void {
@@ -307,7 +314,8 @@ export class EditorView {
 
   private endLayerDrag(): void {
     this.layerPointerDrag.cancel();
-    if (this.draggedLayer) this.rows.get(this.draggedLayer.id)?.classList.remove('layer-drag-source');
+    for (const layer of this.draggedLayers) this.rows.get(layer.id)?.classList.remove('layer-drag-source');
+    this.draggedLayers = [];
     this.draggedLayer = null;
     this.clearLayerDrop();
     element('layer-tree').classList.remove('layer-dragging', 'mask-dragging');
@@ -317,7 +325,7 @@ export class EditorView {
   private allowedLayerDrop(drop: LayerDrop | null): drop is LayerDrop {
     const source = this.draggedLayer;
     if (!source || !drop || !this.editor.image.allLayers().includes(source)) return false;
-    return canReferenceLayer(drop.kind === 'mask' ? drop.layer : drop.parent, source);
+    return drop.kind === 'mask' ? canReferenceLayer(drop.layer, source) : this.draggedLayers.every((layer) => canReferenceLayer(drop.parent, layer));
   }
 
   private showLayerDrop(node: HTMLElement, drop: LayerDrop): void {
@@ -366,13 +374,14 @@ export class EditorView {
     const source = this.draggedLayer;
     const candidate = this.layerDropAt(position);
     const allowed = candidate && this.allowedLayerDrop(candidate.drop);
+    const layers = this.draggedLayers;
     this.endLayerDrag();
     if (!source || !candidate || !allowed) return;
     const drop = candidate.drop;
     this.editor.run(() => {
       this.editor.finishGesture();
       if (drop.kind === 'mask') this.editor.setLayerMask(drop.layer, source);
-      else this.editor.image.move(source, drop.parent, drop.index);
+      else this.editor.image.commands.move(layers, drop.parent, drop.index);
     });
   }
 
@@ -380,10 +389,12 @@ export class EditorView {
     if (this.editor.halted || document.getElementById('app')?.inert) return false;
     this.editor.finishGesture();
     if (!row.isConnected || !layer.parent) return false;
+    if (!this.editor.image.isSelected(layer)) this.editor.select(layer);
     this.draggedLayer = layer;
-    row.classList.add('layer-drag-source');
+    this.draggedLayers = this.editor.image.selectedRoots;
+    for (const selected of this.draggedLayers) this.rows.get(selected.id)?.classList.add('layer-drag-source');
     element('layer-tree').classList.add('layer-dragging');
-    for (const [group, end] of this.groupDropEnds) end.classList.toggle('drop-unavailable', !canReferenceLayer(group, layer));
+    for (const [group, end] of this.groupDropEnds) end.classList.toggle('drop-unavailable', !this.draggedLayers.every((selected) => canReferenceLayer(group, selected)));
     return true;
   }
 
@@ -448,6 +459,8 @@ export class EditorView {
     stack.replaceChildren();
     const add = element<HTMLSelectElement>('add-filter');
     add.replaceChildren(new Option('+ Add filter', ''));
+    add.disabled = this.editor.image.selectedLayers.length > 1;
+    if (add.disabled) return;
     const groups = new Map<string, HTMLOptGroupElement>();
     for (const definition of this.editor.filters.list()) {
       const option = new Option(definition.label, definition.kind);
@@ -504,6 +517,7 @@ export class EditorView {
       }),
       commit,
       remove: () => this.editor.run(() => this.editor.removeFilter(layer, filter)),
+      apply: layer instanceof ImageLayer && layer.filters[0] === filter ? () => this.editor.actions.execute('filter.apply') : undefined,
     });
     this.bindFilterDrag(card, layer, filter);
     stack.append(card);

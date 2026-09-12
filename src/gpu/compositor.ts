@@ -1,3 +1,4 @@
+import type { GenerationFrame } from '../generation/lens';
 import { GenerationOverlay } from './generation-overlay';
 import type { GenerationVisual } from './generation-overlay';
 import { IDENTITY, inverse, maxScale, multiply, transformBounds, unionBounds } from '../model/geometry';
@@ -56,36 +57,37 @@ export class Compositor {
     this.generationOverlay = new GenerationOverlay(gpu, canvasFormat);
   }
 
-  private readonly capturePath = new Map<GroupLayer, Layer>();
-  private readonly generationPreviews = new Map<ImageLayer, Surface>();
+  private generationPreview: {
+    root: GroupLayer;
+    layer: ImageLayer;
+  } | null = null;
 
-  setGenerationPreview(layer: ImageLayer, surface: Surface | null): void {
-    if (surface) this.generationPreviews.set(layer, surface);
-    else this.generationPreviews.delete(layer);
-    layer.invalidate();
+  setGenerationPreview(root: GroupLayer, layer: ImageLayer | null): void {
+    const previous = this.generationPreview;
+    this.generationPreview = layer ? { root, layer } : null;
+    previous?.root.invalidate();
+    if (previous?.root !== root) root.invalidate();
   }
 
-  captureGenerationInput(target: ImageLayer, selection: ImageLayer | null): GenerationCapture {
-    let root: Layer = target;
-    while (root.parent) root = root.parent;
+  captureGenerationInput(root: GroupLayer, target: GenerationFrame, selection: ImageLayer | null): GenerationCapture {
     const frame = this.gpu.beginFrame();
-    const input = createSurface(this.gpu.device, 'Generation input', target.source.bounds);
+    const bounds = { x: 0, y: 0, width: target.width, height: target.height };
+    const input = createSurface(this.gpu.device, 'Generation input', bounds);
     let mask: Surface | null = null;
     try {
       this.prepare(root);
       this.encodePaint(frame);
-      for (let child: Layer = target; child.parent; child = child.parent) this.capturePath.set(child.parent, child);
-      const density = maxScale(inverse(target.worldTransform()));
+      const worldToPixels = inverse(target.transform);
+      const density = maxScale(worldToPixels);
       const output = this.evaluate(frame, root, IDENTITY, density).surface;
-      this.capturePath.clear();
       const pass = this.quads.begin(frame, input);
-      this.quads.draw(pass, frame, output, input, multiply(inverse(target.worldTransform()), root.worldTransform()), root.opacity);
+      this.quads.draw(pass, frame, output, input, multiply(worldToPixels, root.worldTransform()), root.visible ? root.opacity : 0);
       pass.end();
       if (selection) {
         const output = this.evaluate(frame, selection, selection.parent?.worldTransform() ?? IDENTITY, density).surface;
-        mask = createSurface(this.gpu.device, 'Generation selection', target.source.bounds);
+        mask = createSurface(this.gpu.device, 'Generation selection', bounds);
         const pass = this.quads.begin(frame, mask);
-        this.quads.draw(pass, frame, output, mask, multiply(inverse(target.worldTransform()), selection.worldTransform()));
+        this.quads.draw(pass, frame, output, mask, multiply(worldToPixels, selection.worldTransform()));
         pass.end();
       }
       frame.submit();
@@ -96,7 +98,94 @@ export class Compositor {
       mask?.texture.destroy();
       frame.release();
       throw error;
-    } finally { this.capturePath.clear(); }
+    }
+  }
+
+  /** Bake selected branches in their common parent's coordinates, retaining partial ancestor effects. */
+  captureLayers(layers: readonly Layer[], parent: GroupLayer): {
+    surface: Surface;
+    transform: Matrix;
+  } {
+    const frame = this.gpu.beginFrame();
+    const selected = new Set(layers);
+    const included = new Set<Layer>(layers);
+    for (const layer of layers) for (let ancestor = layer.parent; ancestor && ancestor !== parent; ancestor = ancestor.parent) included.add(ancestor);
+    const parentInverse = inverse(parent.worldTransform());
+    let density = 1;
+    const measure = (layer: Layer) => {
+      if (layer instanceof ImageLayer) density = Math.max(density, maxScale(inverse(multiply(parentInverse, layer.worldTransform()))));
+      else if (layer instanceof GroupLayer) layer.children.filter((child) => child.visibleInStack).forEach(measure);
+    };
+    layers.forEach(measure);
+    const pixelsPerUnit = density * maxScale(parentInverse);
+    let result: Surface | null = null;
+    const temporary = (label: string, bounds: Rect, scale: number): Surface => {
+      const surface = createSurface(this.gpu.device, label, bounds, scale);
+      frame.retire(surface.texture);
+      return surface;
+    };
+    try {
+      this.prepare(parent);
+      this.encodePaint(frame);
+      const render = (group: GroupLayer, applyFilters: boolean): Surface => {
+        const children: EvaluatedChild[] = [];
+        for (const child of group.children) {
+          if (!included.has(child) || !child.visibleInStack || child.opacity === 0) continue;
+          const surface = selected.has(child) ? this.evaluate(frame, child, group.worldTransform(), pixelsPerUnit).surface :
+            child instanceof GroupLayer ? render(child, true) : null;
+          if (surface) children.push({ layer: child, surface });
+        }
+        const world = group.worldTransform();
+        const scale = density * maxScale(multiply(parentInverse, world));
+        const bounds = unionBounds(children.map((child) => transformBounds(child.layer.transform, child.surface.bounds)));
+        let content = applyFilters ? temporary('Merge group contents', bounds, scale) : createSurface(this.gpu.device, 'Merged layers', bounds, scale);
+        if (!applyFilters) result = content;
+        const pass = this.quads.begin(frame, content);
+        for (const child of children) {
+          const magnified = maxScale(child.layer.transform) * content.scale > child.surface.scale;
+          this.quads.draw(pass, frame, child.surface, content, child.layer.transform, child.layer.opacity, child.layer.blendMode, false, magnified);
+        }
+        pass.end();
+        if (applyFilters) for (const filter of group.filters) {
+          if (!filter.enabled) continue;
+          const masks = new Map<string, Layer>();
+          for (const id of filter.dependencies()) {
+            const dependency = this.index.get(id);
+            if (!dependency) continue;
+            this.evaluate(frame, dependency, dependency.parent?.worldTransform() ?? IDENTITY, pixelsPerUnit);
+            masks.set(id, dependency);
+          }
+          const original = content;
+          content = filter.render({
+            gpu: this.gpu, frame, quads: this.quads, channels: 4,
+            surface: (key, rect, rasterScale) => temporary('Merge ' + key, rect, rasterScale),
+            layer: (id) => {
+              const mask = masks.get(id);
+              return mask?.output ? { surface: mask.output, transform: multiply(inverse(mask.worldTransform()), world) } : null;
+            },
+          }, original);
+          if (filter.mix < 1) {
+            const bounds = filter.mix === 0 ? original.bounds : unionBounds([original.bounds, content.bounds]);
+            const mixed = temporary('Merge filter mix', bounds, original.scale);
+            this.mixer.encode(frame, original, content, mixed, 1 - filter.mix);
+            content = mixed;
+          }
+        }
+        return content;
+      };
+      const output = render(parent, false);
+      frame.submit();
+      this.operations.clear();
+      return {
+        surface: { ...output, bounds: { x: 0, y: 0, width: output.texture.width, height: output.texture.height }, scale: 1 },
+        transform: [1 / output.scale, 0, 0, 1 / output.scale, output.bounds.x, output.bounds.y],
+      };
+    } catch (error) {
+      (result as Surface | null)?.texture.destroy();
+      for (const cache of this.caches.values()) cache.revision = -1;
+      frame.release();
+      throw error;
+    }
   }
 
   private prepare(layer: Layer): void {
@@ -185,7 +274,8 @@ export class Compositor {
 
   release(layer: Layer): void {
     if (layer instanceof GroupLayer) for (const child of layer.children) this.release(child);
-    if (layer instanceof ImageLayer) { this.operations.delete(layer); this.generationPreviews.delete(layer); layer.sourceTexture.destroy(); }
+    if (layer === this.generationPreview?.layer || layer === this.generationPreview?.root) this.generationPreview = null;
+    if (layer instanceof ImageLayer) { this.operations.delete(layer); layer.sourceTexture.destroy(); }
     const cache = this.caches.get(layer);
     if (cache) for (const surface of cache.surfaces.values()) surface.texture.destroy();
     this.caches.delete(layer);
@@ -204,10 +294,10 @@ export class Compositor {
     const children: EvaluatedChild[] = [];
     let childrenChanged = false;
     if (layer instanceof GroupLayer) {
-      const cutoff = this.capturePath.get(layer);
-      const childrenToRender = cutoff ? layer.children.slice(0, layer.children.indexOf(cutoff) + 1) : layer.children;
+      const preview = this.generationPreview?.root === layer ? this.generationPreview.layer : null;
+      const childrenToRender = preview ? [...layer.children, preview] : layer.children;
       for (const child of childrenToRender) {
-        if (child !== cutoff && (!child.visibleInStack || child.opacity === 0)) continue;
+        if (!child.visibleInStack || child.opacity === 0) continue;
         const evaluated = this.evaluate(frame, child, world, pixelsPerUnit);
         children.push({ layer: child, surface: evaluated.surface });
         childrenChanged ||= evaluated.changed;
@@ -259,7 +349,7 @@ export class Compositor {
     };
     let content: Surface;
     if (layer instanceof ImageLayer) {
-      content = this.generationPreviews.get(layer) ?? layer.source;
+      content = layer.source;
       if (layer.channels === 1 && layer.filters.length > 0) {
         const expanded = surface('mask-input', content.bounds, 1);
         this.quads.copy(frame, content, expanded);

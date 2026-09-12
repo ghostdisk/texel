@@ -1,25 +1,28 @@
 import type { Editor } from '../editor';
-import { ImageLayer } from '../model/layers';
+import { GroupLayer, ImageLayer } from '../model/layers';
+import { inverse, multiply } from '../model/geometry';
+import type { Matrix } from '../model/geometry';
 import type { Surface } from '../gpu/surface';
 import type { GenerationVisual } from '../gpu/generation-overlay';
 import { GenerationBlend } from '../gpu/generation-blend';
+import { GenerationMask } from '../gpu/generation-mask';
 import { importImage } from '../gpu/images';
 import { UndoOperation } from '../history/undo';
 import { GenerationProviders } from './provider';
 import type { GenerationModel, GenerationProgress } from './provider';
 import { LocalGenerationProvider } from './local-provider';
+import { GenerationLens } from './lens';
+import type { GenerationFrame } from './lens';
 
 interface RunningGeneration {
   id: string;
   documentId: string;
-  layer: ImageLayer;
-  source: Surface;
-  revision: number;
-  world: string;
-  before: string;
-  snapshots: Map<string, Surface>;
+  root: GroupLayer;
+  lens: GenerationLens;
+  frame: GenerationFrame;
+  input: Surface | null;
   mask: Surface | null;
-  preview: Surface | null;
+  preview: ImageLayer | null;
   controller: AbortController;
   finishing: boolean;
   pendingPreview: Blob | null;
@@ -36,55 +39,92 @@ export class ImageGeneration {
   guidance = 6;
   strength = 1;
   seed = -1;
+  scale = 1;
+  feather = 0;
+  lens: GenerationLens;
   progress: GenerationProgress = { phase: 'Connecting local backend', step: 0, steps: 0 };
   error = '';
   previewUrl = '';
   onChange?: () => void;
   private running: RunningGeneration | null = null;
   private readonly blend: GenerationBlend;
+  private readonly masks: GenerationMask;
 
   constructor(private readonly editor: Editor) {
     this.providers.register(new LocalGenerationProvider());
     this.blend = new GenerationBlend(editor.gpu);
+    this.masks = new GenerationMask(editor.gpu);
+    this.lens = new GenerationLens(editor.image.width, editor.image.height, () => this.notify());
   }
 
   get busy(): boolean { return !!this.running; }
+  get displayLens(): GenerationLens { return this.running?.lens ?? this.lens; }
+  get frame(): GenerationFrame { return this.running?.frame ?? this.lens.frame(this.scale); }
   get visual(): GenerationVisual | null {
     const run = this.running;
-    return run && !run.controller.signal.aborted ? { layer: run.layer, mask: run.mask } : null;
+    return run?.input && !run.controller.signal.aborted ? { frame: run.frame, mask: run.mask, reference: run.input } : null;
   }
-  get canGenerate(): boolean {
-    const layer = this.editor.image.selected;
-    return !this.busy && !!this.model && !!this.prompt.trim() && layer instanceof ImageLayer && layer.channels === 4;
+  get sizeError(): string {
+    const { width, height } = this.frame;
+    const limit = this.model.startsWith('local/') ? 2048 : this.editor.gpu.device.limits.maxTextureDimension2D;
+    return !Number.isFinite(width) || !Number.isFinite(height) || width > limit || height > limit ?
+      'Generation is limited to ' + limit + ' px per side. Reduce Scale or resize the lens.' : '';
   }
+  get canGenerate(): boolean { return !this.busy && !!this.model && !!this.prompt.trim() && !this.sizeError; }
 
   private notify(): void { this.onChange?.(); this.editor.changed(); }
+
+  resetLens(width: number, height: number): void {
+    this.lens = new GenerationLens(width, height, () => this.notify());
+  }
+
+  fitLens(): void {
+    if (this.busy) return;
+    this.editor.finishGesture();
+    const before = [...this.lens.transform] as unknown as Matrix;
+    this.lens.fit(this.editor.image.width, this.editor.image.height);
+    this.recordLensTransform(before);
+  }
+
+  editLens(edit: (lens: GenerationLens) => void): void {
+    if (this.busy) return;
+    const before = [...this.lens.transform] as unknown as Matrix;
+    edit(this.lens);
+    this.recordLensTransform(before);
+  }
+
+  recordLensTransform(before: Matrix): void {
+    const after = this.lens.transform;
+    if (before.every((value, index) => value === after[index])) return;
+    this.editor.history.push(new UndoOperation(
+      'Transform generation lens',
+      { type: 'tool', targetId: 'generation', action: 'lens-transform', data: { transform: [...before] } },
+      { type: 'tool', targetId: 'generation', action: 'lens-transform', data: { transform: [...after] } },
+    ));
+  }
 
   async refreshModels(): Promise<void> {
     try {
       this.error = '';
       this.models = await this.providers.models();
       if (!this.models.some((model) => model.id === this.model)) this.model = this.models[0]?.id ?? '';
-      this.progress = { phase: this.models.length ? 'Ready' : 'No local models found', step: 0, steps: 0 };
+      if (!this.busy) this.progress = { phase: this.models.length ? 'Ready' : 'No local models found', step: 0, steps: 0 };
     } catch (error) {
       this.error = error instanceof Error ? error.message : String(error);
-      this.progress = { phase: 'Backend unavailable', step: 0, steps: 0 };
+      if (!this.busy) this.progress = { phase: 'Backend unavailable', step: 0, steps: 0 };
     }
     this.notify();
   }
 
   private valid(run: RunningGeneration): boolean {
-    return this.running === run && !run.controller.signal.aborted && this.editor.image.id === run.documentId &&
-      this.editor.image.allLayers().includes(run.layer) && run.layer.source === run.source &&
-      run.layer.revision === run.revision && JSON.stringify(run.layer.worldTransform()) === run.world;
+    return this.running === run && !run.controller.signal.aborted && this.editor.image.id === run.documentId && this.editor.image.root === run.root;
   }
 
   validate(): void { if (this.running && !this.running.controller.signal.aborted && !this.valid(this.running)) this.cancel(); }
 
   private clearPreview(run: RunningGeneration): void {
-    this.editor.compositor.setGenerationPreview(run.layer, null);
-    run.revision = run.layer.revision;
-    run.preview?.texture.destroy();
+    this.editor.compositor.setGenerationPreview(run.root, null);
+    if (run.preview) this.editor.compositor.release(run.preview);
     run.preview = null;
   }
 
@@ -115,12 +155,11 @@ export class ImageGeneration {
         const imported = await importImage(this.editor.gpu, this.editor.compositor.quads, 'Generation preview', blob);
         try {
           if (!this.valid(run) || run.finishing) continue;
-          const output = this.blend.apply(run.snapshots.get(run.before)!, imported.source, run.mask);
-          const previous = run.preview;
-          this.editor.compositor.setGenerationPreview(run.layer, output);
-          run.preview = output;
-          run.revision = run.layer.revision;
-          previous?.texture.destroy();
+          const output = this.blend.apply(imported.source, run.frame, run.mask);
+          if (run.preview) run.preview.replaceSource(output);
+          else run.preview = new ImageLayer('Generation preview', output);
+          run.preview.setTransform(multiply(inverse(run.root.worldTransform()), run.frame.transform));
+          this.editor.compositor.setGenerationPreview(run.root, run.preview);
           this.editor.requestRender();
         } finally { imported.sourceTexture.destroy(); }
       }
@@ -132,12 +171,9 @@ export class ImageGeneration {
   async generate(): Promise<void> {
     if (!this.canGenerate) return;
     this.editor.finishGesture();
-    const layer = this.editor.image.selected as ImageLayer;
-    const snapshots = new Map<string, Surface>();
-    const before = this.editor.image.capturePixels(layer, snapshots);
     const run: RunningGeneration = {
-      id: crypto.randomUUID(), documentId: this.editor.image.id, layer, source: layer.source, revision: layer.revision,
-      world: JSON.stringify(layer.worldTransform()), before, snapshots, mask: null, preview: null,
+      id: crypto.randomUUID(), documentId: this.editor.image.id, root: this.editor.image.root,
+      lens: this.lens.snapshot(), frame: this.lens.frame(this.scale), input: null, mask: null, preview: null,
       controller: new AbortController(), finishing: false, pendingPreview: null, previewReading: false,
     };
     this.running = run;
@@ -146,21 +182,19 @@ export class ImageGeneration {
     if (this.previewUrl) URL.revokeObjectURL(this.previewUrl);
     this.previewUrl = '';
     this.notify();
-    let committed = false;
     try {
-      const capture = this.editor.compositor.captureGenerationInput(layer, this.editor.image.selectionMask);
+      const capture = this.editor.compositor.captureGenerationInput(run.root, run.frame, this.editor.image.selectionMask);
+      run.input = capture.input;
       run.mask = capture.mask;
-      let input: Uint8Array<ArrayBuffer>;
-      let mask: Uint8Array<ArrayBuffer> | null;
-      try {
-        [input, mask] = await Promise.all([
-          this.editor.readback.rgba(capture.input), capture.mask ? this.editor.readback.rgba(capture.mask, true) : Promise.resolve(null),
-        ]);
-      } finally { capture.input.texture.destroy(); }
+      const feathered = this.masks.create(run.mask, run.frame, this.feather, run.input);
+      if (feathered !== run.mask) { run.mask?.texture.destroy(); run.mask = feathered; }
+      const [input, mask] = await Promise.all([
+        this.editor.readback.rgba(run.input), run.mask ? this.editor.readback.rgba(run.mask, true) : Promise.resolve(null),
+      ]);
       if (!this.valid(run)) throw new DOMException('Generation cancelled.', 'AbortError');
-      if (mask && !mask.some((value, index) => index % 4 === 0 && value > 0)) throw new Error('The selection does not cover this layer.');
+      if (mask && !mask.some((value, index) => index % 4 === 0 && value > 0)) throw new Error('The selection does not cover the generation lens.');
       const result = await this.providers.provider(this.model).generate({
-        id: run.id, model: this.model, prompt: this.prompt, negativePrompt: this.negativePrompt, width: layer.width, height: layer.height,
+        id: run.id, model: this.model, prompt: this.prompt, negativePrompt: this.negativePrompt, width: run.frame.width, height: run.frame.height,
         steps: this.steps, guidance: this.guidance, strength: this.strength, seed: this.seed, input, mask,
       }, {
         progress: (progress) => { if (this.valid(run)) { this.progress = progress; this.onChange?.(); } },
@@ -176,21 +210,17 @@ export class ImageGeneration {
       const imported = await importImage(this.editor.gpu, this.editor.compositor.quads, 'Generated image', result);
       try {
         if (!this.valid(run)) throw new DOMException('Generation cancelled.', 'AbortError');
-        const output = this.blend.apply(snapshots.get(before)!, imported.source, run.mask);
-        const after = crypto.randomUUID();
-        snapshots.set(after, output);
-        this.clearPreview(run);
-        layer.restorePixels(this.editor.gpu, output);
-        this.running = null;
-        this.editor.history.push(new UndoOperation(
-          'Generate image',
-          { type: 'layer', targetId: layer.id, action: 'pixels', data: { snapshotId: before } },
-          { type: 'layer', targetId: layer.id, action: 'pixels', data: { snapshotId: after } },
-          snapshots,
-        ));
-        committed = true;
+        const output = this.blend.apply(imported.source, run.frame, run.mask);
+        const layer = new ImageLayer('Generated image', output);
+        try {
+          layer.setTransform(multiply(inverse(run.root.worldTransform()), run.frame.transform));
+          this.clearPreview(run);
+          this.running = null;
+          this.editor.image.add(layer, run.root, run.root.children.length, true, 'Generate image');
+        } catch (error) { if (!layer.parent) this.editor.compositor.release(layer); throw error; }
         this.showPreview(result);
-        this.progress = { phase: 'Complete', step: this.steps, steps: this.steps };
+        const steps = this.progress.steps || this.steps;
+        this.progress = { phase: 'Complete', step: steps, steps };
       } finally { imported.sourceTexture.destroy(); }
     } catch (error) {
       const cancelled = run.controller.signal.aborted || (error instanceof DOMException && error.name === 'AbortError');
@@ -200,7 +230,7 @@ export class ImageGeneration {
       run.pendingPreview = null;
       if (this.running === run) { this.clearPreview(run); this.running = null; }
       run.mask?.texture.destroy();
-      if (!committed) for (const snapshot of snapshots.values()) snapshot.texture.destroy();
+      run.input?.texture.destroy();
       this.notify();
     }
   }

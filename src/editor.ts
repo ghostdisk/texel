@@ -89,6 +89,7 @@ export class Editor {
   private context: GPUCanvasContext;
   private lastMenus = '';
   private reframing = false;
+  private selectionCheck = 0;
 
   constructor(
     readonly gpu: Gpu,
@@ -129,7 +130,16 @@ export class Editor {
     this.tools.set('generation', new GenerationTool(this));
     this.image.onInvalidated = () => this.requestRender();
     this.image.onChange = () => this.changed();
-    this.history.onChange = () => { this.pickGeneration++; this.queuePreviews(); this.changed(); };
+    this.history.onChange = (operation, direction) => {
+      this.pickGeneration++;
+      this.queuePreviews();
+      this.changed();
+      const selection = this.image.selectionLayer;
+      const payload = operation?.payload(direction ?? 'redo');
+      if (selection && payload && (payload.targetId === selection.id || payload.data.layerId === selection.id)) {
+        void this.checkSelectionEmpty(selection).catch(this.report);
+      }
+    };
     this.viewport.onChange = () => { this.refreshHover(); this.requestRender(); };
     this.actions.beforeExecute = () => this.finishGesture();
     this.actions.blocked = () => this.halted || this.reframing;
@@ -166,8 +176,8 @@ export class Editor {
   }
 
   get paintTarget(): ImageLayer | null {
-    if (this.selectionMode) return this.image.selectionMask;
-    return this.image.selected instanceof ImageLayer ? this.image.selected : null;
+    if (this.selectionMode) return this.image.selectionLayer;
+    return this.image.selectedLayers.length === 1 && this.image.selected instanceof ImageLayer ? this.image.selected : null;
   }
 
   drawingColor(layer: ImageLayer, opacity: number): readonly [number, number, number, number] {
@@ -177,7 +187,7 @@ export class Editor {
       return value <= 0.04045 ? value / 12.92 : ((value + 0.055) / 1.055) ** 2.4;
     });
     if (layer.channels === 1) {
-      const value = rgb[0] * 0.2126 + rgb[1] * 0.7152 + rgb[2] * 0.0722;
+      const value = this.maskEditLayer === layer ? rgb[0] * 0.2126 + rgb[1] * 0.7152 + rgb[2] * 0.0722 : 1;
       return [value, value, value, opacity];
     }
     return [rgb[0], rgb[1], rgb[2], opacity];
@@ -212,6 +222,21 @@ export class Editor {
       }
       this.changed();
     }
+  }
+
+  private async checkSelectionEmpty(selection: ImageLayer): Promise<void> {
+    const check = ++this.selectionCheck;
+    const documentId = this.image.id;
+    const revision = selection.revision;
+    const source = selection.source;
+    this.flushPaint();
+    const empty = await this.readback.isEmpty(this.compositor.resolve(selection, this.rasterDensity));
+    if (!empty || check !== this.selectionCheck || this.image.id !== documentId || this.image.selectionLayer !== selection ||
+      selection.revision !== revision || selection.source !== source || this.interacting) return;
+    this.setSelectionMode(false);
+    this.image.deactivateEmptySelection(selection);
+    if (this.maskEditLayer === selection) this.setMaskEditLayer(null);
+    this.changed();
   }
 
   private deselect(): void {
@@ -309,14 +334,14 @@ export class Editor {
       { ...pointer, world: this.viewport.screenToWorld(pointer.screen) } : null);
   }
 
-  async pickLayer(point: Point): Promise<void> {
+  async pickLayer(point: Point, additive = false): Promise<void> {
     const generation = ++this.pickGeneration;
     const documentId = this.image.id;
     const selected = this.image.selected;
     this.flushPaint();
     const layer = await this.picker.layer(this.image.root, point, this.image.frame, this.rasterDensity, this.editedMask);
     if (!this.halted && generation === this.pickGeneration && this.image.id === documentId && this.activeTool.id === 'transform' &&
-      this.image.selected === selected && layer && this.image.allLayers().includes(layer)) this.select(layer);
+      this.image.selected === selected && layer && this.image.allLayers().includes(layer)) this.select(layer, additive ? 'toggle' : 'replace');
   }
 
   setAltHeld(held: boolean): void {
@@ -363,7 +388,8 @@ export class Editor {
           this.image.selectionMask, this.selectionMode, this.editedMask, this.generation.visual,
         );
         this.overlay.replaceChildren();
-        (this.tools.get('transform') as TransformTool).drawOverlay(this.activeTool.id === 'transform');
+        if (this.activeTool.id === 'generation') this.activeTool.drawOverlay();
+        else (this.tools.get('transform') as TransformTool).drawOverlay(this.activeTool.id === 'transform');
         if (!this.interacting) {
           if (this.previewsReady) { this.previewsReady = false; this.onPreviews?.(); }
           if (this.previewsRequested && !this.previewsRunning) void this.refreshPreviews().catch(this.report);
@@ -393,18 +419,21 @@ export class Editor {
     this.selectionMode = false;
     this.selectionReturnId = null;
     this.setMaskEditLayer(null);
+    this.generation.resetLens(width, height);
     this.image.reset(width, height);
     this.queuePreviews();
     this.viewport.fit(this.image.frame);
   }
 
-  select(layer: Layer): void {
+  select(layer: Layer, mode: 'replace' | 'toggle' | 'range' = 'replace', order?: Layer[]): void {
     this.pickGeneration++;
     this.finishGesture();
     if (layer.isSelection && !this.image.selected.isSelection) this.selectionReturnId = this.image.selected.id;
-    this.selectionMode = layer.isSelection;
-    if (!layer.isSelection) this.selectionReturnId = layer.id;
-    this.image.select(layer);
+    this.image.select(layer, mode, order);
+    this.selectionMode = this.image.selected.isSelection;
+    if (!this.selectionMode) this.selectionReturnId = this.image.selected.id;
+    if (this.image.selectedLayers.length > 1) this.setMaskEditLayer(null);
+    this.changed();
   }
 
   switchTool(id: string): void {
@@ -414,6 +443,7 @@ export class Editor {
     this.activeTool.hover(null);
     this.pickGeneration++;
     this.baseTool = tool;
+    if (tool.id === 'generation') this.setMaskEditLayer(null);
     this.panMode = false;
     this.eraseMode = false;
     this.canvas.style.cursor = this.panHeld ? 'grab' : this.activeTool.cursor;
@@ -481,6 +511,21 @@ export class Editor {
       label,
       { type: 'layer', targetId: layer.id, action: 'properties', data: { properties: before } },
       { type: 'layer', targetId: layer.id, action: 'properties', data: { properties: after } },
+    ));
+  }
+
+  recordLayerChanges(layers: readonly Layer[], before: readonly LayerProperties[], label: string): void {
+    const after = layers.map((layer) => layer.properties());
+    if (JSON.stringify(before) === JSON.stringify(after)) return;
+    const selection = this.image.selectionState();
+    this.history.push(new UndoOperation(
+      label,
+      { type: 'image', targetId: this.image.id, action: 'layer-properties', data: {
+        layers: layers.map((layer, index) => ({ layerId: layer.id, properties: before[index] })), selection,
+      } },
+      { type: 'image', targetId: this.image.id, action: 'layer-properties', data: {
+        layers: layers.map((layer, index) => ({ layerId: layer.id, properties: after[index] })), selection,
+      } },
     ));
   }
 
@@ -594,9 +639,8 @@ export class Editor {
     } catch (error) { if (!layer.parent) this.compositor.release(layer); throw error; }
   }
 
-  private async reframeSelected(mode: ReframeMode): Promise<void> {
-    const layer = this.image.selected;
-    if (!(layer instanceof ImageLayer) || this.reframing) return;
+  private async editPixels(edit: () => void | Promise<void>): Promise<void> {
+    if (this.reframing) return;
     this.finishGesture();
     const app = document.getElementById('app');
     const previousInert = app?.inert ?? false;
@@ -604,7 +648,7 @@ export class Editor {
     if (app) { app.inert = true; app.setAttribute('aria-busy', 'true'); }
     try {
       this.changed();
-      await this.image.reframe(layer, mode);
+      await edit();
     } finally {
       this.reframing = false;
       if (app) { app.inert = previousInert || this.halted; app.removeAttribute('aria-busy'); }
@@ -625,20 +669,24 @@ export class Editor {
     register({ id: 'group.new', label: 'New group', menu: 'Layer', execute: () => this.image.add(new GroupLayer('Group')) });
     register({ id: 'history.undo', label: () => `Undo${this.history.canUndo ? ` ${this.history.undoLabel}` : ''}`, menu: 'Edit', enabled: () => this.history.canUndo, execute: () => this.history.undo() });
     register({ id: 'history.redo', label: () => `Redo${this.history.canRedo ? ` ${this.history.redoLabel}` : ''}`, menu: 'Edit', enabled: () => this.history.canRedo, execute: () => this.history.redo() });
-    register({ id: 'layer.duplicate', label: 'Duplicate layer', menu: 'Layer', enabled: () => !!this.image.selected.parent, execute: () => this.image.duplicateSelected() });
-    register({ id: 'layer.delete', label: 'Delete layer', menu: 'Layer', enabled: () => !!this.image.selected.parent, execute: () => this.image.deleteSelected() });
-    register({ id: 'layer.rename', label: 'Rename layer', menu: 'Layer', execute: () => this.onRename?.() });
+    register({
+      id: 'layer.duplicate', menu: 'Layer',
+      label: () => this.image.selectedLayers.length === 1 && this.image.selected instanceof ImageLayer && this.image.selected.channels === 4 && this.image.selectionMask ?
+        'Layer via copy' : this.image.selectedRoots.length > 1 ? 'Duplicate layers' : 'Duplicate layer',
+      enabled: () => this.image.selectedRoots.length > 0, execute: () => this.editPixels(() => this.image.duplicateSelected()),
+    });
+    register({ id: 'layer.group', label: 'Group layers', menu: 'Layer', enabled: () => this.image.selectedRoots.length > 0, execute: () => this.image.groupSelected() });
+    register({
+      id: 'layer.merge', menu: 'Layer',
+      label: () => this.image.selectedRoots.length > 1 ? 'Merge layers' : this.image.selected instanceof GroupLayer ? 'Merge group' : 'Merge down',
+      enabled: () => this.image.commands.mergeTargets.length > 0, execute: () => this.image.mergeSelected(),
+    });
+    register({ id: 'layer.delete', label: () => this.image.selectedRoots.length > 1 ? 'Delete layers' : 'Delete layer', menu: 'Layer', enabled: () => !!this.image.selected.parent, execute: () => this.image.deleteSelected() });
+    register({ id: 'layer.rename', label: 'Rename layer', menu: 'Layer', enabled: () => this.image.selectedLayers.length === 1, execute: () => this.onRename?.() });
     for (const [direction, offset] of [['up', 1], ['down', -1]] as const) register({
       id: `layer.${direction}`, label: `Move layer ${direction}`, menu: 'Layer',
-      enabled: () => {
-        const layer = this.image.selected;
-        const index = layer.parent?.children.indexOf(layer) ?? -1;
-        return !!layer.parent && index + offset >= 0 && index + offset < layer.parent.children.length;
-      },
-      execute: () => {
-        const layer = this.image.selected;
-        if (layer.parent) this.image.move(layer, layer.parent, layer.parent.children.indexOf(layer) + (offset > 0 ? 2 : -1));
-      },
+      enabled: () => this.image.commands.canStep(offset),
+      execute: () => this.image.commands.step(offset),
     });
     register({
       id: 'layer.visibility', menu: 'Layer',
@@ -657,15 +705,23 @@ export class Editor {
     });
     const reframe = (mode: ReframeMode, label: string) => register({
       id: `layer.reframe.${mode}`, label, menu: 'Layer', submenu: 'Reframe',
-      enabled: () => this.image.selected instanceof ImageLayer,
-      execute: () => this.reframeSelected(mode),
+      enabled: () => this.image.selectedLayers.length === 1 && this.image.selected instanceof ImageLayer,
+      execute: () => this.editPixels(() => this.image.reframe(this.image.selected as ImageLayer, mode)),
     });
     reframe('normalize', 'Normalize to Canvas');
     reframe('trim', 'Trim Transparent Borders');
     reframe('extend', 'Extend to Canvas');
     for (const filter of this.filters.list()) register({
       id: `filter.${filter.kind}`, label: filter.label, menu: 'Filter', submenu: filter.group,
-      execute: () => this.addFilter(filter.kind),
+      enabled: () => this.image.selectedLayers.length === 1, execute: () => this.addFilter(filter.kind),
+    });
+    register({
+      id: 'filter.apply', label: 'Apply first filter', menu: 'Filter',
+      enabled: () => this.image.selectedLayers.length === 1 && this.image.selected instanceof ImageLayer && this.image.selected.filters.length > 0,
+      execute: () => {
+        const layer = this.image.selected;
+        if (layer instanceof ImageLayer && layer.filters[0]) this.image.commands.applyFilter(layer, layer.filters[0]);
+      },
     });
     register({ id: 'selection.mode', label: () => this.selectionMode ? 'Finish editing selection' : 'Edit selection', menu: 'Select', execute: () => this.setSelectionMode(!this.selectionMode) });
     register({ id: 'selection.all', label: 'Select all', menu: 'Select', execute: () => {
@@ -696,6 +752,7 @@ export class Editor {
       id: 'generation.cancel', label: 'Cancel generation', menu: 'Tools', submenu: 'Generation',
       enabled: () => this.generation.busy, execute: () => this.generation.cancel(),
     });
+    register({ id: 'generation.fit', label: 'Fit generation lens to canvas', menu: 'Tools', submenu: 'Generation', enabled: () => !this.generation.busy, execute: () => this.generation.fitLens() });
     register({ id: 'generation.models', label: 'Refresh models', menu: 'Tools', submenu: 'Generation', execute: () => this.generation.refreshModels() });
     register({ id: 'tool.brush', label: 'Brush', menu: 'Tools', execute: () => this.switchTool('brush') });
     register({ id: 'tool.rectangle', label: 'Rectangle', menu: 'Tools', execute: () => this.switchTool('rectangle') });
@@ -733,6 +790,8 @@ export class Editor {
     this.actions.bind('Delete', 'layer.delete', { when: '!hasSelection' });
     this.actions.bind('Delete', 'selection.clear', { when: 'hasSelection' });
     this.actions.bind('Ctrl+J', 'layer.duplicate');
+    this.actions.bind('Ctrl+G', 'layer.group');
+    this.actions.bind('Ctrl+E', 'layer.merge');
     this.actions.bind('Ctrl+Shift+N', 'layer.reframe.normalize');
     this.actions.bind('F2', 'layer.rename');
     this.actions.bind('Space', 'view.pan', { hold: true });

@@ -15,7 +15,7 @@ Closing Electron stops the development server. `npm run build` followed by `npm 
 
 ## Local image generation
 
-Build the native backend with `npm run native:build`, then restart Electron. Press **G** to generate into the selected pixel layer with live previews, selection inpainting, cancellation, and undo. **Layer → New sized layer…** creates a separate layer at the desired resolution. See [native/README.md](native/README.md) for models, Clang/CMake setup, backend selection, and the provider protocol.
+Build the native backend with `npm run native:build`, then restart Electron. Press **G** to position, resize, and rotate a generation lens. Scale sets the output resolution independently of the lens; completion creates a new layer fitted to it. Generation supports live previews, selection inpainting, edge feathering, cancellation, and undo. **Layer → New sized layer…** creates a separate layer at the desired resolution. See [native/README.md](native/README.md) for models, Clang/CMake setup, backend selection, and the provider protocol.
 
 ## Navigation and tools
 
@@ -28,6 +28,12 @@ Build the native backend with `npm run native:build`, then restart Electron. Pre
 - Drag a layer near the top/bottom of a row to reorder it. Drop in the middle of a group to reparent it. Dropping on Document moves it into the root. Reparenting preserves placement in document coordinates and rejects cycles.
 - **Ctrl+Z** undoes; **Ctrl+Shift+Z** or **Ctrl+Y** redoes. Text input keeps its ordinary editing shortcuts.
 - File provides document/layer creation and native image import. Images can also be pasted or dropped. Filter is populated from registered filter classes and applies to the selected layer, including Document.
+
+## Selection painting
+
+**S** toggles selection painting. Outside mask edit mode, drawing paints white coverage regardless of the foreground color; erase paints black. Making a mask visible enters mask edit mode, where drawing uses the foreground color's linear brightness instead.
+
+After a committed selection edit, a GPU reduction checks whether its output is empty and reads back one four-byte flag. Empty selections deactivate automatically. The temporary source remains available to history, so undoing the edit restores the selection without an additional undo step.
 
 ## Layer reframing
 
@@ -106,7 +112,7 @@ The three color adjustments operate on unpremultiplied sRGB values, preserve alp
 
 ## Picking, previews, and filter controls
 
-Magnified layer composition and zoomed presentation use point sampling. The selected layer frame stays dimly visible with every tool; Move / transform adds resize and rotation handles.
+Magnified layer composition and zoomed presentation use point sampling. The selected layer frame stays dimly visible with editing tools; Move / transform adds resize and rotation handles. Generate shows its independent lens with the same controls.
 
 `GpuReadback` provides batched pixel samples, GPU histogram reduction, and thumbnail conversion. Ctrl-click picking traverses visible layers from front to back using sampled alpha, accumulated group opacity, and filtered group coverage. Visible group effects can select the group when no child covers the sample. The eyedropper uses the same sampling service and coalesces moves while a readback is in flight.
 

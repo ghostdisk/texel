@@ -11,6 +11,7 @@ import { GroupLayer, ImageLayer, Layer } from './layers';
 import type { LayerProperties } from './layers';
 import { IDENTITY, inverse, multiply, transformBounds, unionBounds } from './geometry';
 import type { Matrix, Rect } from './geometry';
+import { LayerCommands } from './layer-commands';
 
 export type ReframeMode = 'normalize' | 'trim' | 'extend';
 
@@ -29,7 +30,14 @@ export interface SerializedLayer extends JsonObject {
 export class ImageDocument implements UndoTarget {
   id: string = crypto.randomUUID();
   root = new GroupLayer('Document');
-  selected: Layer = this.root;
+  private activeLayer: Layer = this.root;
+  private selectedIds = new Set<string>([this.root.id]);
+  private selectionAnchor = this.root.id;
+  readonly commands: LayerCommands;
+  private inactiveSelection: {
+    layer: ImageLayer;
+    revision: number;
+  } | null = null;
   private canvasWidth = 1000;
   private canvasHeight = 750;
   private readonly reframer: LayerReframer;
@@ -45,6 +53,7 @@ export class ImageDocument implements UndoTarget {
   ) {
     this.root.onInvalidated = () => this.onInvalidated?.();
     this.reframer = new LayerReframer(gpu, compositor.quads);
+    this.commands = new LayerCommands(this, gpu, compositor, history);
   }
 
   /** Canonical pixel dimensions, fixed when the document is created. */
@@ -65,8 +74,18 @@ export class ImageDocument implements UndoTarget {
     return layer;
   }
 
-  get selectionMask(): ImageLayer | null {
+  get selectionLayer(): ImageLayer | null {
     return this.allLayers().find((layer): layer is ImageLayer => layer instanceof ImageLayer && layer.isSelection) ?? null;
+  }
+
+  get selectionMask(): ImageLayer | null {
+    const layer = this.selectionLayer;
+    return layer && this.inactiveSelection?.layer === layer && this.inactiveSelection.revision === layer.revision ? null : layer;
+  }
+
+  deactivateEmptySelection(layer: ImageLayer): void {
+    // Keep the temporary buffer so undoing the edit restores selection without a second history entry.
+    this.inactiveSelection = { layer, revision: layer.revision };
   }
 
   createPixelLayer(width = this.width, height = this.height): void {
@@ -86,7 +105,8 @@ export class ImageDocument implements UndoTarget {
   }
 
   ensureSelection(fill = false): ImageLayer {
-    const existing = this.selectionMask;
+    const existing = this.selectionLayer;
+    this.inactiveSelection = null;
     if (existing) { if (fill) this.fillSelection(existing); return existing; }
     const layer = createImageLayer(this.gpu, 'Selection', this.width, this.height, 1, Number(fill));
     layer.setSelection(true);
@@ -118,7 +138,52 @@ export class ImageDocument implements UndoTarget {
     }
   }
 
-  select(layer: Layer): void { this.selected = layer; this.onChange?.(); }
+  get selected(): Layer { return this.activeLayer; }
+  set selected(layer: Layer) { this.setSelected([layer], layer); }
+  get selectedLayers(): Layer[] { return this.allLayers().filter((layer) => this.selectedIds.has(layer.id)); }
+  isSelected(layer: Layer): boolean { return this.selectedIds.has(layer.id); }
+
+  /** Selected descendants move with their selected ancestor, exactly once. */
+  get selectedRoots(): Layer[] {
+    return this.selectedLayers.filter((layer) => {
+      if (!layer.parent) return false;
+      for (let parent: GroupLayer | null = layer.parent; parent; parent = parent.parent) if (this.isSelected(parent)) return false;
+      return true;
+    });
+  }
+
+  setSelected(layers: readonly Layer[], active = layers[layers.length - 1] ?? this.root): void {
+    const existing = new Set(this.allLayers());
+    const unique = [...new Set(layers)].filter((layer) => existing.has(layer));
+    const chosen = unique.length > 1 ? unique.filter((layer) => layer !== this.root && !layer.isSelection) : unique;
+    if (!chosen.length) chosen.push(this.root);
+    this.activeLayer = chosen.includes(active) ? active : chosen[chosen.length - 1];
+    this.selectedIds = new Set(chosen.map((layer) => layer.id));
+    this.selectionAnchor = this.activeLayer.id;
+  }
+
+  select(layer: Layer, mode: 'replace' | 'toggle' | 'range' = 'replace', order = this.allLayers()): void {
+    const anchor = this.selectionAnchor;
+    if (mode === 'range' && layer.parent && !layer.isSelection) {
+      const start = order.findIndex((item) => item.id === anchor);
+      const end = order.indexOf(layer);
+      this.setSelected(start < 0 || end < 0 ? [layer] : order.slice(Math.min(start, end), Math.max(start, end) + 1), layer);
+      this.selectionAnchor = anchor;
+    } else if (mode === 'toggle' && layer.parent && !layer.isSelection) {
+      const chosen = this.selectedLayers.filter((item) => item.parent && !item.isSelection);
+      if (this.isSelected(layer)) this.setSelected(chosen.filter((item) => item !== layer), this.selected === layer ? undefined : this.selected);
+      else this.setSelected([...chosen, layer], layer);
+    } else this.selected = layer;
+    this.onChange?.();
+  }
+
+  selectionState(): JsonObject { return { ids: this.selectedLayers.map((layer) => layer.id), active: this.selected.id }; }
+
+  restoreSelection(state: JsonObject): void {
+    const layers = this.allLayers();
+    const ids = state.ids as string[];
+    this.setSelected(layers.filter((layer) => ids.includes(layer.id)), layers.find((layer) => layer.id === state.active));
+  }
   destination(): GroupLayer { return this.selected instanceof GroupLayer ? this.selected : this.selected.parent ?? this.root; }
 
   reset(width: number, height: number): void {
@@ -141,7 +206,7 @@ export class ImageDocument implements UndoTarget {
     return this.captureSurface(layer.source, snapshots);
   }
 
-  private captureSurface(source: Surface, snapshots: Map<string, Surface>): string {
+  captureSurface(source: Surface, snapshots: Map<string, Surface>): string {
     const id = crypto.randomUUID();
     const snapshot = createSurface(this.gpu.device, 'Undo snapshot', source.bounds, source.scale, source.texture.format);
     try {
@@ -207,7 +272,7 @@ export class ImageDocument implements UndoTarget {
     this.history.push(operation);
   }
 
-  private serializeLayer(layer: Layer, snapshots: Map<string, Surface>): SerializedLayer {
+  serializeLayer(layer: Layer, snapshots: Map<string, Surface>): SerializedLayer {
     return {
       id: layer.id,
       kind: layer.kind,
@@ -221,7 +286,7 @@ export class ImageDocument implements UndoTarget {
     };
   }
 
-  private restoreLayer(data: SerializedLayer, snapshots: Map<string, Surface>, duplicates?: ReadonlyMap<string, string>): Layer {
+  restoreLayer(data: SerializedLayer, snapshots: Map<string, Surface>, duplicates?: ReadonlyMap<string, string>): Layer {
     const id = duplicates?.get(data.id) ?? data.id;
     let layer: Layer;
     if (data.kind === 'image') {
@@ -245,98 +310,57 @@ export class ImageDocument implements UndoTarget {
     } catch (error) { this.compositor.release(layer); throw error; }
   }
 
-  add(layer: Layer, parent = this.destination(), index = parent.children.length, selectAdded = true): void {
+  add(layer: Layer, parent = this.destination(), index = parent.children.length, selectAdded = true, label = layer instanceof GroupLayer ? 'Add group' : 'Add layer'): void {
     const snapshots = new Map<string, Surface>();
     try {
       const serialized = this.serializeLayer(layer, snapshots);
-      const previousSelection = this.selected.id;
+      const previousSelection = this.selectionState();
       parent.add(layer, index);
       if (selectAdded) this.selected = layer;
       this.history.push(new UndoOperation(
-        `Add ${layer instanceof GroupLayer ? 'group' : 'layer'}`,
+        label,
         { type: 'image', targetId: this.id, action: 'remove-layer', data: { layerId: layer.id, selection: previousSelection } },
-        { type: 'image', targetId: this.id, action: 'add-layer', data: { parentId: parent.id, index, layer: serialized, selection: this.selected.id } },
+        { type: 'image', targetId: this.id, action: 'add-layer', data: { parentId: parent.id, index, layer: serialized, selection: this.selectionState() } },
         snapshots,
       ));
     } catch (error) { for (const snapshot of snapshots.values()) snapshot.texture.destroy(); throw error; }
   }
 
-  deleteSelected(layer = this.selected): void {
-    const parent = layer.parent;
-    if (!parent) return;
-    const snapshots = new Map<string, Surface>();
-    const index = parent.children.indexOf(layer);
-    let serialized: SerializedLayer;
-    try { serialized = this.serializeLayer(layer, snapshots); }
-    catch (error) { for (const snapshot of snapshots.values()) snapshot.texture.destroy(); throw error; }
-    let nextSelection = this.selected;
-    for (let item: Layer | null = this.selected; item; item = item.parent) {
-      if (item === layer) { nextSelection = parent; break; }
-    }
-    const previousSelection = this.selected.id;
-    parent.remove(layer);
-    this.compositor.release(layer);
-    this.selected = nextSelection;
-    this.history.push(new UndoOperation(
-      'Delete layer',
-      { type: 'image', targetId: this.id, action: 'add-layer', data: { parentId: parent.id, index, layer: serialized, selection: previousSelection } },
-      { type: 'image', targetId: this.id, action: 'remove-layer', data: { layerId: layer.id, selection: nextSelection.id } },
-      snapshots,
-    ));
-  }
-
-  duplicateSelected(): void {
-    if (!this.selected.parent) return;
-    const original = this.selected;
-    const parent = original.parent!;
-    const snapshots = new Map<string, Surface>();
-    let duplicate: Layer | undefined;
-    try {
-      const serialized = this.serializeLayer(original, snapshots);
-      const ids = new Map<string, string>();
-      const allocate = (data: SerializedLayer) => { ids.set(data.id, crypto.randomUUID()); data.children.forEach(allocate); };
-      allocate(serialized);
-      duplicate = this.restoreLayer(serialized, snapshots, ids);
-      duplicate.name = `${original.name} copy`;
-      this.add(duplicate, parent, parent.children.indexOf(original) + 1);
-    } catch (error) { if (duplicate && !duplicate.parent) this.compositor.release(duplicate); throw error; }
-    finally { for (const snapshot of snapshots.values()) snapshot.texture.destroy(); }
-  }
+  deleteSelected(layer?: Layer): void { this.commands.delete(layer ? [layer] : this.selectedRoots); }
+  duplicateSelected(): Promise<void> { return this.commands.duplicate(); }
+  groupSelected(): void { this.commands.group(); }
+  mergeSelected(): void { this.commands.merge(); }
 
   move(layer: Layer, parent: GroupLayer, insertionIndex: number): void {
-    const oldParent = layer.parent;
-    if (!oldParent) return;
-    for (let ancestor: Layer | null = parent; ancestor; ancestor = ancestor.parent) if (ancestor === layer) return;
-    const oldIndex = oldParent.children.indexOf(layer);
-    const index = Math.max(0, Math.min(insertionIndex, parent.children.length)) - Number(oldParent === parent && oldIndex < insertionIndex);
-    if (oldParent === parent && index === oldIndex) return;
-    const before = { layerId: layer.id, parentId: oldParent.id, index: oldIndex, transform: [...layer.transform] };
-    const matrix = multiply(inverse(parent.worldTransform()), layer.worldTransform());
-    parent.add(layer, index);
-    layer.setTransform(matrix);
-    this.selected = layer;
-    this.history.push(new UndoOperation(
-      oldParent === parent ? 'Reorder layer' : 'Regroup layer',
-      { type: 'image', targetId: this.id, action: 'move-layer', data: before },
-      { type: 'image', targetId: this.id, action: 'move-layer', data: { layerId: layer.id, parentId: parent.id, index, transform: [...matrix] } },
-    ));
+    this.commands.move(this.isSelected(layer) && !layer.isSelection ? this.selectedRoots : [layer], parent, insertionIndex);
   }
 
   applyUndo(operation: UndoOperation, direction: UndoDirection): void {
     const payload = operation.payload(direction);
     if (payload.type !== 'image' || payload.targetId !== this.id) throw new Error('Undo operation belongs to a different image.');
     const data = payload.data;
-    if (payload.action === 'add-layer') {
+    if (payload.action === 'layer-properties') {
+      const entries = data.layers as {
+        layerId: string;
+        properties: LayerProperties;
+      }[];
+      for (const entry of entries) this.find(entry.layerId).setProperties(entry.properties);
+      this.restoreSelection(data.selection as JsonObject);
+    } else if (payload.action === 'layer-batch') {
+      this.commands.apply(operation, direction);
+    } else if (payload.action === 'add-layer') {
       const parent = this.find(String(data.parentId));
       if (!(parent instanceof GroupLayer)) throw new Error('Layer parent must be a group.');
       parent.add(this.restoreLayer(data.layer as SerializedLayer, operation.snapshots), Number(data.index));
-      this.selected = this.find(String(data.selection));
+      if (typeof data.selection === 'string') this.selected = this.find(data.selection);
+      else this.restoreSelection(data.selection as JsonObject);
     } else if (payload.action === 'remove-layer') {
       const layer = this.find(String(data.layerId));
       if (!layer.parent) throw new Error('Cannot remove the root group.');
       layer.parent.remove(layer);
       this.compositor.release(layer);
-      this.selected = this.find(String(data.selection));
+      if (typeof data.selection === 'string') this.selected = this.find(data.selection);
+      else this.restoreSelection(data.selection as JsonObject);
     } else if (payload.action === 'move-layer') {
       const layer = this.find(String(data.layerId));
       const parent = this.find(String(data.parentId));

@@ -1,3 +1,4 @@
+import emptyShader from '../shaders/image-empty.wgsl?raw';
 import exportShader from '../shaders/generation-export.wgsl?raw';
 import pixelShader from '../shaders/read-pixel.wgsl?raw';
 import thumbnailShader from '../shaders/thumbnail.wgsl?raw';
@@ -68,6 +69,29 @@ export class GpuReadback {
     } catch (error) { result.destroy(); readback.destroy(); frame.release(); throw error; }
     const data = new Float32Array(await this.read(readback));
     return requests.map((_, index): SampledColor => [data[index * 4], data[index * 4 + 1], data[index * 4 + 2], data[index * 4 + 3]]);
+  }
+
+  /** Reduce alpha (or a mask's single channel) to one four-byte occupancy flag. */
+  async isEmpty(source: Surface): Promise<boolean> {
+    const { device } = this.gpu;
+    const result = device.createBuffer({ size: 4, usage: GPUBufferUsage.STORAGE | GPUBufferUsage.COPY_SRC });
+    const readback = device.createBuffer({ size: 4, usage: GPUBufferUsage.COPY_DST | GPUBufferUsage.MAP_READ });
+    const frame = this.gpu.beginFrame();
+    try {
+      const pipeline = this.pipeline(emptyShader, 'Check image occupancy');
+      const pass = frame.encoder.beginComputePass();
+      pass.setPipeline(pipeline);
+      pass.setBindGroup(0, device.createBindGroup({ layout: pipeline.getBindGroupLayout(0), entries: [
+        { binding: 0, resource: source.view }, { binding: 1, resource: { buffer: result } },
+        { binding: 2, resource: frame.uniform([Number(isMaskSurface(source)), 0, 0, 0]) },
+      ] }));
+      pass.dispatchWorkgroups(Math.ceil(source.texture.width / 16), Math.ceil(source.texture.height / 16));
+      pass.end();
+      frame.encoder.copyBufferToBuffer(result, 0, readback, 0, 4);
+      frame.submit();
+    } catch (error) { readback.destroy(); frame.release(); throw error; }
+    finally { result.destroy(); }
+    return new Uint32Array(await this.read(readback))[0] === 0;
   }
 
   async rgba(source: Surface, mask = false): Promise<Uint8Array<ArrayBuffer>> {

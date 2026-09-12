@@ -1,5 +1,4 @@
 import type { Editor } from '../editor';
-import { ImageLayer } from '../model/layers';
 import { SliderInput } from './slider-input';
 
 export class GenerationPanel {
@@ -11,6 +10,8 @@ export class GenerationPanel {
   private readonly settings = document.createElement('fieldset');
   private readonly generate = document.createElement('button');
   private readonly cancel = document.createElement('button');
+  private readonly fit = document.createElement('button');
+  private readonly lensFields = new Map<string, HTMLInputElement>();
   private modelSignature = '';
 
   constructor(private readonly editor: Editor, container: HTMLElement) {
@@ -30,8 +31,68 @@ export class GenerationPanel {
     prompt.rows = 3;
     prompt.value = generation.prompt;
     prompt.placeholder = 'Describe the image…';
-    prompt.oninput = () => { generation.prompt = prompt.value; this.update(); editor.changed(); };
+    prompt.oninput = () => { generation.prompt = prompt.value; editor.changed(); };
     this.settings.append(label('Prompt', prompt));
+    const dimensions = document.createElement('div');
+    dimensions.className = 'field-pair';
+    const position = document.createElement('details');
+    const positionTitle = document.createElement('summary');
+    positionTitle.textContent = 'Position & rotation';
+    position.append(positionTitle);
+    const coordinates = document.createElement('div');
+    coordinates.className = 'generation-numbers';
+    position.append(coordinates);
+    for (const [name, key] of [['Width', 'width'], ['Height', 'height'], ['X', 'x'], ['Y', 'y'], ['Angle °', 'angle']] as const) {
+      const control = document.createElement('input');
+      control.type = 'number';
+      control.step = '1';
+      control.setAttribute('aria-label', 'Lens ' + name);
+      control.title = key === 'angle' ? 'Rotation in degrees' : 'Canvas units';
+      if (key === 'width' || key === 'height') control.min = '1';
+      control.onchange = () => {
+        const value = control.valueAsNumber;
+        if (Number.isFinite(value)) generation.editLens((lens) => {
+          if (key === 'width') lens.setSize(value, lens.height);
+          else if (key === 'height') lens.setSize(lens.width, value);
+          else if (key === 'angle') lens.setAngle(value);
+          else {
+            const matrix = [...lens.transform] as [number, number, number, number, number, number];
+            matrix[key === 'x' ? 4 : 5] = value;
+            lens.setTransform(matrix);
+          }
+        });
+        this.update();
+      };
+      this.lensFields.set(key, control);
+      (key === 'width' || key === 'height' ? dimensions : coordinates).append(label(name, control));
+    }
+    const scale = document.createElement('input');
+    scale.type = 'number';
+    scale.min = '0.0625'; scale.max = '16'; scale.step = 'any';
+    scale.value = String(generation.scale);
+    scale.setAttribute('list', 'generation-scale-values');
+    scale.setAttribute('aria-label', 'Generation scale');
+    scale.onchange = () => {
+      if (Number.isFinite(scale.valueAsNumber)) generation.scale = Math.max(0.0625, Math.min(16, scale.valueAsNumber));
+      scale.value = String(generation.scale);
+      editor.changed();
+    };
+    const scales = document.createElement('datalist');
+    scales.id = 'generation-scale-values';
+    scales.append(...[0.125, 0.25, 0.5, 1, 2, 4, 8].map((value) => new Option(value + '×', String(value))));
+    const scaleRow = document.createElement('div');
+    scaleRow.className = 'field-pair';
+    this.fit.textContent = 'Fit canvas';
+    this.fit.dataset.action = 'generation.fit';
+    this.fit.onclick = () => editor.actions.execute('generation.fit');
+    const fitLabel = label('Lens', this.fit);
+    scaleRow.append(label('Scale ×', scale), fitLabel);
+    const feather = new SliderInput({
+      label: 'Feather', min: 0, max: 65536, sliderMax: 128, step: 1, unit: 'px', get: () => generation.feather,
+      input: (value) => { generation.feather = value; editor.changed(); },
+    });
+    feather.element.title = 'Fade the lens edges in canvas units';
+    this.settings.append(dimensions, position, scaleRow, scales, feather.element);
     const details = document.createElement('details');
     const summary = document.createElement('summary');
     summary.textContent = 'Negative prompt';
@@ -73,17 +134,13 @@ export class GenerationPanel {
     this.cancel.textContent = 'Cancel';
     this.cancel.dataset.action = 'generation.cancel';
     this.cancel.onclick = () => editor.actions.execute('generation.cancel');
-    const sized = document.createElement('button');
-    sized.textContent = 'New sized layer…';
-    sized.dataset.action = 'layer.new-sized';
-    sized.onclick = () => editor.actions.execute('layer.new-sized');
     actions.append(this.generate, this.cancel);
     this.preview.className = 'generation-preview';
     this.preview.alt = 'Generation preview';
     this.progress.max = 1;
     this.status.className = 'generation-status';
     this.error.className = 'generation-error';
-    container.append(this.settings, sized, actions, this.preview, this.progress, this.status, this.error);
+    container.append(this.settings, actions, this.preview, this.progress, this.status, this.error);
     generation.onChange = () => this.update();
     this.update();
   }
@@ -98,18 +155,23 @@ export class GenerationPanel {
     }
     this.model.value = generation.model;
     this.settings.disabled = generation.busy;
+    this.fit.disabled = generation.busy;
     this.generate.disabled = !generation.canGenerate;
     this.cancel.hidden = !generation.busy;
-    const layer = generation.visual?.layer ?? this.editor.image.selected;
-    const dimensions = layer instanceof ImageLayer ? ' · ' + layer.width + ' × ' + layer.height : '';
+    const lens = generation.displayLens;
+    const values: Record<string, number> = { width: lens.width, height: lens.height, x: lens.transform[4], y: lens.transform[5], angle: lens.angle };
+    for (const [key, control] of this.lensFields) {
+      if (document.activeElement !== control) control.value = String(Number(values[key].toFixed(2)));
+    }
+    const { width, height } = generation.frame;
     const progress = generation.progress;
-    this.status.textContent = progress.phase + (progress.steps ? ' · ' + progress.step + '/' + progress.steps : '') + dimensions;
+    this.status.textContent = progress.phase + (progress.steps ? ' · ' + progress.step + '/' + progress.steps : '') + ' · ' + width + ' × ' + height + ' px';
     this.progress.hidden = !generation.busy;
     if (progress.steps) this.progress.value = progress.step / progress.steps;
     else this.progress.removeAttribute('value');
     this.preview.hidden = !generation.previewUrl;
     if (generation.previewUrl && this.preview.getAttribute('src') !== generation.previewUrl) this.preview.src = generation.previewUrl;
-    this.error.textContent = generation.error;
-    this.error.hidden = !generation.error;
+    this.error.textContent = generation.error || generation.sizeError;
+    this.error.hidden = !this.error.textContent;
   }
 }

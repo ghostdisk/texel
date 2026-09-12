@@ -180,10 +180,14 @@ export class ImageLayer extends Layer {
 
   override applyUndo(operation: UndoOperation, direction: UndoDirection, context?: LayerUndoContext): void {
     const payload = operation.payload(direction);
-    if (payload.type === 'layer' && payload.targetId === this.id && (payload.action === 'pixels' || payload.action === 'reframe')) {
+    if (payload.type === 'layer' && payload.targetId === this.id && (payload.action === 'pixels' || payload.action === 'reframe' || payload.action === 'apply-filter')) {
       if (!context) throw new Error('GPU context is required to restore pixels.');
       this.restorePixels(context.gpu, operation.snapshot(String(payload.data.snapshotId)));
-      if (payload.action === 'reframe') this.setTransform(payload.data.transform as unknown as Matrix);
+      if (payload.action !== 'pixels') this.setTransform(payload.data.transform as unknown as Matrix);
+      if (payload.action === 'apply-filter') {
+        for (const filter of [...this.filters]) this.removeFilter(filter.id);
+        for (const filter of payload.data.filters as SerializedFilter[]) this.addFilter(context.filters.deserialize(filter));
+      }
     } else super.applyUndo(operation, direction, context);
   }
 }

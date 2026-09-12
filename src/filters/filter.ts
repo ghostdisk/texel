@@ -31,6 +31,7 @@ export interface FilterUIContext {
   preview(change: () => void): void;
   commit(): void;
   remove(): void;
+  apply?(): void;
 }
 
 export abstract class Filter implements UndoTarget {
@@ -97,7 +98,17 @@ export abstract class Filter implements UndoTarget {
     remove.textContent = '×';
     remove.title = `Remove ${this.label}`;
     remove.onclick = context.remove;
-    header.append(collapse, grip, toggle, title, remove);
+    header.append(collapse, grip, toggle, title);
+    if (context.apply) {
+      const apply = document.createElement('button');
+      apply.type = 'button';
+      apply.className = 'filter-apply';
+      apply.textContent = 'Apply';
+      apply.title = 'Bake this filter into the layer pixels';
+      apply.onclick = (event) => { event.stopPropagation(); context.apply?.(); };
+      header.append(apply);
+    }
+    header.append(remove);
     const body = document.createElement('div');
     body.id = `filter-details-${this.id}`;
     body.className = 'filter-body';
