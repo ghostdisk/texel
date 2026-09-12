@@ -15,6 +15,8 @@ export abstract class ColorFilter extends Filter {
 
   render(context: FilterRenderContext, input: Surface): Surface {
     if (this.isIdentity()) return input;
-    return renderComputeFilter(context, input, `${commonShader}\n${this.shader}`, this.parameters(), this.label);
+    const parameters = [...this.parameters()];
+    while (parameters.length < 64) parameters.push(0);
+    return renderComputeFilter(context, input, `${commonShader}\n${this.shader}`, parameters, this.label);
   }
 }

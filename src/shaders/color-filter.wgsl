@@ -1,5 +1,5 @@
 struct Params {
-  values: array<vec4f, 2>,
+  values: array<vec4f, 16>,
 }
 
 @group(0) @binding(0) var source: texture_2d<f32>;

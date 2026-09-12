@@ -162,8 +162,12 @@ TXL project files persist editable source pixels and document structure. Undo hi
 - **Brightness / contrast**: independent −100 to +100 controls, with contrast centered on sRGB mid-gray. Neutral settings bypass the adjustment.
 - **Levels**: input black/white points, gamma, and output black/white points. Endpoints use a 0–255 display scale. Input black stays below input white; gamma above 1 brightens midtones. Output endpoints can be reversed for inversion. Neutral settings bypass the adjustment.
 - **Posterize**: 2–256 levels per RGB channel, rounded to the nearest level including black and white.
+- **Hue / saturation**: hue rotation, saturation, and lightness with color-coded controls.
+- **Curves**: editable RGB and per-channel point curves with graph, numeric point values, reset, and point deletion.
+- **Exposure**: linear-light exposure in stops with offset and gamma controls. **White balance** applies linear-light temperature/tint channel gains that preserve neutral black. **Grayscale** provides RGB channel contributions.
+- **Sharpen**: GPU unsharp masking with amount, radius, and threshold while retaining the input bounds.
 
-The three color adjustments operate on unpremultiplied sRGB values, preserve alpha, then convert back to the linear premultiplied working format. All four filters use the existing filter registry, serialized state, duplication, and gesture-based undo/redo. Their controls appear on layers and groups, including the root.
+Point color adjustments operate on unpremultiplied sRGB values, preserve alpha, then convert back to the linear premultiplied working format. Exposure and white balance temporarily return to linear light for their physical gain math. Filters use the existing registry, serialized state, duplication, Mix, and gesture-based undo/redo. Their controls appear on layers and groups, including the root.
 
 ## Picking, previews, and filter controls
 

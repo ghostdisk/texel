@@ -8,6 +8,7 @@ export interface SliderOptions {
   max: number;
   sliderMax?: number;
   step: number;
+  className?: string;
   get(): number;
   set(value: number): void;
   format?: (value: number) => string;
@@ -17,6 +18,7 @@ export interface SliderOptions {
 export function drawFilterSlider(container: HTMLElement, context: FilterUIContext, options: SliderOptions): void {
   const label = document.createElement('label');
   label.className = 'filter-parameter';
+  if (options.className) label.classList.add(options.className);
   const heading = document.createElement('span');
   heading.textContent = options.label;
   heading.title = options.label;
@@ -56,6 +58,7 @@ export function drawFilterSliderInput(container: HTMLElement, context: FilterUIC
     input: (value) => context.preview(() => options.set(value)),
     commit: () => context.commit(),
   });
+  if (options.className) control.element.classList.add(options.className);
   container.append(control.element);
 }
 
