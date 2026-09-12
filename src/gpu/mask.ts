@@ -21,12 +21,13 @@ export class MaskRenderer {
     this.sampler = gpu.device.createSampler({ minFilter: 'linear', magFilter: 'linear' });
   }
 
-  encode(frame: GpuFrame, input: Surface, output: Surface, mask: MaskInput): void {
+  encode(frame: GpuFrame, input: Surface, output: Surface, mask: MaskInput, invert = false): void {
     const [a, b, c, d, e, f] = mask.transform;
     const bounds = mask.surface.bounds;
     const params = frame.uniform([
       a, c, e, 0, b, d, f, 0, bounds.x, bounds.y, bounds.width, bounds.height,
       output.bounds.x, output.bounds.y, output.scale, Number(isMaskSurface(mask.surface)),
+      Number(invert), 0, 0, 0,
     ]);
     const pass = frame.encoder.beginComputePass({ label: 'Apply layer mask' });
     pass.setPipeline(this.pipeline);

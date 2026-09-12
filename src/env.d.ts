@@ -25,6 +25,7 @@ interface GenerationEndpoint {
 interface Window {
   desktop: {
     openMenu(label: string, x: number, y: number): Promise<void>;
+    openContextMenu(items: import('./actions').MenuAction[], x: number, y: number): Promise<void>;
     openImage(): Promise<ImportedImage | null>;
     chooseImageExport(format: ImageExportFormat, name: string): Promise<ImageExportHandle | null>;
     writeImageExport(token: string, bytes: Uint8Array<ArrayBuffer>): Promise<void>;

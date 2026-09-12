@@ -133,6 +133,26 @@ export class ActionRegistry {
     } catch (error) { this.reportError(error); }
   }
 
+  menuItems(ids: readonly string[]): MenuAction[] {
+    const context = this.context?.() ?? {};
+    const shortcuts = new Map<string, string>();
+    for (const chord of this.bindings.keys()) {
+      const binding = this.binding(chord, context);
+      if (binding && !shortcuts.has(binding.actionId)) shortcuts.set(binding.actionId, chord);
+    }
+    return ids.flatMap((id) => {
+      const action = this.actions.get(id);
+      if (!action) return [];
+      return [{
+        id: action.id,
+        label: typeof action.label === 'function' ? action.label() : action.label,
+        enabled: this.enabled(action.id),
+        submenu: action.submenu,
+        shortcut: shortcuts.get(action.id) ?? '',
+      }];
+    });
+  }
+
   menus(): ActionMenu[] {
     const context = this.context?.() ?? {};
     const shortcuts = new Map<string, string>();

@@ -68,7 +68,8 @@ With a selection active, click **Remove selection** in the left toolbar (or **Ed
 - **V** selects Move / transform. Ctrl-click visible pixels to select their layer; transparent areas pass through to layers below. Drag the selected layer to move it, drag its eight bounds handles to resize, and drag the round handle to rotate. Shift constrains movement, corner resizing, or rotation. Position, scale, and rotation fields appear only in this tool.
 - **I** selects Eyedropper. Hold **Alt** with Brush to sample temporarily; releasing Alt restores Brush. Samples come from the filtered composition, excluding the checkerboard, and update the foreground color.
 - **C** selects Crop. Drag a rectangle or its handles, choose Free, Original, or a common aspect ratio, then press Enter or Apply. Cropping changes the canvas bounds without resampling layers; Escape cancels the pending crop.
-- **Delete** deletes the selected layer or group. **Ctrl+J** duplicates it, including independent source pixels, descendants, and filters.
+- With a selection active, right-click the canvas for **Layer via Copy / Ctrl+J** or **Layer via Cut / Ctrl+Shift+J**. Both create a trimmed layer with the source layer's transform and filters; Cut removes the same soft coverage from the source.
+- **Delete** deletes the selected layer or group. Without an active selection, **Ctrl+J** duplicates it, including independent source pixels, descendants, and filters.
 - **F2** or a double-click on a layer label starts inline renaming. Enter commits; Escape cancels.
 - Drag a layer near the top/bottom of a row to reorder it. Drop in the middle of a group to reparent it. Dropping on Document moves it into the root. Reparenting preserves placement in document coordinates and rejects cycles.
 - **Ctrl+Z** undoes; **Ctrl+Shift+Z** or **Ctrl+Y** redoes. The **History** tab beside **Layers** lists retained states; clicking a row returns to that state. Text input keeps its ordinary editing shortcuts.

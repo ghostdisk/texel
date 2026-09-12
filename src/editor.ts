@@ -149,7 +149,12 @@ export class Editor {
     this.viewport.onChange = () => { this.refreshHover(); this.requestRender(); };
     this.actions.beforeExecute = () => this.finishGesture();
     this.actions.blocked = () => this.halted || this.reframing || this.files.busy;
-    this.actions.context = () => ({ hasSelection: !!this.image.selectionMask, isGenerating: this.generation.busy, isCropping: this.activeTool.id === 'crop' });
+    this.actions.context = () => ({
+      hasSelection: !!this.image.selectionMask,
+      canSelectionLayer: !!this.layerViaSelectionTarget,
+      isGenerating: this.generation.busy,
+      isCropping: this.activeTool.id === 'crop',
+    });
     this.registerActions();
     this.attachInput();
     new ResizeObserver(() => this.resize()).observe(stage);
@@ -282,6 +287,21 @@ export class Editor {
       } finally { for (const snapshot of snapshots.values()) snapshot.texture.destroy(); }
       throw error;
     } finally { selection?.surface.texture.destroy(); }
+  }
+
+  private get layerViaSelectionTarget(): ImageLayer | null {
+    if (!this.image.selectionMask || this.image.selectedLayers.length !== 1) return null;
+    const selected = this.image.selected;
+    const candidate = selected.isSelection ?
+      this.image.allLayers().find((layer) => layer.id === this.selectionReturnId) : selected;
+    return candidate instanceof ImageLayer && candidate.channels === 4 && !!candidate.parent ? candidate : null;
+  }
+
+  private async layerViaSelection(cut: boolean): Promise<void> {
+    const layer = this.layerViaSelectionTarget;
+    const selection = this.image.selectionMask;
+    if (!layer || !selection) return;
+    await this.editPixels(() => this.image.commands.layerViaSelection(layer, selection, cut));
   }
 
   private promoteSelection(): void {
@@ -706,9 +726,17 @@ export class Editor {
     register({ id: 'history.redo', label: () => `Redo${this.history.canRedo ? ` ${this.history.redoLabel}` : ''}`, menu: 'Edit', enabled: () => this.history.canRedo, execute: () => this.history.redo() });
     register({
       id: 'layer.duplicate', menu: 'Layer',
-      label: () => this.image.selectedLayers.length === 1 && this.image.selected instanceof ImageLayer && this.image.selected.channels === 4 && this.image.selectionMask ?
-        'Layer via copy' : this.image.selectedRoots.length > 1 ? 'Duplicate layers' : 'Duplicate layer',
-      enabled: () => this.image.selectedRoots.length > 0, execute: () => this.editPixels(() => this.image.duplicateSelected()),
+      label: () => this.image.selectedRoots.length > 1 ? 'Duplicate layers' : 'Duplicate layer',
+      enabled: () => this.image.selectedRoots.length > 0 && !this.image.selected.isSelection,
+      execute: () => this.editPixels(() => this.image.duplicateSelected()),
+    });
+    register({
+      id: 'selection.layer-copy', label: 'Layer via Copy', menu: 'Layer',
+      enabled: () => !!this.layerViaSelectionTarget, execute: () => this.layerViaSelection(false),
+    });
+    register({
+      id: 'selection.layer-cut', label: 'Layer via Cut', menu: 'Layer',
+      enabled: () => !!this.layerViaSelectionTarget, execute: () => this.layerViaSelection(true),
     });
     register({ id: 'layer.group', label: 'Group layers', menu: 'Layer', enabled: () => this.image.selectedRoots.length > 0, execute: () => this.image.groupSelected() });
     register({
@@ -845,6 +873,8 @@ export class Editor {
     this.actions.bind('Delete', 'layer.delete', { when: '!hasSelection' });
     this.actions.bind('Delete', 'selection.clear', { when: 'hasSelection' });
     this.actions.bind('Ctrl+J', 'layer.duplicate');
+    this.actions.bind('Ctrl+J', 'selection.layer-copy', { when: 'canSelectionLayer' });
+    this.actions.bind('Ctrl+Shift+J', 'selection.layer-cut', { when: 'canSelectionLayer' });
     this.actions.bind('Ctrl+G', 'layer.group');
     this.actions.bind('Ctrl+E', 'layer.merge');
     this.actions.bind('Ctrl+Shift+N', 'layer.reframe.normalize');
@@ -924,6 +954,13 @@ export class Editor {
       this.hoverPointer = null;
       this.activeTool.hover(null);
     });
+    this.canvas.addEventListener('contextmenu', (event) => this.run(() => {
+      event.preventDefault();
+      this.finishGesture();
+      if (!this.image.selectionMask) return;
+      const items = this.actions.menuItems(['selection.layer-copy', 'selection.layer-cut']);
+      void window.desktop.openContextMenu(items, event.clientX, event.clientY).catch(this.report);
+    }));
     this.canvas.addEventListener('wheel', (event) => {
       event.preventDefault();
       this.run(() => {

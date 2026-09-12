@@ -29,9 +29,14 @@ type LayerStep =
     parentId: string;
     index: number;
     transform: number[];
+  }
+  | {
+    action: 'pixels';
+    layerId: string;
+    snapshotId: string;
   };
 
-/** Structural edits are committed together; only added/deleted pixels need snapshots. */
+/** Layer tree and pixel edits are committed together; snapshots preserve recreated and restored surfaces. */
 export class LayerCommands {
   private readonly masks: MaskRenderer;
   private readonly reframer: LayerReframer;
@@ -95,16 +100,21 @@ export class LayerCommands {
       if (!layer) throw new Error('Unknown layer in edit: ' + id);
       return layer;
     };
+    const pixelSteps = steps.filter((step) => step.action === 'pixels').map((step) => {
+      const layer = get(step.layerId);
+      if (!(layer instanceof ImageLayer)) throw new Error('Pixel restoration requires an image layer.');
+      return [layer, operation.snapshot(step.snapshotId)] as const;
+    });
     try {
       // Detach the entire moving set first so insertion indices refer to the final remaining siblings.
-      for (const step of steps) if (step.action !== 'add') {
+      for (const step of steps) if (step.action === 'move' || step.action === 'remove') {
         const layer = get(step.layerId);
         if (!layer.parent) throw new Error('Cannot move or remove the document.');
         layer.parent.remove(layer);
         if (step.action === 'remove') removed.push(layer);
       }
       for (const step of steps) {
-        if (step.action === 'remove') continue;
+        if (step.action === 'remove' || step.action === 'pixels') continue;
         const parent = get(step.parentId);
         if (!(parent instanceof GroupLayer)) throw new Error('Layer parent must be a group.');
         let layer: Layer;
@@ -120,6 +130,7 @@ export class LayerCommands {
         parent.add(layer, step.index);
       }
       validateLayerDependencies(this.image.root);
+      for (const [layer, snapshot] of pixelSteps) layer.restorePixels(this.gpu, snapshot);
     } catch (error) {
       // Restore the original tree before releasing anything if regrouping introduced a mask cycle.
       for (const layer of [...original, ...created]) layer.parent?.remove(layer);
@@ -201,10 +212,6 @@ export class LayerCommands {
   async duplicate(): Promise<void> {
     const layers = this.image.selectedRoots;
     if (!layers.length) return;
-    if (this.image.selectedLayers.length === 1 && layers[0] instanceof ImageLayer && layers[0].channels === 4 && this.image.selectionMask) {
-      await this.copySelection(layers[0], this.image.selectionMask);
-      return;
-    }
     const originals = new Map<string, Surface>();
     const snapshots = new Map<string, Surface>();
     const copies: Layer[] = [];
@@ -234,36 +241,67 @@ export class LayerCommands {
       copies.map((copy) => ({ action: 'remove', layerId: copy.id })), redo, this.state(copies), snapshots);
   }
 
-  private async copySelection(layer: ImageLayer, selection: ImageLayer): Promise<void> {
+  async layerViaSelection(layer: ImageLayer, selection: ImageLayer, cut: boolean): Promise<void> {
+    const layers = this.image.allLayers();
+    if (layer.isSelection || layer.channels !== 4 || !layer.parent || !layers.includes(layer) ||
+      selection !== this.image.selectionMask || !selection.isSelection || !layers.includes(selection)) {
+      throw new Error('Layer via Copy or Cut requires an image layer and an active selection.');
+    }
     this.compositor.flush();
     const documentId = this.image.id;
     const source = layer.source;
     const revision = layer.revision;
     const world = layer.worldTransform();
+    const parent = layer.parent;
+    const index = parent.children.indexOf(layer);
     const selectionRevision = selection.revision;
     const maskWorld = selection.worldTransform();
     const mask = this.compositor.resolve(selection, 1);
-    const masked = createSurface(this.gpu.device, 'Layer via copy', source.bounds);
+    const masked = createSurface(this.gpu.device, cut ? 'Layer via cut' : 'Layer via copy', source.bounds);
+    const remaining = cut ? createSurface(this.gpu.device, 'Layer via cut remainder', source.bounds) : null;
     const frame = this.gpu.beginFrame();
     let copy: ImageLayer | null = null;
     try {
-      this.masks.encode(frame, source, masked, { surface: mask, transform: multiply(inverse(maskWorld), world) });
+      const input = { surface: mask, transform: multiply(inverse(maskWorld), world) };
+      this.masks.encode(frame, source, masked, input);
+      if (remaining) this.masks.encode(frame, source, remaining, input, true);
       frame.submit();
       const bounds = await this.reframer.contentBounds(masked);
-      if (this.image.id !== documentId || this.image.selectedLayers.length !== 1 || this.image.selected !== layer ||
+      if (this.image.id !== documentId || !parent || layer.parent !== parent || parent.children.indexOf(layer) !== index ||
         layer.source !== source || layer.revision !== revision || this.image.selectionMask !== selection || selection.revision !== selectionRevision ||
         layer.worldTransform().some((value, index) => value !== world[index]) || selection.worldTransform().some((value, index) => value !== maskWorld[index])) {
-        throw new Error('The layer or selection changed while copying pixels. Retry the copy.');
+        throw new Error(`The layer or selection changed while ${cut ? 'cutting' : 'copying'} pixels. Retry the command.`);
       }
       if (!bounds) throw new Error('There are no pixels in the selected area.');
       copy = new ImageLayer(layer.name + ' copy', this.reframer.resize(masked, bounds));
       copy.setProperties(layer.properties());
-      copy.name = layer.name + ' copy';
+      copy.name = layer.name + (cut ? ' cut' : ' copy');
       copy.setTransform(multiply(layer.transform, [1, 0, 0, 1, bounds.x, bounds.y]));
       for (const filter of layer.filters) copy.addFilter(this.image.filters.deserialize({ ...filter.serialize(), id: crypto.randomUUID() }));
-      this.image.add(copy, layer.parent!, layer.parent!.children.indexOf(layer) + 1, true, 'Layer via copy');
+      const snapshots = new Map<string, Surface>();
+      let serialized: SerializedLayer;
+      let before = '';
+      let after = '';
+      try {
+        serialized = this.image.serializeLayer(copy, snapshots);
+        if (remaining) {
+          before = this.image.capturePixels(layer, snapshots);
+          after = this.image.captureSurface(remaining, snapshots);
+        }
+      } catch (error) { for (const snapshot of snapshots.values()) snapshot.texture.destroy(); throw error; }
+      const copyId = copy.id;
+      this.compositor.release(copy);
+      copy = null;
+      const undo: LayerStep[] = [{ action: 'remove', layerId: copyId }];
+      const redo: LayerStep[] = [{ action: 'add', parentId: parent.id, index: index + 1, layer: serialized }];
+      if (cut) {
+        undo.push({ action: 'pixels', layerId: layer.id, snapshotId: before });
+        redo.push({ action: 'pixels', layerId: layer.id, snapshotId: after });
+      }
+      const label = cut ? 'Layer via Cut' : 'Layer via Copy';
+      this.commit(label, undo, redo, { ids: [copyId], active: copyId }, snapshots);
     } catch (error) { if (copy && !copy.parent) this.compositor.release(copy); throw error; }
-    finally { frame.release(); masked.texture.destroy(); }
+    finally { frame.release(); masked.texture.destroy(); remaining?.texture.destroy(); }
   }
 
   get mergeTargets(): Layer[] {

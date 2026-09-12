@@ -3,6 +3,7 @@ struct Params {
   row1: vec4f,
   maskBounds: vec4f,
   outputInfo: vec4f,
+  mode: vec4f,
 }
 @group(0) @binding(0) var source: texture_2d<f32>;
 @group(0) @binding(1) var maskImage: texture_2d<f32>;
@@ -21,5 +22,6 @@ fn main(@builtin(global_invocation_id) invocation: vec3u) {
     let pixel = textureSampleLevel(maskImage, imageSampler, uv, 0);
     coverage = clamp(select(pixel.a, pixel.r, params.outputInfo.w > 0.5), 0.0, 1.0);
   }
+  coverage = select(coverage, 1.0 - coverage, params.mode.x > 0.5);
   textureStore(destination, vec2i(invocation.xy), textureLoad(source, vec2i(invocation.xy), 0) * coverage);
 }

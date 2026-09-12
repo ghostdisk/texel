@@ -84,6 +84,33 @@ function startApplication() {
     }));
   });
 
+  ipcMain.handle('window:open-context-menu', (event, items, x, y) => {
+    const owner = ownerOf(event);
+    if (!owner || !Array.isArray(items) || !Number.isFinite(x) || !Number.isFinite(y)) return;
+    const allowed = new Set(['selection.layer-copy', 'selection.layer-cut']);
+    const dispatch = (id) => { if (!owner.isDestroyed()) owner.webContents.send('action:execute', id); };
+    const template = items.flatMap((item) => {
+      if (!item || !allowed.has(item.id) || typeof item.label !== 'string') return [];
+      return [{
+        id: item.id,
+        label: item.label.slice(0, 128),
+        enabled: !!item.enabled,
+        accelerator: typeof item.shortcut === 'string' && item.shortcut ? item.shortcut : undefined,
+        registerAccelerator: false,
+        click: () => dispatch(item.id),
+      }];
+    });
+    if (!template.length) return;
+    const [width, height] = owner.getContentSize();
+    const zoom = owner.webContents.getZoomFactor();
+    return new Promise((resolve) => Menu.buildFromTemplate(template).popup({
+      window: owner,
+      x: Math.max(0, Math.min(width, Math.round(x * zoom))),
+      y: Math.max(0, Math.min(height, Math.round(y * zoom))),
+      callback: () => resolve(),
+    }));
+  });
+
   ipcMain.handle('actions:set-menus', (event, menus) => {
     const owner = ownerOf(event);
     if (!owner || !Array.isArray(menus)) return;
