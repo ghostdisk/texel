@@ -5,6 +5,7 @@ export interface Action {
   label: string | (() => string);
   menu: ActionMenuName;
   submenu?: string;
+  separatorBefore?: boolean;
   enabled?: () => boolean;
   execute(): void | Promise<void>;
   hold?: {
@@ -19,6 +20,7 @@ export interface MenuAction {
   enabled: boolean;
   shortcut: string;
   submenu?: string;
+  separatorBefore?: boolean;
 }
 
 export interface ActionMenu {
@@ -149,6 +151,7 @@ export class ActionRegistry {
         label: typeof action.label === 'function' ? action.label() : action.label,
         enabled: this.enabled(action.id),
         submenu: action.submenu,
+        separatorBefore: action.separatorBefore,
         shortcut: shortcuts.get(action.id) ?? '',
       }];
     });
@@ -169,6 +172,7 @@ export class ActionRegistry {
         label: typeof action.label === 'function' ? action.label() : action.label,
         enabled: this.enabled(action.id),
         submenu: action.submenu,
+        separatorBefore: action.separatorBefore,
         shortcut: shortcuts.get(action.id) ?? '',
       })),
     }));

@@ -946,10 +946,16 @@ export class Editor {
     register({ id: 'history.undo', label: () => `Undo${this.history.canUndo ? ` ${this.history.undoLabel}` : ''}`, menu: 'Edit', enabled: () => this.history.canUndo, execute: () => this.history.undo() });
     register({ id: 'history.redo', label: () => `Redo${this.history.canRedo ? ` ${this.history.redoLabel}` : ''}`, menu: 'Edit', enabled: () => this.history.canRedo, execute: () => this.history.redo() });
     register({
-      id: 'layer.duplicate', menu: 'Layer',
+      id: 'layer.duplicate', menu: 'Layer', separatorBefore: true,
       label: () => this.image.selectedRoots.length > 1 ? 'Duplicate layers' : 'Duplicate layer',
       enabled: () => this.image.selectedRoots.length > 0 && !this.image.selected.isSelection,
       execute: () => this.editPixels(() => this.image.duplicateSelected()),
+    });
+    register({ id: 'layer.group', label: 'Group layers', menu: 'Layer', enabled: () => this.image.selectedRoots.length > 0, execute: () => this.image.groupSelected() });
+    register({
+      id: 'layer.merge', menu: 'Layer',
+      label: () => this.image.selectedRoots.length > 1 ? 'Merge layers' : this.image.selected instanceof GroupLayer ? 'Merge group' : 'Merge down',
+      enabled: () => this.image.commands.mergeTargets.length > 0, execute: () => this.image.mergeSelected(),
     });
     register({
       id: 'selection.layer-copy', label: 'Layer via Copy', menu: 'Layer',
@@ -959,14 +965,16 @@ export class Editor {
       id: 'selection.layer-cut', label: 'Layer via Cut', menu: 'Layer',
       enabled: () => !!this.layerViaSelectionTarget?.pixelEditable, execute: () => this.layerViaSelection(true),
     });
-    register({ id: 'layer.group', label: 'Group layers', menu: 'Layer', enabled: () => this.image.selectedRoots.length > 0, execute: () => this.image.groupSelected() });
-    register({
-      id: 'layer.merge', menu: 'Layer',
-      label: () => this.image.selectedRoots.length > 1 ? 'Merge layers' : this.image.selected instanceof GroupLayer ? 'Merge group' : 'Merge down',
-      enabled: () => this.image.commands.mergeTargets.length > 0, execute: () => this.image.mergeSelected(),
-    });
-    register({ id: 'layer.delete', label: () => this.image.selectedRoots.length > 1 ? 'Delete layers' : 'Delete layer', menu: 'Layer', enabled: () => !!this.image.selected.parent, execute: () => this.image.deleteSelected() });
     register({ id: 'layer.rename', label: 'Rename layer', menu: 'Layer', enabled: () => this.image.selectedLayers.length === 1, execute: () => this.onRename?.() });
+    register({ id: 'layer.delete', label: () => this.image.selectedRoots.length > 1 ? 'Delete layers' : 'Delete layer', menu: 'Layer', enabled: () => !!this.image.selected.parent, execute: () => this.image.deleteSelected() });
+    const reframe = (mode: ReframeMode, label: string, separatorBefore = false) => register({
+      id: `layer.reframe.${mode}`, label, menu: 'Layer', submenu: 'Reframe', separatorBefore,
+      enabled: () => this.image.selectedLayers.length === 1 && this.image.selected instanceof ImageLayer && this.image.selected.pixelEditable,
+      execute: () => this.editPixels(() => this.image.reframe(this.image.selected as ImageLayer, mode)),
+    });
+    reframe('normalize', 'Normalize to Canvas', true);
+    reframe('trim', 'Trim Transparent Borders');
+    reframe('extend', 'Extend to Canvas');
     const canTransform = () => this.image.selectedRoots.length > 0;
     for (const [id, label, dx, dy] of [
       ['left', 'Nudge left', -1, 0], ['right', 'Nudge right', 1, 0],
@@ -999,7 +1007,7 @@ export class Editor {
     register({ id: 'transform.flip-horizontal', label: 'Flip horizontally', menu: 'Layer', submenu: 'Transform', enabled: canTransform, execute: () => this.flipSelection('horizontal') });
     register({ id: 'transform.flip-vertical', label: 'Flip vertically', menu: 'Layer', submenu: 'Transform', enabled: canTransform, execute: () => this.flipSelection('vertical') });
     for (const [direction, offset] of [['up', 1], ['down', -1]] as const) register({
-      id: `layer.${direction}`, label: `Move layer ${direction}`, menu: 'Layer',
+      id: `layer.${direction}`, label: `Move layer ${direction}`, menu: 'Layer', separatorBefore: direction === 'up',
       enabled: () => this.image.commands.canStep(offset),
       execute: () => this.image.commands.step(offset),
     });
@@ -1018,14 +1026,6 @@ export class Editor {
       enabled: () => !!this.image.selectionMask && !!this.paintTarget,
       execute: () => this.clearSelection(),
     });
-    const reframe = (mode: ReframeMode, label: string) => register({
-      id: `layer.reframe.${mode}`, label, menu: 'Layer', submenu: 'Reframe',
-      enabled: () => this.image.selectedLayers.length === 1 && this.image.selected instanceof ImageLayer && this.image.selected.pixelEditable,
-      execute: () => this.editPixels(() => this.image.reframe(this.image.selected as ImageLayer, mode)),
-    });
-    reframe('normalize', 'Normalize to Canvas');
-    reframe('trim', 'Trim Transparent Borders');
-    reframe('extend', 'Extend to Canvas');
     for (const filter of this.filters.list()) register({
       id: `filter.${filter.kind}`, label: filter.label, menu: 'Filter', submenu: filter.group,
       enabled: () => this.image.selectedLayers.length === 1, execute: () => this.addFilter(filter.kind),

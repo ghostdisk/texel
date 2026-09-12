@@ -132,9 +132,16 @@ function startApplication() {
         };
         if (typeof item.submenu === 'string' && item.submenu) {
           let nested = submenu.find((menu) => menu.submenu && menu.label === item.submenu);
-          if (!nested) { nested = { label: item.submenu, submenu: [] }; submenu.push(nested); }
+          if (!nested) {
+            if (item.separatorBefore && submenu.at(-1)?.type !== 'separator') submenu.push({ type: 'separator' });
+            nested = { label: item.submenu, submenu: [] };
+            submenu.push(nested);
+          }
           nested.submenu.push(entry);
-        } else submenu.push(entry);
+        } else {
+          if (item.separatorBefore && submenu.at(-1)?.type !== 'separator') submenu.push({ type: 'separator' });
+          submenu.push(entry);
+        }
       }
       if (group.label === 'File') submenu.push({ type: 'separator' }, { role: 'quit' });
       if (group.label === 'Edit') submenu.push({ type: 'separator' }, { role: 'cut' }, { role: 'copy' }, { role: 'paste' });
