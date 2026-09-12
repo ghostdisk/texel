@@ -16,6 +16,7 @@ export abstract class Tool implements UndoTarget {
   abstract readonly label: string;
   abstract readonly cursor: string;
   abstract readonly hint: string;
+  readonly supportsDrawingModes = false;
 
   constructor(protected readonly editor: Editor) {}
 

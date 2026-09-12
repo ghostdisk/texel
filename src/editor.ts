@@ -125,6 +125,7 @@ export class Editor {
     readonly stage: HTMLElement,
     readonly overlay: SVGSVGElement,
     readonly brushCursor: HTMLElement,
+    readonly toolModeCursor: HTMLElement,
     readonly report: (error: unknown) => void,
   ) {
     const context = canvas.getContext('webgpu');
@@ -401,8 +402,17 @@ export class Editor {
 
   private refreshHover(): void {
     const pointer = this.hoverPointer;
-    this.activeTool.hover(pointer && this.pointer?.mode !== 'pan' ?
-      { ...pointer, world: this.viewport.screenToWorld(pointer.screen) } : null);
+    const hover = pointer && this.pointer?.mode !== 'pan' ?
+      { ...pointer, world: this.viewport.screenToWorld(pointer.screen) } : null;
+    this.activeTool.hover(hover);
+    const modes = this.activeTool.supportsDrawingModes && !this.panHeld && !!hover && (this.selectionMode || this.eraseMode);
+    this.toolModeCursor.hidden = !modes;
+    if (!modes || !hover) return;
+    this.toolModeCursor.style.left = `${hover.screen.x + 12}px`;
+    this.toolModeCursor.style.top = `${hover.screen.y + 12}px`;
+    for (const icon of this.toolModeCursor.querySelectorAll<HTMLElement>('[data-mode]')) {
+      icon.hidden = icon.dataset.mode === 'selection' ? !this.selectionMode : !this.eraseMode;
+    }
   }
 
   async pickLayer(point: Point, additive = false): Promise<void> {

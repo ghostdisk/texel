@@ -17,6 +17,7 @@ interface DrawingGesture {
 
 /** Painting tools share their target, selection clipping, erase mode, and pixel undo. */
 export abstract class DrawingTool extends Tool {
+  override readonly supportsDrawingModes = true;
   protected drawing: DrawingGesture | null = null;
 
   protected beginDrawing(): ImageLayer | null {

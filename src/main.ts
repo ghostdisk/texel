@@ -25,7 +25,10 @@ async function boot(): Promise<void> {
   void gpu.device.lost.then((info) => fail(`GPU connection lost: ${info.message || info.reason}. Reload to start a new document.`));
   const overlay = document.querySelector<SVGSVGElement>('#tool-overlay');
   if (!overlay) throw new Error('Missing tool overlay.');
-  editor = new Editor(gpu, element<HTMLCanvasElement>('canvas'), element('stage'), overlay, element('brush-cursor'), reportError);
+  editor = new Editor(
+    gpu, element<HTMLCanvasElement>('canvas'), element('stage'), overlay,
+    element('brush-cursor'), element('tool-mode-cursor'), reportError,
+  );
   new EditorView(editor);
   editor.actions.attach();
   window.desktop.onAction((id) => editor!.run(() => editor!.actions.execute(id)));
