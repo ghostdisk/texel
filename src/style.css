@@ -12,7 +12,8 @@
   --accent: #9876f8;
   --panel-gradient: linear-gradient(125deg, #242a38, #1c212d 75%);
 }
-* { box-sizing: border-box; }
+* { box-sizing: border-box; user-select: none; }
+input, textarea, [contenteditable="true"] { user-select: text; }
 body { margin: 0; overflow: hidden; }
 button, input, select, textarea { font: inherit; }
 button { display: inline-flex; align-items: center; justify-content: center; gap: 6px; color: #dbe0f0; background: #252b3a; border: 1px solid var(--border); border-radius: 4px; padding: 4px 8px; cursor: pointer; }
