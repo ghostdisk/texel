@@ -47,6 +47,7 @@ import type { Point } from './model/geometry';
 import { applyWorldTransform, around, translation, worldBounds } from './model/precision';
 import type { Guide, PrecisionState } from './model/precision';
 import { BrushTool } from './tools/brush-tool';
+import { BrushLikeTool } from './tools/brush-like-tool';
 import { RectangleTool } from './tools/rectangle-tool';
 import { EllipseTool } from './tools/ellipse-tool';
 import { FreehandLassoTool } from './tools/freehand-lasso-tool';
@@ -1284,7 +1285,7 @@ export class Editor {
       this.run(() => {
         const units = event.deltaMode === 1 ? 16 : event.deltaMode === 2 ? this.viewport.height : 1;
         this.hoverPointer = pointerData(event);
-        if ((event.shiftKey || event.ctrlKey) && this.activeTool instanceof BrushTool) {
+        if ((event.shiftKey || event.ctrlKey) && this.activeTool instanceof BrushLikeTool) {
           const delta = Math.max(-500, Math.min(500, (event.deltaY || event.deltaX) * units));
           if (event.ctrlKey) this.activeTool.adjustByWheel(event.shiftKey ? 'flow' : 'hardness', delta);
           else this.activeTool.resizeByWheel(delta);

@@ -6,8 +6,7 @@ import type { RetouchInput } from '../gpu/retouch';
 import { ImageLayer } from '../model/layers';
 import { inverse, maxScale, multiply, transformPoint } from '../model/geometry';
 import type { Matrix, Point } from '../model/geometry';
-import { SliderInput } from '../ui/slider-input';
-import { DrawingTool } from './drawing-tool';
+import { BrushLikeTool } from './brush-like-tool';
 import type { ToolPointer } from './tool';
 
 interface RetouchStroke {
@@ -16,13 +15,10 @@ interface RetouchStroke {
   offset: Point;
 }
 
-abstract class RetouchTool extends DrawingTool {
+abstract class RetouchTool extends BrushLikeTool {
   abstract readonly heal: boolean;
   readonly cursor = 'crosshair';
   readonly hint = 'Alt-click a color image layer to sample · Paint on an editable color pixel layer';
-  size = 48;
-  hardness = 0.6;
-  flow = 1;
   aligned = true;
   private sourceLayer: ImageLayer | null = null;
   private sourcePoint: Point = { x: 0, y: 0 };
@@ -35,7 +31,7 @@ abstract class RetouchTool extends DrawingTool {
   private hoverWorld: Point | null = null;
 
   constructor(editor: Editor) {
-    super(editor);
+    super(editor, { size: 48, hardness: 0.6, flow: 1 });
   }
 
   pointerDown(pointer: ToolPointer): void {
@@ -228,18 +224,7 @@ abstract class RetouchTool extends DrawingTool {
 
   drawUI(container: HTMLElement): void {
     container.classList.add('retouch-options');
-    const add = (label: string, key: 'size' | 'hardness' | 'flow', min: number, max: number, step: number, unit: string) => {
-      const factor = key === 'size' ? 1 : 100;
-      const control = new SliderInput({
-        label, min, max, step, unit, get: () => this[key] * factor,
-        input: (value) => { this[key] = value / factor; },
-      });
-      control.element.classList.add('brush-slider');
-      container.append(control.element);
-    };
-    add('Size', 'size', 1, 400, 1, 'px');
-    add('Hardness', 'hardness', 0, 100, 1, '%');
-    add('Flow', 'flow', 1, 100, 1, '%');
+    this.drawBrushControls(container);
     const aligned = document.createElement('label');
     aligned.className = 'tool-checkbox';
     const checkbox = document.createElement('input');
