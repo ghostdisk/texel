@@ -2,22 +2,27 @@ import boundsShader from '../shaders/alpha-bounds.wgsl?raw';
 import type { Matrix, Rect } from '../model/geometry';
 import type { Gpu } from './device';
 import type { QuadRenderer } from './quad';
-import { createSurface } from './surface';
+import { createSurface, isMaskSurface } from './surface';
 import type { Surface } from './surface';
 
 /** Reframing keeps pixel data on the GPU; only the four occupied bounds are read back. */
 export class LayerReframer {
-  private boundsPipeline?: GPUComputePipeline;
+  private boundsPipelines = new Map<boolean, GPUComputePipeline>();
 
   constructor(private readonly gpu: Gpu, private readonly quads: QuadRenderer) {}
 
   async contentBounds(source: Surface): Promise<Rect | null> {
     const { device } = this.gpu;
-    this.boundsPipeline ??= device.createComputePipeline({
-      label: 'Find nontransparent layer bounds',
-      layout: 'auto',
-      compute: { module: device.createShaderModule({ code: boundsShader }), entryPoint: 'main' },
-    });
+    const singleChannel = isMaskSurface(source);
+    let pipeline = this.boundsPipelines.get(singleChannel);
+    if (!pipeline) {
+      const code = boundsShader.replace('const SINGLE_CHANNEL = false;', `const SINGLE_CHANNEL = ${singleChannel};`);
+      pipeline = device.createComputePipeline({
+        label: 'Find nontransparent layer bounds', layout: 'auto',
+        compute: { module: device.createShaderModule({ code }), entryPoint: 'main' },
+      });
+      this.boundsPipelines.set(singleChannel, pipeline);
+    }
     const reduction = device.createBuffer({ label: 'Layer bounds', size: 16, usage: GPUBufferUsage.STORAGE | GPUBufferUsage.COPY_SRC, mappedAtCreation: true });
     new Uint32Array(reduction.getMappedRange()).set([source.texture.width, source.texture.height, 0, 0]);
     reduction.unmap();
@@ -25,8 +30,8 @@ export class LayerReframer {
     try {
       const encoder = device.createCommandEncoder({ label: 'Measure layer content' });
       const pass = encoder.beginComputePass();
-      pass.setPipeline(this.boundsPipeline);
-      pass.setBindGroup(0, device.createBindGroup({ layout: this.boundsPipeline.getBindGroupLayout(0), entries: [
+      pass.setPipeline(pipeline);
+      pass.setBindGroup(0, device.createBindGroup({ layout: pipeline.getBindGroupLayout(0), entries: [
         { binding: 0, resource: source.view },
         { binding: 1, resource: { buffer: reduction } },
       ] }));
@@ -44,7 +49,7 @@ export class LayerReframer {
 
   /** Integer crop/pad: copied texels stay bit-for-bit identical. New pixels are transparent. */
   resize(source: Surface, bounds: Rect): Surface {
-    const output = createSurface(this.gpu.device, 'Reframed layer source', { x: 0, y: 0, width: bounds.width, height: bounds.height });
+    const output = createSurface(this.gpu.device, 'Reframed layer source', { x: 0, y: 0, width: bounds.width, height: bounds.height }, 1, source.texture.format);
     try {
       const encoder = this.gpu.device.createCommandEncoder({ label: 'Crop and extend layer' });
       const left = Math.max(0, bounds.x);
@@ -65,7 +70,7 @@ export class LayerReframer {
 
   /** Bake the source's world placement into one texel per canonical canvas pixel. */
   normalize(source: Surface, canvas: Rect, world: Matrix): Surface {
-    const output = createSurface(this.gpu.device, 'Normalized layer source', canvas);
+    const output = createSurface(this.gpu.device, 'Normalized layer source', canvas, 1, source.texture.format);
     const frame = this.gpu.beginFrame();
     try {
       const pass = this.quads.begin(frame, output);

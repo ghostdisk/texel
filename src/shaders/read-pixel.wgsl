@@ -15,9 +15,9 @@ fn main() {
   let size = vec2i(textureDimensions(source));
   var color = vec4f(0);
   if (all(position >= vec2i(0)) && all(position < size)) {
-    let pixel = textureLoad(source, position, 0);
+    var pixel = textureLoad(source, position, 0);
+    if (params.values.w > 0.5) { pixel = vec4f(vec3f(clamp(pixel.r, 0.0, 1.0)), 1); }
     if (pixel.a > 0.0) { color = vec4f(clamp(toSrgb(pixel.rgb / pixel.a), vec3f(0), vec3f(1)), pixel.a); }
   }
   results[u32(params.values.z)] = color;
 }
-

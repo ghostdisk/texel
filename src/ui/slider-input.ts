@@ -2,6 +2,7 @@ export interface SliderInputOptions {
   label: string;
   min: number;
   max: number;
+  sliderMax?: number;
   step: number;
   unit?: string;
   get(): number;
@@ -28,7 +29,7 @@ export class SliderInput {
     this.number.type = 'number';
     for (const field of [this.range, this.number]) {
       field.min = String(options.min);
-      field.max = String(options.max);
+      field.max = String(field === this.range ? options.sliderMax ?? options.max : options.max);
       field.step = String(options.step);
       field.setAttribute('aria-label', options.label);
       field.oninput = () => {
@@ -71,4 +72,3 @@ export class SliderInput {
 
   private commit(): void { this.options.commit?.(); this.sync(true); }
 }
-

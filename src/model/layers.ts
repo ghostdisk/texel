@@ -1,4 +1,4 @@
-import { createSurface } from '../gpu/surface';
+import { createSurface, isMaskSurface } from '../gpu/surface';
 import type { Surface } from '../gpu/surface';
 import type { Gpu } from '../gpu/device';
 import type { Filter, FilterRegistry, SerializedFilter } from '../filters/filter';
@@ -14,6 +14,7 @@ export interface LayerProperties extends JsonObject {
   opacity: number;
   visible: boolean;
   blendMode: string;
+  selection: boolean;
 }
 
 export interface LayerUndoContext {
@@ -32,12 +33,18 @@ export abstract class Layer implements UndoTarget {
   private shown = true;
   private blending: BlendMode = 'normal';
   private effects: Filter[] = [];
+  private selection = false;
+  outputRevision = 0;
 
   constructor(public name: string, readonly id: string = crypto.randomUUID()) {}
+
+  get isSelection(): boolean { return this.selection; }
+  setSelection(value: boolean): void { this.selection = value; this.invalidate(); }
 
   get transform(): Matrix { return this.matrix; }
   get opacity(): number { return this.alpha; }
   get visible(): boolean { return this.shown; }
+  get visibleInStack(): boolean { return this.visible && !this.isSelection; }
   get blendMode(): BlendMode { return this.blending; }
   get filters(): readonly Filter[] { return this.effects; }
   get outputTexture(): GPUTexture | null { return this.output?.texture ?? null; }
@@ -52,7 +59,7 @@ export abstract class Layer implements UndoTarget {
   }
 
   properties(): LayerProperties {
-    return { name: this.name, transform: [...this.matrix], opacity: this.alpha, visible: this.shown, blendMode: this.blending };
+    return { name: this.name, transform: [...this.matrix], opacity: this.alpha, visible: this.shown, blendMode: this.blending, selection: this.selection };
   }
 
   setProperties(properties: LayerProperties): void {
@@ -61,6 +68,7 @@ export abstract class Layer implements UndoTarget {
     this.setOpacity(properties.opacity);
     this.setVisible(properties.visible);
     this.setBlendMode(properties.blendMode as BlendMode);
+    this.setSelection(properties.selection ?? false);
   }
 
   setTransform(matrix: Matrix): void {
@@ -81,6 +89,8 @@ export abstract class Layer implements UndoTarget {
   addFilter(filter: Filter, index = this.effects.length): void {
     if (this.effects.some((item) => item.id === filter.id)) throw new Error('Duplicate filter ID.');
     this.effects.splice(index, 0, filter);
+    try { validateLayerDependencies(this); }
+    catch (error) { this.effects.splice(this.effects.indexOf(filter), 1); throw error; }
     this.invalidate();
   }
 
@@ -136,6 +146,8 @@ export class ImageLayer extends Layer {
 
   constructor(name: string, private pixels: Surface, id?: string) { super(name, id); }
 
+  get channels(): 1 | 4 { return isMaskSurface(this.source) ? 1 : 4; }
+  override get visibleInStack(): boolean { return this.channels === 4 && super.visibleInStack; }
   get source(): Surface { return this.pixels; }
   get sourceTexture(): GPUTexture { return this.source.texture; }
   get width(): number { return this.source.texture.width; }
@@ -152,8 +164,8 @@ export class ImageLayer extends Layer {
   }
 
   restorePixels(gpu: Gpu, snapshot: Surface): void {
-    const resized = this.width !== snapshot.texture.width || this.height !== snapshot.texture.height;
-    const destination = resized ? createSurface(gpu.device, `${this.name}: source`, snapshot.bounds) : this.source;
+    const resized = this.width !== snapshot.texture.width || this.height !== snapshot.texture.height || this.sourceTexture.format !== snapshot.texture.format;
+    const destination = resized ? createSurface(gpu.device, `${this.name}: source`, snapshot.bounds, snapshot.scale, snapshot.texture.format) : this.source;
     try {
       const encoder = gpu.device.createCommandEncoder({ label: 'Restore layer pixels' });
       encoder.copyTextureToTexture(
@@ -184,16 +196,27 @@ export class GroupLayer extends Layer {
   get children(): readonly Layer[] { return this.items; }
 
   localBounds(): Rect {
-    return unionBounds(this.items.filter((layer) => layer.visible).map((layer) => transformBounds(layer.transform, layer.visualBounds())));
+    return unionBounds(this.items.filter((layer) => layer.visibleInStack).map((layer) => transformBounds(layer.transform, layer.visualBounds())));
   }
 
   add(layer: Layer, index = this.items.length): void {
     for (let ancestor: Layer | null = this; ancestor; ancestor = ancestor.parent) {
       if (ancestor === layer) throw new Error('A group cannot contain itself or an ancestor.');
     }
+    const previous = layer.parent;
+    const previousIndex = previous?.children.indexOf(layer) ?? 0;
     layer.parent?.remove(layer);
     this.items.splice(Math.max(0, Math.min(index, this.items.length)), 0, layer);
     layer.parent = this;
+    try { validateLayerDependencies(this); }
+    catch (error) {
+      this.items.splice(this.items.indexOf(layer), 1);
+      layer.parent = previous;
+      if (previous) previous.items.splice(previousIndex, 0, layer);
+      this.invalidate();
+      previous?.invalidate();
+      throw error;
+    }
     this.invalidate();
   }
 
@@ -204,4 +227,52 @@ export class GroupLayer extends Layer {
     layer.parent = null;
     this.invalidate();
   }
+}
+
+/** Dependencies include group composition and every filter link, even when disabled. */
+export function layerIndex(layer: Layer): Map<string, Layer> {
+  while (layer.parent) layer = layer.parent;
+  const result = new Map<string, Layer>();
+  const visit = (item: Layer) => {
+    result.set(item.id, item);
+    if (item instanceof GroupLayer) item.children.forEach(visit);
+  };
+  visit(layer);
+  return result;
+}
+
+export function layerInputs(layer: Layer, index: ReadonlyMap<string, Layer>): Layer[] {
+  const inputs = layer instanceof GroupLayer ? [...layer.children] : [];
+  for (const filter of layer.filters) for (const id of filter.dependencies()) {
+    const source = index.get(id);
+    if (source) inputs.push(source);
+  }
+  return inputs;
+}
+
+export function canReferenceLayer(owner: Layer, source: Layer): boolean {
+  const index = layerIndex(owner);
+  const visited = new Set<Layer>();
+  const reachesOwner = (layer: Layer): boolean => {
+    if (layer === owner) return true;
+    if (visited.has(layer)) return false;
+    visited.add(layer);
+    return layerInputs(layer, index).some(reachesOwner);
+  };
+  return index.has(source.id) && !reachesOwner(source);
+}
+
+export function validateLayerDependencies(layer: Layer): void {
+  const index = layerIndex(layer);
+  const visiting = new Set<Layer>();
+  const visited = new Set<Layer>();
+  const visit = (item: Layer) => {
+    if (visiting.has(item)) throw new Error('This mask link or group placement would create a circular layer dependency.');
+    if (visited.has(item)) return;
+    visiting.add(item);
+    layerInputs(item, index).forEach(visit);
+    visiting.delete(item);
+    visited.add(item);
+  };
+  index.forEach(visit);
 }

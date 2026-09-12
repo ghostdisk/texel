@@ -4,6 +4,7 @@ import type { GpuReadback } from '../gpu/readback';
 
 interface Preview {
   revision: number;
+  outputRevision: number;
   pixels: ImageData;
 }
 
@@ -19,15 +20,21 @@ export class LayerPreviews {
     const generation = ++this.generation;
     const live = new Set(layers);
     for (const layer of this.entries.keys()) if (!live.has(layer)) this.entries.delete(layer);
-    const pending = layers.filter((layer) => this.entries.get(layer)?.revision !== layer.revision);
-    const revisions = pending.map((layer) => layer.revision);
-    const pixels = await this.readback.thumbnails(pending.map(resolve));
+    const resolved = layers.map((layer) => ({ layer, surface: resolve(layer) }));
+    const pending = resolved.filter(({ layer }) => {
+      const previous = this.entries.get(layer);
+      return !previous || previous.revision !== layer.revision || previous.outputRevision !== layer.outputRevision;
+    });
+    const revisions = pending.map(({ layer }) => [layer.revision, layer.outputRevision]);
+    const pixels = await this.readback.thumbnails(pending.map(({ surface }) => surface));
     if (generation !== this.generation) return;
-    pending.forEach((layer, index) => {
-      if (layer.revision === revisions[index]) this.entries.set(layer, { revision: revisions[index], pixels: pixels[index] });
+    pending.forEach(({ layer }, index) => {
+      const [revision, outputRevision] = revisions[index];
+      if (layer.revision === revision && layer.outputRevision === outputRevision) {
+        this.entries.set(layer, { revision, outputRevision, pixels: pixels[index] });
+      }
     });
   }
 
   clear(): void { this.generation++; this.entries.clear(); }
 }
-

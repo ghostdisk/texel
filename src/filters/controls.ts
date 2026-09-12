@@ -6,6 +6,7 @@ export interface SliderOptions {
   label: string;
   min: number;
   max: number;
+  sliderMax?: number;
   step: number;
   get(): number;
   set(value: number): void;
@@ -49,7 +50,8 @@ export function drawFilterSlider(container: HTMLElement, context: FilterUIContex
 
 export function drawFilterSliderInput(container: HTMLElement, context: FilterUIContext, options: SliderOptions): void {
   const control = new SliderInput({
-    label: options.label, min: options.min, max: options.max, step: options.step, unit: options.unit, get: options.get,
+    label: options.label, min: options.min, max: options.max, sliderMax: options.sliderMax,
+    step: options.step, unit: options.unit, get: options.get,
     begin: () => context.begin(`Change ${options.label.toLowerCase()}`),
     input: (value) => context.preview(() => options.set(value)),
     commit: () => context.commit(),

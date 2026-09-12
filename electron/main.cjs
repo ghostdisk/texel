@@ -35,7 +35,7 @@ ipcMain.handle('actions:set-menus', (event, menus) => {
   const dispatch = (id) => { if (!owner.isDestroyed()) owner.webContents.send('action:execute', id); };
   const template = [];
   for (const group of menus) {
-    if (!['File', 'Edit', 'Layer', 'Filter'].includes(group.label) || !Array.isArray(group.items)) continue;
+    if (!['File', 'Edit', 'Select', 'Layer', 'Filter', 'Tools', 'View'].includes(group.label) || !Array.isArray(group.items)) continue;
     const submenu = [];
     for (const item of group.items) {
       if (!item || typeof item.id !== 'string' || typeof item.label !== 'string') continue;
@@ -55,22 +55,23 @@ ipcMain.handle('actions:set-menus', (event, menus) => {
       } else submenu.push(entry);
     }
     if (group.label === 'File') submenu.push({ type: 'separator' }, { role: 'quit' });
-    if (group.label === 'Edit') submenu.push({ type: 'separator' }, { role: 'cut' }, { role: 'copy' }, { role: 'paste' }, { role: 'selectAll' });
+    if (group.label === 'Edit') submenu.push({ type: 'separator' }, { role: 'cut' }, { role: 'copy' }, { role: 'paste' });
+    if (group.label === 'View') submenu.push(
+      { type: 'separator' }, { role: 'reload' }, { role: 'toggleDevTools' }, { role: 'togglefullscreen' },
+    );
     template.push({ label: group.label, submenu });
   }
-  template.push({ label: 'View', submenu: [
-    { label: 'Fit image', click: () => dispatch('view.fit') },
-    { type: 'separator' }, { role: 'reload' }, { role: 'toggleDevTools' }, { role: 'togglefullscreen' },
-  ] });
   Menu.setApplicationMenu(Menu.buildFromTemplate(template));
 });
 
 app.whenReady().then(async () => {
   Menu.setApplicationMenu(Menu.buildFromTemplate([
     { label: 'File', submenu: [{ role: 'quit' }] },
-    { label: 'Edit', submenu: [{ role: 'cut' }, { role: 'copy' }, { role: 'paste' }, { role: 'selectAll' }] },
+    { label: 'Edit', submenu: [{ role: 'cut' }, { role: 'copy' }, { role: 'paste' }] },
+    { label: 'Select', submenu: [{ label: 'Starting editor…', enabled: false }] },
     { label: 'Layer', submenu: [{ label: 'Starting editor…', enabled: false }] },
     { label: 'Filter', submenu: [{ label: 'Starting editor…', enabled: false }] },
+    { label: 'Tools', submenu: [{ label: 'Starting editor…', enabled: false }] },
     { label: 'View', submenu: [{ role: 'reload' }, { role: 'toggleDevTools' }, { role: 'togglefullscreen' }] },
   ]));
   await createWindow();

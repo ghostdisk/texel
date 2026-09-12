@@ -5,7 +5,7 @@ import type { JsonObject } from '../history/undo';
 import { Filter } from './filter';
 import type { FilterRenderContext, FilterUIContext } from './filter';
 import { dilateAlpha, renderBehind } from './alpha-effect';
-import { drawFilterColor, drawFilterNumber, drawFilterSliderInput, filterColor, filterNumber } from './controls';
+import { drawFilterColor, drawFilterSliderInput, filterColor, filterNumber } from './controls';
 
 export class BorderFilter extends Filter {
   readonly kind = 'border';
@@ -40,8 +40,10 @@ export class BorderFilter extends Filter {
 
   protected drawParameters(container: HTMLElement, context: FilterUIContext): void {
     drawFilterColor(container, context, 'Color', () => this.color, (value) => { this.color = value; });
-    drawFilterNumber(container, context, { label: 'Width · px', min: 0, max: 64, step: 0.5, get: () => this.width, set: (value) => { this.width = value; } });
+    drawFilterSliderInput(container, context, {
+      label: 'Width', unit: 'px', min: 0, max: 64, sliderMax: 20, step: 0.5,
+      get: () => this.width, set: (value) => { this.width = value; },
+    });
     drawFilterSliderInput(container, context, { label: 'Opacity', unit: '%', min: 0, max: 100, step: 1, get: () => this.opacity * 100, set: (value) => { this.opacity = value / 100; } });
   }
 }
-

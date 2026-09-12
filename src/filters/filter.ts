@@ -2,6 +2,8 @@ import type { Gpu, GpuFrame } from '../gpu/device';
 import { drawFilterSliderInput } from './controls';
 import type { QuadRenderer } from '../gpu/quad';
 import type { Surface } from '../gpu/surface';
+import type { MaskInput } from '../gpu/mask';
+import type { LayerChoice } from '../ui/layer-select';
 import type { Rect } from '../model/geometry';
 import type { JsonObject, UndoDirection, UndoOperation, UndoTarget } from '../history/undo';
 
@@ -17,11 +19,14 @@ export interface FilterRenderContext {
   gpu: Gpu;
   frame: GpuFrame;
   quads: QuadRenderer;
+  channels: 1 | 4;
   surface(key: string, bounds: Rect, scale: number): Surface;
+  layer(id: string): MaskInput | null;
 }
 
 export interface FilterUIContext {
   histogram?(): Promise<Uint32Array>;
+  layers?(): LayerChoice[];
   begin(label: string): void;
   preview(change: () => void): void;
   commit(): void;
@@ -36,6 +41,9 @@ export abstract class Filter implements UndoTarget {
   private collapsed = false;
 
   constructor(readonly id: string = crypto.randomUUID()) {}
+
+  dependencies(): readonly string[] { return []; }
+  remapDependencies(_ids: ReadonlyMap<string, string>): void {}
 
   abstract render(context: FilterRenderContext, input: Surface): Surface;
   abstract outputBounds(input: Rect): Rect;
@@ -124,6 +132,7 @@ export abstract class Filter implements UndoTarget {
 export interface FilterDefinition {
   kind: string;
   label: string;
+  group?: string;
   create(id?: string): Filter;
 }
 

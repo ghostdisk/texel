@@ -1,6 +1,8 @@
 import type { Rect } from '../model/geometry';
 
 export const WORKING_FORMAT: GPUTextureFormat = 'rgba16float';
+export const MASK_FORMAT: GPUTextureFormat = 'r16float';
+export function isMaskSurface(surface: Surface): boolean { return surface.texture.format === MASK_FORMAT; }
 
 export interface Surface {
   readonly texture: GPUTexture;
@@ -17,7 +19,7 @@ export function rasterBounds(bounds: Rect, scale: number): Rect {
   return { x, y, width: Math.max(1 / scale, right - x), height: Math.max(1 / scale, bottom - y) };
 }
 
-export function createSurface(device: GPUDevice, label: string, requestedBounds: Rect, scale = 1): Surface {
+export function createSurface(device: GPUDevice, label: string, requestedBounds: Rect, scale = 1, format: GPUTextureFormat = WORKING_FORMAT): Surface {
   if (!Number.isFinite(scale) || scale <= 0) throw new Error('Rasterization scale must be positive.');
   const bounds = rasterBounds(requestedBounds, scale);
   const width = Math.round(bounds.width * scale);
@@ -29,8 +31,8 @@ export function createSurface(device: GPUDevice, label: string, requestedBounds:
   const texture = device.createTexture({
     label,
     size: { width, height },
-    format: WORKING_FORMAT,
-    usage: GPUTextureUsage.TEXTURE_BINDING | GPUTextureUsage.STORAGE_BINDING |
+    format,
+    usage: GPUTextureUsage.TEXTURE_BINDING | (format === WORKING_FORMAT ? GPUTextureUsage.STORAGE_BINDING : 0) |
       GPUTextureUsage.RENDER_ATTACHMENT | GPUTextureUsage.COPY_SRC | GPUTextureUsage.COPY_DST,
   });
   return { texture, view: texture.createView(), bounds, scale };

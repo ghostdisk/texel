@@ -4,6 +4,7 @@ import histogramShader from '../shaders/histogram.wgsl?raw';
 import type { Point } from '../model/geometry';
 import type { Gpu } from './device';
 import type { Surface } from './surface';
+import { isMaskSurface } from './surface';
 
 export type SampledColor = readonly [number, number, number, number];
 
@@ -53,7 +54,7 @@ export class GpuReadback {
       const pass = frame.encoder.beginComputePass();
       pass.setPipeline(pipeline);
       requests.forEach(({ surface, point }, index) => {
-        const params = frame.uniform([(point.x - surface.bounds.x) * surface.scale, (point.y - surface.bounds.y) * surface.scale, index, 0]);
+        const params = frame.uniform([(point.x - surface.bounds.x) * surface.scale, (point.y - surface.bounds.y) * surface.scale, index, Number(isMaskSurface(surface))]);
         pass.setBindGroup(0, device.createBindGroup({ layout: pipeline.getBindGroupLayout(0), entries: [
           { binding: 0, resource: surface.view }, { binding: 1, resource: { buffer: result } }, { binding: 2, resource: params },
         ] }));
@@ -71,7 +72,6 @@ export class GpuReadback {
   async thumbnails(sources: readonly Surface[]): Promise<ImageData[]> {
     if (!sources.length) return [];
     const { device } = this.gpu;
-    const pipeline = this.pipeline(thumbnailShader, 'Layer thumbnails');
     const stride = 64 * 64 * 4;
     const readback = device.createBuffer({ size: stride * sources.length, usage: GPUBufferUsage.MAP_READ | GPUBufferUsage.COPY_DST });
     const image = device.createTexture({ size: [64, 64], format: 'rgba8unorm', usage: GPUTextureUsage.STORAGE_BINDING | GPUTextureUsage.COPY_SRC });
@@ -79,6 +79,8 @@ export class GpuReadback {
     const encoder = device.createCommandEncoder({ label: 'Committed layer previews' });
     try {
       sources.forEach((source, index) => {
+        const code = thumbnailShader.replace('const SINGLE_CHANNEL = false;', `const SINGLE_CHANNEL = ${isMaskSurface(source)};`);
+        const pipeline = this.pipeline(code, 'Layer thumbnails');
         const pass = encoder.beginComputePass();
         pass.setPipeline(pipeline);
         pass.setBindGroup(0, device.createBindGroup({ layout: pipeline.getBindGroupLayout(0), entries: [
@@ -116,4 +118,3 @@ export class GpuReadback {
     return new Uint32Array(await this.read(readback));
   }
 }
-

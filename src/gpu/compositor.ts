@@ -1,15 +1,17 @@
-import { IDENTITY, maxScale, multiply, transformBounds, unionBounds } from '../model/geometry';
+import { IDENTITY, inverse, maxScale, multiply, transformBounds, unionBounds } from '../model/geometry';
 import type { Matrix, Rect } from '../model/geometry';
-import { GroupLayer, ImageLayer, Layer } from '../model/layers';
+import { GroupLayer, ImageLayer, Layer, layerIndex, validateLayerDependencies } from '../model/layers';
 import type { RenderOperation } from './brush';
 import type { Gpu, GpuFrame } from './device';
 import { QuadRenderer } from './quad';
 import { FilterMixer } from './filter-mix';
-import { createSurface, rasterBounds } from './surface';
+import { SelectionOutline } from './selection-outline';
+import { createSurface, rasterBounds, MASK_FORMAT, WORKING_FORMAT } from './surface';
 import type { Surface } from './surface';
 
 interface LayerCache {
   revision: number;
+  signature: string;
   scale: number;
   surfaces: Map<string, Surface>;
   filterInputs: Map<string, Surface>;
@@ -32,12 +34,24 @@ export class Compositor {
   readonly quads: QuadRenderer;
   private readonly mixer: FilterMixer;
   private readonly caches = new Map<Layer, LayerCache>();
+  private readonly outline: SelectionOutline;
+  private index = new Map<string, Layer>();
+  private evaluated = new Map<Layer, Evaluation>();
+  private visiting = new Set<Layer>();
   private readonly operations = new Map<ImageLayer, RenderOperation[]>();
   private stats: RenderStats = { updatedLayers: 0, cachedLayers: 0, encodingMs: 0 };
 
   constructor(private readonly gpu: Gpu, canvasFormat: GPUTextureFormat) {
     this.quads = new QuadRenderer(gpu, canvasFormat);
     this.mixer = new FilterMixer(gpu);
+    this.outline = new SelectionOutline(gpu, canvasFormat);
+  }
+
+  private prepare(layer: Layer): void {
+    validateLayerDependencies(layer);
+    this.index = layerIndex(layer);
+    this.evaluated.clear();
+    this.visiting.clear();
   }
 
   enqueue(layer: ImageLayer, operation: RenderOperation): void {
@@ -63,14 +77,29 @@ export class Compositor {
     catch (error) { frame.release(); throw error; }
   }
 
-  render(root: GroupLayer, view: GPUTextureView, viewport: Rect, framing: Rect, pixelsPerUnit: number): RenderStats {
+  render(
+    root: GroupLayer, view: GPUTextureView, viewport: Rect, framing: Rect, pixelsPerUnit: number,
+    selection: ImageLayer | null = null, editingSelection = false, maskEdit: ImageLayer | null = null,
+  ): RenderStats {
     const start = performance.now();
     const frame = this.gpu.beginFrame();
     this.stats = { updatedLayers: 0, cachedLayers: 0, encodingMs: 0 };
     try {
+      this.prepare(root);
       this.encodePaint(frame);
-      const output = this.evaluate(frame, root, IDENTITY, pixelsPerUnit);
-      this.quads.present(frame, output.surface, view, viewport, root.visible ? root.opacity : 0, framing, pixelsPerUnit > 1);
+      if (maskEdit) {
+        const output = this.evaluate(frame, maskEdit, maskEdit.parent?.worldTransform() ?? IDENTITY, pixelsPerUnit);
+        const world = maskEdit.worldTransform();
+        const magnified = maxScale(world) * pixelsPerUnit > output.surface.scale;
+        this.quads.present(frame, output.surface, view, viewport, 1, framing, magnified, world);
+      } else {
+        const output = this.evaluate(frame, root, IDENTITY, pixelsPerUnit);
+        this.quads.present(frame, output.surface, view, viewport, root.visible ? root.opacity : 0, framing, pixelsPerUnit > 1);
+        if (selection) {
+          const mask = this.evaluate(frame, selection, selection.parent?.worldTransform() ?? IDENTITY, pixelsPerUnit);
+          this.outline.encode(frame, mask.surface, inverse(selection.worldTransform()), view, viewport, framing, pixelsPerUnit, editingSelection);
+        }
+      }
       frame.submit();
       this.operations.clear();
       this.stats.encodingMs = performance.now() - start;
@@ -86,6 +115,7 @@ export class Compositor {
   resolve(layer: Layer, pixelsPerUnit: number): Surface {
     const frame = this.gpu.beginFrame();
     try {
+      this.prepare(layer);
       this.encodePaint(frame);
       const output = this.evaluate(frame, layer, layer.parent?.worldTransform() ?? IDENTITY, pixelsPerUnit);
       frame.submit();
@@ -110,21 +140,37 @@ export class Compositor {
   }
 
   private evaluate(frame: GpuFrame, layer: Layer, parentTransform: Matrix, pixelsPerUnit: number): Evaluation {
+    const evaluated = this.evaluated.get(layer);
+    if (evaluated) return evaluated;
+    if (this.visiting.has(layer)) throw new Error('Circular layer dependency.');
+    this.visiting.add(layer);
     const world = multiply(parentTransform, layer.transform);
     let scale = layer instanceof ImageLayer ? 1 : 2 ** Math.ceil(Math.log2(Math.max(1 / 16, maxScale(world) * pixelsPerUnit)));
-    const cache = this.caches.get(layer) ?? { revision: -1, scale, surfaces: new Map<string, Surface>(), filterInputs: new Map<string, Surface>() };
+    const cache = this.caches.get(layer) ?? { revision: -1, signature: '', scale, surfaces: new Map<string, Surface>(), filterInputs: new Map<string, Surface>() };
     this.caches.set(layer, cache);
     const children: EvaluatedChild[] = [];
     let childrenChanged = false;
     if (layer instanceof GroupLayer) {
       for (const child of layer.children) {
-        if (!child.visible || child.opacity === 0) continue;
+        if (!child.visibleInStack || child.opacity === 0) continue;
         const evaluated = this.evaluate(frame, child, world, pixelsPerUnit);
         children.push({ layer: child, surface: evaluated.surface });
         childrenChanged ||= evaluated.changed;
       }
     }
     const filters = layer.filters.filter((filter) => filter.enabled);
+    const dependencies = new Map<string, Layer>();
+    for (const filter of filters) for (const id of filter.dependencies()) {
+      const dependency = this.index.get(id);
+      if (!dependency) continue;
+      this.evaluate(frame, dependency, dependency.parent?.worldTransform() ?? IDENTITY, pixelsPerUnit);
+      dependencies.set(id, dependency);
+    }
+    const signature = JSON.stringify([
+      children.map(({ layer: child }) => [child.id, child.outputRevision, child.transform, child.opacity, child.blendMode]),
+      [...dependencies.values()].map((item) => [item.id, item.outputRevision, item.worldTransform()]),
+      dependencies.size ? world : null,
+    ]);
     const groupBounds = unionBounds(children.map((child) => transformBounds(child.layer.transform, child.surface.bounds)));
     if (layer instanceof GroupLayer) {
       const bounds = filters.reduce((bounds, filter) => filter.outputBounds(bounds), groupBounds);
@@ -133,28 +179,38 @@ export class Compositor {
       const cap = Math.min(limit / Math.max(bounds.width, bounds.height), Math.sqrt(16 * 1024 * 1024 / (bounds.width * bounds.height)));
       scale = Math.min(scale, 2 ** Math.floor(Math.log2(cap)));
     }
-    if (layer.output && cache.revision === layer.revision && cache.scale === scale && !childrenChanged) {
+    if (layer.output && cache.revision === layer.revision && cache.scale === scale && cache.signature === signature && !childrenChanged) {
       this.stats.cachedLayers++;
-      return { surface: layer.output, changed: false };
+      const result = { surface: layer.output, changed: false };
+      this.visiting.delete(layer);
+      this.evaluated.set(layer, result);
+      return result;
     }
     const used = new Set<string>();
-    const surface = (key: string, requestedBounds: Rect, density = scale): Surface => {
+    const surface = (key: string, requestedBounds: Rect, density = scale, format = WORKING_FORMAT): Surface => {
       used.add(key);
       const existing = cache.surfaces.get(key);
       const bounds = rasterBounds(requestedBounds, density);
-      if (existing && existing.scale === density && existing.texture.width === Math.round(bounds.width * density) &&
+      if (existing && existing.texture.format === format && existing.scale === density && existing.texture.width === Math.round(bounds.width * density) &&
         existing.texture.height === Math.round(bounds.height * density)) {
         const reused = { ...existing, bounds };
         cache.surfaces.set(key, reused);
         return reused;
       }
-      const replacement = createSurface(this.gpu.device, `${layer.name}: ${key}`, bounds, density);
+      const replacement = createSurface(this.gpu.device, `${layer.name}: ${key}`, bounds, density, format);
       if (existing) frame.retire(existing.texture);
       cache.surfaces.set(key, replacement);
       return replacement;
     };
     let content: Surface;
-    if (layer instanceof ImageLayer) content = layer.source;
+    if (layer instanceof ImageLayer) {
+      content = layer.source;
+      if (layer.channels === 1 && layer.filters.length > 0) {
+        const expanded = surface('mask-input', content.bounds, 1);
+        this.quads.copy(frame, content, expanded);
+        content = expanded;
+      }
+    }
     else if (layer instanceof GroupLayer) {
       content = surface('children', groupBounds);
       const pass = this.quads.begin(frame, content);
@@ -171,8 +227,12 @@ export class Compositor {
       if (!filter.enabled) continue;
       const original = content;
       content = filter.render({
-        gpu: this.gpu, frame, quads: this.quads,
+        gpu: this.gpu, frame, quads: this.quads, channels: layer instanceof ImageLayer ? layer.channels : 4,
         surface: (key, bounds, density) => surface(`${filter.id}:${key}`, bounds, density),
+        layer: (id) => {
+          const mask = dependencies.get(id);
+          return mask?.output ? { surface: mask.output, transform: multiply(inverse(mask.worldTransform()), world) } : null;
+        },
       }, original);
       if (filter.mix < 1) {
         const bounds = filter.mix === 0 ? original.bounds : unionBounds([original.bounds, content.bounds]);
@@ -181,7 +241,13 @@ export class Compositor {
         content = mixed;
       }
     }
-    if (layer instanceof ImageLayer && content === layer.source) {
+    if (layer instanceof ImageLayer && layer.channels === 1) {
+      const output = surface('mask-output', content.bounds, content.scale, MASK_FORMAT);
+      if (content === layer.source) {
+        frame.encoder.copyTextureToTexture({ texture: content.texture }, { texture: output.texture }, [layer.width, layer.height]);
+      } else this.quads.copy(frame, content, output);
+      content = output;
+    } else if (layer instanceof ImageLayer && content === layer.source) {
       const output = surface('output', content.bounds, 1);
       frame.encoder.copyTextureToTexture({ texture: content.texture }, { texture: output.texture }, { width: layer.width, height: layer.height });
       content = output;
@@ -194,7 +260,12 @@ export class Compositor {
     layer.output = content;
     cache.revision = layer.revision;
     cache.scale = scale;
+    cache.signature = signature;
+    layer.outputRevision++;
     this.stats.updatedLayers++;
-    return { surface: content, changed: true };
+    const result = { surface: content, changed: true };
+    this.visiting.delete(layer);
+    this.evaluated.set(layer, result);
+    return result;
   }
 }

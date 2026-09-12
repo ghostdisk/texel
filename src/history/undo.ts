@@ -45,7 +45,7 @@ export class UndoOperation {
 
   get bytes(): number {
     let bytes = 0;
-    for (const surface of this.snapshots.values()) bytes += surface.texture.width * surface.texture.height * 8;
+    for (const surface of this.snapshots.values()) bytes += surface.texture.width * surface.texture.height * (surface.texture.format === 'r16float' ? 2 : 8);
     return bytes;
   }
 

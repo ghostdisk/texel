@@ -6,8 +6,13 @@ import { SmartBlurFilter } from './filters/smart-blur-filter';
 import { BrightnessContrastFilter } from './filters/brightness-contrast-filter';
 import { LevelsFilter } from './filters/levels-filter';
 import { PosterizeFilter } from './filters/posterize-filter';
+import { InvertFilter } from './filters/invert-filter';
 import { BorderFilter } from './filters/border-filter';
 import { DropShadowFilter } from './filters/drop-shadow-filter';
+import { MaskFilter } from './filters/mask-filter';
+import { createSurface } from './gpu/surface';
+import type { Surface } from './gpu/surface';
+import type { MaskInput } from './gpu/mask';
 import { Brush } from './gpu/brush';
 import type { BrushStamp } from './gpu/brush';
 import { Compositor } from './gpu/compositor';
@@ -22,11 +27,12 @@ import { UndoOperation, UndoStack } from './history/undo';
 import type { UndoDirection } from './history/undo';
 import { ImageDocument } from './model/image-document';
 import type { ReframeMode } from './model/image-document';
-import { GroupLayer, ImageLayer, Layer } from './model/layers';
+import { GroupLayer, ImageLayer, Layer, canReferenceLayer } from './model/layers';
 import type { LayerProperties } from './model/layers';
 import { inverse, multiply } from './model/geometry';
 import type { Point } from './model/geometry';
 import { BrushTool } from './tools/brush-tool';
+import { RectangleTool } from './tools/rectangle-tool';
 import { TransformTool } from './tools/transform-tool';
 import { EyedropperTool } from './tools/eyedropper-tool';
 import type { Tool, ToolPointer } from './tools/tool';
@@ -57,18 +63,25 @@ export class Editor {
   private previewsRunning = false;
   private previewsReady = false;
   onPreviews?: () => void;
-  onColorChange?: (color: string) => void;
-  panHeld = false;
+  onColorChange?: (primary: string, secondary: string) => void;
+  primaryColor = '#000000';
+  secondaryColor = '#ffffff';
+  private panKeyHeld = false;
+  private panMode = false;
+  eraseMode = false;
+  selectionMode = false;
+  private selectionReturnId: string | null = null;
+  private editedMask: ImageLayer | null = null;
   halted = false;
   onChange?: () => void;
   onFrame?: (stats: RenderStats) => void;
   onNewDocument?: () => void;
-  onNewLayer?: () => void;
   onRename?: () => void;
   commitEdits?: () => void;
   private scheduledFrame = 0;
   private pendingStamps = new Map<ImageLayer, BrushStamp[]>();
   private pointer: PointerGesture | null = null;
+  private hoverPointer: ToolPointer | null = null;
   private context: GPUCanvasContext;
   private lastMenus = '';
   private reframing = false;
@@ -91,26 +104,30 @@ export class Editor {
     this.readback = new GpuReadback(gpu);
     this.previews = new LayerPreviews(this.readback);
     this.picker = new PixelPicker(this.compositor, this.readback);
-    this.filters.register({ kind: 'blur', label: 'Gaussian blur', create: (id) => new BlurFilter(id) });
-    this.filters.register({ kind: 'smart-blur', label: 'Smart blur', create: (id) => new SmartBlurFilter(id) });
-    this.filters.register({ kind: 'brightness-contrast', label: 'Brightness / contrast', create: (id) => new BrightnessContrastFilter(id) });
-    this.filters.register({ kind: 'levels', label: 'Levels', create: (id) => new LevelsFilter(id) });
-    this.filters.register({ kind: 'posterize', label: 'Posterize', create: (id) => new PosterizeFilter(id) });
-    this.filters.register({ kind: 'border', label: 'Border', create: (id) => new BorderFilter(id) });
-    this.filters.register({ kind: 'drop-shadow', label: 'Drop shadow', create: (id) => new DropShadowFilter(id) });
+    this.filters.register({ kind: 'blur', label: 'Gaussian blur', group: 'Blur', create: (id) => new BlurFilter(id) });
+    this.filters.register({ kind: 'smart-blur', label: 'Smart blur', group: 'Blur', create: (id) => new SmartBlurFilter(id) });
+    this.filters.register({ kind: 'brightness-contrast', label: 'Brightness / contrast', group: 'Adjustments', create: (id) => new BrightnessContrastFilter(id) });
+    this.filters.register({ kind: 'levels', label: 'Levels', group: 'Adjustments', create: (id) => new LevelsFilter(id) });
+    this.filters.register({ kind: 'posterize', label: 'Posterize', group: 'Adjustments', create: (id) => new PosterizeFilter(id) });
+    this.filters.register({ kind: 'border', label: 'Border', group: 'Effects', create: (id) => new BorderFilter(id) });
+    this.filters.register({ kind: 'drop-shadow', label: 'Drop shadow', group: 'Effects', create: (id) => new DropShadowFilter(id) });
+    this.filters.register({ kind: 'invert', label: 'Invert', group: 'Adjustments', create: (id) => new InvertFilter(id) });
+    this.filters.register({ kind: 'mask', label: 'Mask', create: (id) => new MaskFilter(id) });
     this.history = new UndoStack((operation, direction) => this.applyUndo(operation, direction));
     this.image = new ImageDocument(gpu, this.compositor, this.filters, this.history, () => this.flushPaint());
     this.actions = new ActionRegistry(report);
     this.baseTool = new BrushTool(this);
     this.tools.set(this.activeTool.id, this.activeTool);
+    this.tools.set('rectangle', new RectangleTool(this));
     this.tools.set('transform', new TransformTool(this));
     this.tools.set('eyedropper', new EyedropperTool(this));
     this.image.onInvalidated = () => this.requestRender();
     this.image.onChange = () => this.changed();
     this.history.onChange = () => { this.pickGeneration++; this.queuePreviews(); this.changed(); };
-    this.viewport.onChange = () => this.requestRender();
+    this.viewport.onChange = () => { this.refreshHover(); this.requestRender(); };
     this.actions.beforeExecute = () => this.finishGesture();
     this.actions.blocked = () => this.halted || this.reframing;
+    this.actions.context = () => ({ hasSelection: !!this.image.selectionMask });
     this.registerActions();
     this.attachInput();
     new ResizeObserver(() => this.resize()).observe(stage);
@@ -118,6 +135,129 @@ export class Editor {
   }
 
   get activeTool(): Tool { return this.altHeld && this.baseTool.id === 'brush' ? this.tools.get('eyedropper')! : this.baseTool; }
+  get maskEditLayer(): ImageLayer | null { return this.editedMask; }
+  get panHeld(): boolean { return this.panKeyHeld || this.panMode; }
+
+  private setMaskEditLayer(layer: ImageLayer | null): void {
+    if (layer === this.editedMask) return;
+    this.pickGeneration++;
+    this.tools.get('eyedropper')?.cancel();
+    this.editedMask = layer;
+  }
+
+  toggleLayerVisibility(layer: Layer): void {
+    this.finishGesture();
+    if (layer instanceof ImageLayer && layer.channels === 1) {
+      this.setMaskEditLayer(this.editedMask === layer ? null : layer);
+      if (this.editedMask) this.select(layer);
+      else this.changed();
+    } else if (this.editedMask) {
+      this.setMaskEditLayer(null);
+      this.changed();
+    } else {
+      this.changeLayer(layer, 'Toggle layer visibility', () => layer.setVisible(!layer.visible));
+    }
+  }
+
+  get paintTarget(): ImageLayer | null {
+    if (this.selectionMode) return this.image.selectionMask;
+    return this.image.selected instanceof ImageLayer ? this.image.selected : null;
+  }
+
+  drawingColor(layer: ImageLayer, opacity: number): readonly [number, number, number, number] {
+    const color = this.primaryColor;
+    const rgb = [1, 3, 5].map((offset) => {
+      const value = parseInt(color.slice(offset, offset + 2), 16) / 255;
+      return value <= 0.04045 ? value / 12.92 : ((value + 0.055) / 1.055) ** 2.4;
+    });
+    if (layer.channels === 1) {
+      const value = rgb[0] * 0.2126 + rgb[1] * 0.7152 + rgb[2] * 0.0722;
+      return [value, value, value, opacity];
+    }
+    return [rgb[0], rgb[1], rgb[2], opacity];
+  }
+
+  captureSelection(layer: ImageLayer): MaskInput | null {
+    const selection = this.image.selectionMask;
+    if (!selection || layer === selection) return null;
+    this.flushPaint();
+    const source = this.compositor.resolve(selection, this.rasterDensity);
+    const surface = createSurface(this.gpu.device, 'Drawing selection snapshot', source.bounds, source.scale, source.texture.format);
+    const frame = this.gpu.beginFrame();
+    try {
+      frame.encoder.copyTextureToTexture({ texture: source.texture }, { texture: surface.texture }, [source.texture.width, source.texture.height]);
+      frame.submit();
+      return { surface, transform: multiply(inverse(selection.worldTransform()), layer.worldTransform()) };
+    } catch (error) { surface.texture.destroy(); frame.release(); throw error; }
+  }
+
+  setSelectionMode(enabled: boolean): void {
+    this.finishGesture();
+    if (enabled) {
+      if (!this.image.selected.isSelection) this.selectionReturnId = this.image.selected.id;
+      const mask = this.image.ensureSelection();
+      this.selectionMode = true;
+      this.image.select(mask);
+    } else {
+      this.selectionMode = false;
+      if (this.image.selected.isSelection) {
+        this.image.selected = this.image.allLayers().find((layer) => layer.id === this.selectionReturnId && !layer.isSelection) ??
+          this.image.allLayers().find((layer) => layer instanceof ImageLayer && !layer.isSelection) ?? this.image.root;
+      }
+      this.changed();
+    }
+  }
+
+  private deselect(): void {
+    const selection = this.image.selectionMask;
+    if (!selection) return;
+    this.setSelectionMode(false);
+    this.image.deleteSelected(selection);
+  }
+
+  private clearSelection(): void {
+    const layer = this.paintTarget;
+    if (!this.image.selectionMask || !layer) return;
+    const snapshots = new Map<string, Surface>();
+    let selection: MaskInput | null = null;
+    let before: string | undefined;
+    try {
+      selection = this.captureSelection(layer);
+      before = this.image.capturePixels(layer, snapshots);
+      // Keep the stamp's antialiased edges outside the layer's pixel buffer.
+      const stamp: BrushStamp = {
+        x: layer.width / 2, y: layer.height / 2, width: layer.width + 4, height: layer.height + 4,
+        radius: 1, hardness: 1, rectangle: true, color: [0, 0, 0, 1],
+      };
+      this.compositor.enqueue(layer, this.brush.operation([stamp], true, selection));
+      const after = this.image.capturePixels(layer, snapshots);
+      this.history.push(new UndoOperation(
+        'Clear selected pixels',
+        { type: 'layer', targetId: layer.id, action: 'pixels', data: { snapshotId: before } },
+        { type: 'layer', targetId: layer.id, action: 'pixels', data: { snapshotId: after } },
+        snapshots,
+      ));
+    } catch (error) {
+      try {
+        this.flushPaint();
+        if (before) layer.restorePixels(this.gpu, snapshots.get(before)!);
+      } finally { for (const snapshot of snapshots.values()) snapshot.texture.destroy(); }
+      throw error;
+    } finally { selection?.surface.texture.destroy(); }
+  }
+
+  private promoteSelection(): void {
+    const selection = this.image.selectionMask;
+    if (!selection) return;
+    this.setSelectionMode(false);
+    this.changeLayer(selection, 'Promote selection to mask', () => {
+      selection.setSelection(false);
+      if (selection.name === 'Selection') selection.name = 'Mask';
+      selection.setVisible(false);
+    });
+    this.select(selection);
+  }
+
   private get rasterDensity(): number { return this.viewport.scale * this.canvas.width / this.viewport.width; }
   private get interacting(): boolean { return !!this.pointer || !!this.commitEdits; }
 
@@ -145,13 +285,22 @@ export class Editor {
 
   async sampleColor(point: Point): Promise<SampledColor | null> {
     this.flushPaint();
-    return this.picker.color(this.image.root, point, this.image.frame, this.rasterDensity);
+    return this.picker.color(this.image.root, point, this.image.frame, this.rasterDensity, this.editedMask);
   }
 
-  setBrushColor(color: string, sampled = false): void {
-    if (!sampled) this.tools.get('eyedropper')?.cancel();
-    (this.tools.get('brush') as BrushTool).color = color;
-    this.onColorChange?.(color);
+  setBrushColor(color: string, sampled = false): void { this.setColors(color, this.secondaryColor, sampled); }
+
+  setColors(primary: string, secondary: string, sampled = false): void {
+    this.primaryColor = primary;
+    this.secondaryColor = secondary;
+    if (!sampled) (this.tools.get('eyedropper') as EyedropperTool).colorsChanged();
+    this.onColorChange?.(primary, secondary);
+  }
+
+  private refreshHover(): void {
+    const pointer = this.hoverPointer;
+    this.activeTool.hover(pointer && this.pointer?.mode !== 'pan' ?
+      { ...pointer, world: this.viewport.screenToWorld(pointer.screen) } : null);
   }
 
   async pickLayer(point: Point): Promise<void> {
@@ -159,7 +308,7 @@ export class Editor {
     const documentId = this.image.id;
     const selected = this.image.selected;
     this.flushPaint();
-    const layer = await this.picker.layer(this.image.root, point, this.image.frame, this.rasterDensity);
+    const layer = await this.picker.layer(this.image.root, point, this.image.frame, this.rasterDensity, this.editedMask);
     if (!this.halted && generation === this.pickGeneration && this.image.id === documentId && this.activeTool.id === 'transform' &&
       this.image.selected === selected && layer && this.image.allLayers().includes(layer)) this.select(layer);
   }
@@ -182,7 +331,12 @@ export class Editor {
   }
 
   changed(): void {
+    if (this.editedMask && (this.image.selected !== this.editedMask || !this.image.allLayers().includes(this.editedMask))) {
+      this.setMaskEditLayer(null);
+    }
+    if (!this.image.selectionMask || !this.image.selected.isSelection) this.selectionMode = false;
     this.onChange?.();
+    this.refreshHover();
     const menus = this.actions.menus();
     const json = JSON.stringify(menus);
     if (json !== this.lastMenus) { this.lastMenus = json; void window.desktop.setMenus(menus).catch(this.report); }
@@ -198,6 +352,7 @@ export class Editor {
         const density = this.canvas.width / this.viewport.width;
         const stats = this.compositor.render(
           this.image.root, this.context.getCurrentTexture().createView(), this.viewport.bounds(), this.image.frame, this.viewport.scale * density,
+          this.image.selectionMask, this.selectionMode, this.editedMask,
         );
         this.overlay.replaceChildren();
         (this.tools.get('transform') as TransformTool).drawOverlay(this.activeTool.id === 'transform');
@@ -206,6 +361,7 @@ export class Editor {
           if (this.previewsRequested && !this.previewsRunning) void this.refreshPreviews().catch(this.report);
         }
         this.onFrame?.(stats);
+        if (this.image.selectionMask && !this.editedMask) this.requestRender();
       });
     });
   }
@@ -225,30 +381,43 @@ export class Editor {
     this.pickGeneration++;
     this.tools.get('eyedropper')?.cancel();
     this.previews.clear();
+    this.selectionMode = false;
+    this.selectionReturnId = null;
+    this.setMaskEditLayer(null);
     this.image.reset(width, height);
     this.queuePreviews();
     this.viewport.fit(this.image.frame);
   }
 
-  select(layer: Layer): void { this.pickGeneration++; this.finishGesture(); this.image.select(layer); }
+  select(layer: Layer): void {
+    this.pickGeneration++;
+    this.finishGesture();
+    if (layer.isSelection && !this.image.selected.isSelection) this.selectionReturnId = this.image.selected.id;
+    this.selectionMode = layer.isSelection;
+    if (!layer.isSelection) this.selectionReturnId = layer.id;
+    this.image.select(layer);
+  }
 
   switchTool(id: string): void {
     const tool = this.tools.get(id);
-    if (!tool || tool === this.baseTool) return;
+    if (!tool || (tool === this.baseTool && !this.panMode && !this.selectionMode && !this.eraseMode)) return;
     this.finishGesture();
     this.activeTool.hover(null);
     this.pickGeneration++;
     this.baseTool = tool;
+    this.panMode = false;
+    this.eraseMode = false;
     this.canvas.style.cursor = this.panHeld ? 'grab' : this.activeTool.cursor;
-    this.changed();
+    if (this.selectionMode) this.setSelectionMode(false);
+    else this.changed();
   }
 
-  paint(layer: ImageLayer, stamp: BrushStamp): void {
+  paint(layer: ImageLayer, stamp: BrushStamp, erase = false, selection: MaskInput | null = null): void {
     let stamps = this.pendingStamps.get(layer);
     if (!stamps) {
       stamps = [];
       this.pendingStamps.set(layer, stamps);
-      this.compositor.enqueue(layer, this.brush.operation(stamps));
+      this.compositor.enqueue(layer, this.brush.operation(stamps, erase, selection));
     }
     stamps.push(stamp);
   }
@@ -275,13 +444,18 @@ export class Editor {
   }
 
   setPanHeld(held: boolean): void {
-    this.panHeld = held;
-    if (held && this.pointer?.mode === 'tool') {
+    this.panKeyHeld = held;
+    this.updatePanCursor();
+  }
+
+  private updatePanCursor(): void {
+    if (this.panHeld && this.pointer?.mode === 'tool') {
       this.activeTool.finish();
       this.pointer.mode = 'pan';
     }
     this.brushCursor.hidden = true;
-    this.canvas.style.cursor = this.pointer?.mode === 'pan' ? 'grabbing' : held ? 'grab' : this.activeTool.cursor;
+    this.refreshHover();
+    this.canvas.style.cursor = this.pointer?.mode === 'pan' ? 'grabbing' : this.panHeld ? 'grab' : this.activeTool.cursor;
   }
 
   changeLayer(layer: Layer, label: string, mutate: () => void): void {
@@ -311,6 +485,38 @@ export class Editor {
       { type: 'layer', targetId: layer.id, action: 'remove-filter', data: { filterId: filter.id } },
       { type: 'layer', targetId: layer.id, action: 'add-filter', data: { index, filter: filter.serialize() } },
     ));
+  }
+
+  setLayerMask(layer: Layer, mask: Layer): void {
+    this.finishGesture();
+    const layers = this.image.allLayers();
+    if (!layers.includes(layer) || !layers.includes(mask) || !canReferenceLayer(layer, mask)) {
+      throw new Error('This mask link would create a circular layer dependency.');
+    }
+    const existing = layer.filters.find((filter): filter is MaskFilter => filter instanceof MaskFilter);
+    if (existing) {
+      if (existing.layerId === mask.id) { this.select(layer); return; }
+      const before = existing.serialize();
+      existing.layerId = mask.id;
+      layer.invalidate();
+      this.select(layer);
+      this.history.push(new UndoOperation(
+        'Replace layer mask',
+        { type: 'filter', targetId: existing.id, action: 'state', data: { layerId: layer.id, filter: before } },
+        { type: 'filter', targetId: existing.id, action: 'state', data: { layerId: layer.id, filter: existing.serialize() } },
+      ));
+    } else {
+      const filter = new MaskFilter();
+      filter.layerId = mask.id;
+      const index = layer.filters.length;
+      layer.addFilter(filter);
+      this.select(layer);
+      this.history.push(new UndoOperation(
+        'Set layer mask',
+        { type: 'layer', targetId: layer.id, action: 'remove-filter', data: { filterId: filter.id } },
+        { type: 'layer', targetId: layer.id, action: 'add-filter', data: { index, filter: filter.serialize() } },
+      ));
+    }
   }
 
   removeFilter(layer: Layer, filter: Filter): void {
@@ -359,6 +565,7 @@ export class Editor {
       if (!tool) throw new Error(`Unknown undo tool: ${payload.targetId}`);
       tool.applyUndo(operation, direction);
     }
+    this.selectionMode = this.image.selected.isSelection;
   }
 
   async addImage(name: string, blob: Blob): Promise<void> {
@@ -403,13 +610,41 @@ export class Editor {
       const image = await window.desktop.openImage();
       if (image) await this.addImage(image.name, new Blob([image.bytes]));
     } });
-    register({ id: 'layer.new', label: 'New pixel layer…', menu: 'File', execute: () => this.onNewLayer?.() });
-    register({ id: 'group.new', label: 'New group', menu: 'File', execute: () => this.image.add(new GroupLayer('Group')) });
+    register({ id: 'layer.new', label: 'New pixel layer', menu: 'Layer', execute: () => this.image.createPixelLayer() });
+    register({ id: 'mask.new', label: 'New mask layer', menu: 'Layer', execute: () => this.image.createMask() });
+    register({ id: 'group.new', label: 'New group', menu: 'Layer', execute: () => this.image.add(new GroupLayer('Group')) });
     register({ id: 'history.undo', label: () => `Undo${this.history.canUndo ? ` ${this.history.undoLabel}` : ''}`, menu: 'Edit', enabled: () => this.history.canUndo, execute: () => this.history.undo() });
     register({ id: 'history.redo', label: () => `Redo${this.history.canRedo ? ` ${this.history.redoLabel}` : ''}`, menu: 'Edit', enabled: () => this.history.canRedo, execute: () => this.history.redo() });
-    register({ id: 'layer.duplicate', label: 'Duplicate layer', menu: 'Edit', enabled: () => !!this.image.selected.parent, execute: () => this.image.duplicateSelected() });
-    register({ id: 'layer.delete', label: 'Delete layer', menu: 'Edit', enabled: () => !!this.image.selected.parent, execute: () => this.image.deleteSelected() });
-    register({ id: 'layer.rename', label: 'Rename layer', menu: 'Edit', execute: () => this.onRename?.() });
+    register({ id: 'layer.duplicate', label: 'Duplicate layer', menu: 'Layer', enabled: () => !!this.image.selected.parent, execute: () => this.image.duplicateSelected() });
+    register({ id: 'layer.delete', label: 'Delete layer', menu: 'Layer', enabled: () => !!this.image.selected.parent, execute: () => this.image.deleteSelected() });
+    register({ id: 'layer.rename', label: 'Rename layer', menu: 'Layer', execute: () => this.onRename?.() });
+    for (const [direction, offset] of [['up', 1], ['down', -1]] as const) register({
+      id: `layer.${direction}`, label: `Move layer ${direction}`, menu: 'Layer',
+      enabled: () => {
+        const layer = this.image.selected;
+        const index = layer.parent?.children.indexOf(layer) ?? -1;
+        return !!layer.parent && index + offset >= 0 && index + offset < layer.parent.children.length;
+      },
+      execute: () => {
+        const layer = this.image.selected;
+        if (layer.parent) this.image.move(layer, layer.parent, layer.parent.children.indexOf(layer) + (offset > 0 ? 2 : -1));
+      },
+    });
+    register({
+      id: 'layer.visibility', menu: 'Layer',
+      label: () => {
+        const layer = this.image.selected;
+        if (layer === this.maskEditLayer) return 'Finish editing mask';
+        if (layer instanceof ImageLayer && layer.channels === 1) return 'Edit mask';
+        return layer.visible ? 'Hide layer' : 'Show layer';
+      },
+      execute: () => this.toggleLayerVisibility(this.image.selected),
+    });
+    register({
+      id: 'selection.clear', label: 'Clear selected pixels', menu: 'Edit',
+      enabled: () => !!this.image.selectionMask && !!this.paintTarget,
+      execute: () => this.clearSelection(),
+    });
     const reframe = (mode: ReframeMode, label: string) => register({
       id: `layer.reframe.${mode}`, label, menu: 'Layer', submenu: 'Reframe',
       enabled: () => this.image.selected instanceof ImageLayer,
@@ -418,22 +653,67 @@ export class Editor {
     reframe('normalize', 'Normalize to Canvas');
     reframe('trim', 'Trim Transparent Borders');
     reframe('extend', 'Extend to Canvas');
-    for (const filter of this.filters.list()) register({ id: `filter.${filter.kind}`, label: filter.label, menu: 'Filter', execute: () => this.addFilter(filter.kind) });
-    register({ id: 'tool.brush', label: 'Brush', execute: () => this.switchTool('brush') });
-    register({ id: 'tool.transform', label: 'Move / transform', execute: () => this.switchTool('transform') });
-    register({ id: 'tool.eyedropper', label: 'Eyedropper', execute: () => this.switchTool('eyedropper') });
-    register({ id: 'tool.sample-held', label: 'Temporary eyedropper', execute: () => this.setAltHeld(true), release: () => this.setAltHeld(false) });
-    register({ id: 'view.pan', label: 'Pan', execute: () => this.setPanHeld(true), release: () => this.setPanHeld(false) });
-    register({ id: 'view.fit', label: 'Fit image', execute: () => this.viewport.fit(this.image.frame) });
+    for (const filter of this.filters.list()) register({
+      id: `filter.${filter.kind}`, label: filter.label, menu: 'Filter', submenu: filter.group,
+      execute: () => this.addFilter(filter.kind),
+    });
+    register({ id: 'selection.mode', label: () => this.selectionMode ? 'Finish editing selection' : 'Edit selection', menu: 'Select', execute: () => this.setSelectionMode(!this.selectionMode) });
+    register({ id: 'selection.all', label: 'Select all', menu: 'Select', execute: () => {
+      const selection = this.image.ensureSelection(true);
+      if (this.selectionMode) this.image.select(selection);
+      this.changed();
+    } });
+    register({ id: 'selection.deselect', label: 'Deselect', menu: 'Select', enabled: () => !!this.image.selectionMask, execute: () => this.deselect() });
+    register({ id: 'selection.promote', label: 'Promote selection to mask', menu: 'Select', enabled: () => !!this.image.selectionMask, execute: () => this.promoteSelection() });
+    register({ id: 'drawing.erase', label: () => this.eraseMode ? 'Switch to draw mode' : 'Switch to erase mode', menu: 'Tools', execute: () => {
+      this.eraseMode = !this.eraseMode;
+      this.changed();
+    } });
+    register({
+      id: 'colors.reset', label: 'Default colors', menu: 'Tools', submenu: 'Colors',
+      execute: () => this.setColors('#000000', '#ffffff'),
+    });
+    register({
+      id: 'colors.swap', label: 'Swap primary / secondary colors', menu: 'Tools', submenu: 'Colors',
+      execute: () => this.setColors(this.secondaryColor, this.primaryColor),
+    });
+    register({ id: 'tool.brush', label: 'Brush', menu: 'Tools', execute: () => this.switchTool('brush') });
+    register({ id: 'tool.rectangle', label: 'Rectangle', menu: 'Tools', execute: () => this.switchTool('rectangle') });
+    register({ id: 'tool.transform', label: 'Move / transform', menu: 'Tools', execute: () => this.switchTool('transform') });
+    register({
+      id: 'tool.eyedropper', label: 'Eyedropper', menu: 'Tools', execute: () => this.switchTool('eyedropper'),
+      hold: {
+        press: () => this.setAltHeld(true),
+        release: () => this.setAltHeld(false),
+      },
+    });
+    register({
+      id: 'view.pan', label: () => this.panMode ? 'Exit pan mode' : 'Pan mode', menu: 'View',
+      execute: () => { this.panMode = !this.panMode; this.updatePanCursor(); this.changed(); },
+      hold: {
+        press: () => this.setPanHeld(true),
+        release: () => this.setPanHeld(false),
+      },
+    });
+    register({ id: 'view.fit', label: 'Fit image', menu: 'View', execute: () => this.viewport.fit(this.image.frame) });
+    this.actions.bind('D', 'colors.reset');
+    this.actions.bind('X', 'colors.swap');
     this.actions.bind('B', 'tool.brush');
+    this.actions.bind('R', 'tool.rectangle');
+    this.actions.bind('E', 'drawing.erase');
+    this.actions.bind('S', 'selection.mode');
+    this.actions.bind('Ctrl+A', 'selection.all');
+    this.actions.bind('Ctrl+D', 'selection.deselect');
     this.actions.bind('V', 'tool.transform');
     this.actions.bind('I', 'tool.eyedropper');
-    this.actions.bind('Alt', 'tool.sample-held');
-    this.actions.bind('Delete', 'layer.delete');
+    this.actions.bind('Alt', 'tool.eyedropper', { hold: true });
+    this.actions.bind('Ctrl+I', 'filter.invert');
+    this.actions.bind('Delete', 'layer.delete', { when: '!hasSelection' });
+    this.actions.bind('Delete', 'selection.clear', { when: 'hasSelection' });
     this.actions.bind('Ctrl+J', 'layer.duplicate');
     this.actions.bind('Ctrl+Shift+N', 'layer.reframe.normalize');
     this.actions.bind('F2', 'layer.rename');
-    this.actions.bind('Space', 'view.pan');
+    this.actions.bind('Space', 'view.pan', { hold: true });
     this.actions.bind('Ctrl+Z', 'history.undo');
     this.actions.bind('Ctrl+Shift+Z', 'history.redo');
     this.actions.bind('Ctrl+Y', 'history.redo');
@@ -446,11 +726,20 @@ export class Editor {
       const rect = this.canvas.getBoundingClientRect();
       return { x: event.clientX - rect.left, y: event.clientY - rect.top };
     };
-    const pointerData = (event: PointerEvent): ToolPointer => {
+    const pointerData = (event: MouseEvent): ToolPointer => {
       const screen = screenPoint(event);
-      return { screen, world: this.viewport.screenToWorld(screen), pressure: event.pointerType === 'pen' ? event.pressure : 1, shift: event.shiftKey, ctrl: event.ctrlKey || event.metaKey };
+      return {
+        screen, world: this.viewport.screenToWorld(screen),
+        pressure: event instanceof PointerEvent && event.pointerType === 'pen' ? event.pressure : 1,
+        shift: event.shiftKey, ctrl: event.ctrlKey || event.metaKey,
+      };
     };
     this.canvas.tabIndex = 0;
+    this.canvas.addEventListener('pointerenter', (event) => this.run(() => {
+      if (!event.isPrimary) return;
+      this.hoverPointer = pointerData(event);
+      this.refreshHover();
+    }));
     this.canvas.addEventListener('pointerdown', (event) => this.run(() => {
       if (this.pointer || !event.isPrimary || (event.button !== 0 && event.button !== 1)) return;
       event.preventDefault();
@@ -459,14 +748,17 @@ export class Editor {
       this.canvas.focus({ preventScroll: true });
       this.setAltHeld(event.altKey);
       const mode = this.panHeld || event.button === 1 ? 'pan' : 'tool';
-      this.pointer = { id: event.pointerId, mode, last: screenPoint(event) };
+      const data = pointerData(event);
+      this.hoverPointer = data;
+      this.pointer = { id: event.pointerId, mode, last: data.screen };
       this.canvas.setPointerCapture(event.pointerId);
-      if (mode === 'tool') this.activeTool.pointerDown(pointerData(event));
-      else this.canvas.style.cursor = 'grabbing';
+      if (mode === 'tool') this.activeTool.pointerDown(data);
+      else { this.activeTool.hover(null); this.canvas.style.cursor = 'grabbing'; }
     }));
     this.canvas.addEventListener('pointermove', (event) => this.run(() => {
       if (this.pointer && this.pointer.id !== event.pointerId) return;
       const data = pointerData(event);
+      this.hoverPointer = data;
       if (this.pointer?.mode === 'pan') {
         this.viewport.pan(data.screen.x - this.pointer.last.x, data.screen.y - this.pointer.last.y);
         this.pointer.last = data.screen;
@@ -480,21 +772,41 @@ export class Editor {
     }));
     this.canvas.addEventListener('pointerup', (event) => this.run(() => {
       if (this.pointer?.id !== event.pointerId) return;
-      if (this.pointer.mode === 'tool' && this.activeTool.id === 'transform') this.activeTool.pointerMove(pointerData(event));
+      this.hoverPointer = pointerData(event);
+      if (this.pointer.mode === 'tool' && ['transform', 'rectangle', 'eyedropper'].includes(this.activeTool.id)) {
+        this.activeTool.pointerMove(this.hoverPointer);
+      }
       this.finishGesture();
+      this.refreshHover();
     }));
     this.canvas.addEventListener('pointercancel', () => this.run(() => this.cancelGesture()));
     this.canvas.addEventListener('lostpointercapture', () => { if (this.pointer) this.run(() => this.cancelGesture()); });
-    this.canvas.addEventListener('pointerleave', () => this.activeTool.hover(null));
+    this.canvas.addEventListener('pointerleave', () => {
+      this.hoverPointer = null;
+      this.activeTool.hover(null);
+    });
     this.canvas.addEventListener('wheel', (event) => {
       event.preventDefault();
       this.run(() => {
-        if (this.pointer?.mode === 'tool') this.finishGesture();
         const units = event.deltaMode === 1 ? 16 : event.deltaMode === 2 ? this.viewport.height : 1;
+        this.hoverPointer = pointerData(event);
+        if (event.shiftKey && this.activeTool instanceof BrushTool) {
+          const delta = Math.max(-500, Math.min(500, (event.deltaY || event.deltaX) * units));
+          this.activeTool.resizeByWheel(delta);
+          this.refreshHover();
+          return;
+        }
+        if (this.pointer?.mode === 'tool') this.finishGesture();
         this.viewport.zoomAt(screenPoint(event), Math.exp(-Math.max(-500, Math.min(500, event.deltaY * units)) * 0.002));
-        this.activeTool.hover(null);
+        this.refreshHover();
       });
     }, { passive: false });
-    window.addEventListener('blur', () => this.run(() => { this.finishGesture(); this.setPanHeld(false); this.setAltHeld(false); }));
+    window.addEventListener('blur', () => this.run(() => {
+      this.hoverPointer = null;
+      this.activeTool.hover(null);
+      this.finishGesture();
+      this.setPanHeld(false);
+      this.setAltHeld(false);
+    }));
   }
 }

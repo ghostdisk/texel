@@ -25,7 +25,9 @@ struct VertexOutput {
 }
 
 @fragment fn fragmentMain(input: VertexOutput) -> @location(0) vec4f {
-  let color = textureSample(image, imageSampler, input.uv);
+  var color = textureSample(image, imageSampler, input.uv);
+  if (params.info.z > 0.5) { color = vec4f(vec3f(clamp(color.r, 0.0, 1.0)), 1); }
+  if (params.info.w > 0.5) { return vec4f(clamp(color.r, 0.0, 1.0) * params.info.x, 0, 0, 1); }
   let premultiplied = vec4f(color.rgb * select(1.0, color.a, params.info.y > 0.5), color.a);
   return premultiplied * params.info.x;
 }

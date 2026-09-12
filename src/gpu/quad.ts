@@ -1,9 +1,9 @@
 import compositeShader from '../shaders/composite.wgsl?raw';
 import presentShader from '../shaders/present.wgsl?raw';
-import { IDENTITY } from '../model/geometry';
+import { IDENTITY, inverse } from '../model/geometry';
 import type { Matrix, Rect } from '../model/geometry';
 import type { BlendMode } from '../model/layers';
-import { WORKING_FORMAT } from './surface';
+import { WORKING_FORMAT, MASK_FORMAT, isMaskSurface } from './surface';
 import type { Surface } from './surface';
 import type { Gpu, GpuFrame } from './device';
 
@@ -22,6 +22,7 @@ export class QuadRenderer {
   private readonly sampler: GPUSampler;
   private readonly pointSampler: GPUSampler;
   private readonly pipelines: Record<BlendMode, GPURenderPipeline>;
+  private readonly maskPipeline: GPURenderPipeline;
   private readonly presentation: GPURenderPipeline;
 
   constructor(private readonly gpu: Gpu, canvasFormat: GPUTextureFormat) {
@@ -35,13 +36,14 @@ export class QuadRenderer {
     this.pointSampler = device.createSampler({ minFilter: 'nearest', magFilter: 'nearest' });
     const layout = device.createPipelineLayout({ bindGroupLayouts: [this.layout] });
     const module = device.createShaderModule({ label: 'Layer composite', code: compositeShader });
-    const pipeline = (blend: GPUBlendState) => device.createRenderPipeline({
+    const pipeline = (blend: GPUBlendState, format = WORKING_FORMAT) => device.createRenderPipeline({
       layout,
       vertex: { module, entryPoint: 'vertexMain' },
-      fragment: { module, entryPoint: 'fragmentMain', targets: [{ format: WORKING_FORMAT, blend }] },
+      fragment: { module, entryPoint: 'fragmentMain', targets: [{ format, blend }] },
       primitive: { topology: 'triangle-list' },
     });
     this.pipelines = { normal: pipeline(SOURCE_OVER), add: pipeline(ADDITIVE) };
+    this.maskPipeline = pipeline(SOURCE_OVER, MASK_FORMAT);
     const present = device.createShaderModule({ label: 'Canvas presentation', code: presentShader });
     this.presentation = device.createRenderPipeline({
       layout,
@@ -67,9 +69,9 @@ export class QuadRenderer {
     const params = frame.uniform([
       a, c, e, 0, b, d, f, 0,
       src.x, src.y, src.width, src.height, dst.x, dst.y, dst.width, dst.height,
-      opacity, Number(straightAlpha), 0, 0,
+      opacity, Number(straightAlpha), Number(isMaskSurface(source)), Number(isMaskSurface(target)),
     ]);
-    pass.setPipeline(this.pipelines[blend]);
+    pass.setPipeline(isMaskSurface(target) ? this.maskPipeline : this.pipelines[blend]);
     pass.setBindGroup(0, this.bind(source, params, pointSampling));
     pass.draw(6);
   }
@@ -80,11 +82,16 @@ export class QuadRenderer {
     pass.end();
   }
 
-  present(frame: GpuFrame, source: Surface, view: GPUTextureView, bounds: Rect, opacity: number, framing: Rect, pointSampling = false): void {
+  present(
+    frame: GpuFrame, source: Surface, view: GPUTextureView, bounds: Rect, opacity: number,
+    framing: Rect, pointSampling = false, world: Matrix = IDENTITY,
+  ): void {
     const src = source.bounds;
+    const [a, b, c, d, e, f] = inverse(world);
     const params = frame.uniform([
       bounds.x, bounds.y, bounds.width, bounds.height,
-      src.x, src.y, src.width, src.height, framing.x, framing.y, framing.width, framing.height, opacity, 0, 0, 0,
+      src.x, src.y, src.width, src.height, framing.x, framing.y, framing.width, framing.height,
+      opacity, Number(isMaskSurface(source)), 0, 0, a, c, e, 0, b, d, f, 0,
     ]);
     const pass = frame.encoder.beginRenderPass({ colorAttachments: [{ view, loadOp: 'clear', storeOp: 'store' }] });
     pass.setPipeline(this.presentation);

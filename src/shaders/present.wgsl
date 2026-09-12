@@ -3,6 +3,8 @@ struct Params {
   source: vec4f,
   framing: vec4f,
   info: vec4f,
+  row0: vec4f,
+  row1: vec4f,
 }
 
 @group(0) @binding(0) var image: texture_2d<f32>;
@@ -27,8 +29,10 @@ fn toSrgb(color: vec3f) -> vec3f {
 
 @fragment fn fragmentMain(input: VertexOutput) -> @location(0) vec4f {
   let world = params.viewport.xy + input.uv * params.viewport.zw;
-  let uv = (world - params.source.xy) / params.source.zw;
-  let sampled = textureSample(image, imageSampler, uv);
+  let local = vec2f(dot(params.row0.xyz, vec3f(world, 1)), dot(params.row1.xyz, vec3f(world, 1)));
+  let uv = (local - params.source.xy) / params.source.zw;
+  var sampled = textureSample(image, imageSampler, uv);
+  if (params.info.y > 0.5) { sampled = vec4f(vec3f(clamp(sampled.r, 0.0, 1.0)), 1); }
   let insideSource = all(uv >= vec2f(0)) && all(uv <= vec2f(1));
   let insideFrame = all(world >= params.framing.xy) && all(world <= params.framing.xy + params.framing.zw);
   let color = select(vec4f(0), sampled * params.info.x, insideSource);

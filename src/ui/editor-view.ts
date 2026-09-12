@@ -1,13 +1,13 @@
 import type { Editor } from '../editor';
 import { isEditingText } from '../actions';
 import type { Filter, SerializedFilter } from '../filters/filter';
-import { createImageLayer } from '../gpu/images';
 import { UndoOperation } from '../history/undo';
-import { GroupLayer, ImageLayer, Layer } from '../model/layers';
+import { GroupLayer, ImageLayer, Layer, canReferenceLayer, validateLayerDependencies } from '../model/layers';
 import type { BlendMode, LayerProperties } from '../model/layers';
 import { SliderInput } from './slider-input';
+import { LayerPointerDrag } from './layer-pointer-drag';
+import type { LayerDragPosition } from './layer-pointer-drag';
 import type { Matrix } from '../model/geometry';
-import { BrushTool } from '../tools/brush-tool';
 
 export function element<T extends HTMLElement>(id: string): T {
   const node = document.getElementById(id);
@@ -16,12 +16,27 @@ export function element<T extends HTMLElement>(id: string): T {
 }
 const input = (id: string) => element<HTMLInputElement>(id);
 
+type LayerDrop =
+  | {
+    kind: 'mask';
+    layer: Layer;
+  }
+  | {
+    kind: 'before' | 'after' | 'inside' | 'bottom';
+    parent: GroupLayer;
+    index: number;
+  };
+
 export class EditorView {
   private treeSignature = '';
   private rows = new Map<string, HTMLElement>();
   private optionsTool = '';
-  private dialogMode: 'document' | 'layer' = 'document';
-  private draggedLayer: string | null = null;
+  private draggedLayer: Layer | null = null;
+  private readonly layerPointerDrag: LayerPointerDrag;
+  private layerDropTargets = new WeakMap<HTMLElement, (position: LayerDragPosition) => LayerDrop | null>();
+  private groupDropEnds = new Map<GroupLayer, HTMLElement>();
+  private layerDropIndicator: HTMLElement | null = null;
+  private layerDropParent: HTMLElement | null = null;
   private paintedPreviews = new WeakMap<HTMLCanvasElement, ImageData>();
   private readonly opacityControl: SliderInput;
   private draggedFilterId: string | null = null;
@@ -30,9 +45,11 @@ export class EditorView {
   constructor(private readonly editor: Editor) {
     editor.onChange = () => this.render();
     editor.onPreviews = () => this.renderPreviews();
-    editor.onColorChange = (color) => { input('brush-color').value = color; };
-    editor.onNewDocument = () => this.showSizeDialog('document');
-    editor.onNewLayer = () => this.showSizeDialog('layer');
+    editor.onColorChange = (primary, secondary) => {
+      input('brush-color').value = primary;
+      input('secondary-color').value = secondary;
+    };
+    editor.onNewDocument = () => this.showSizeDialog();
     editor.onRename = () => this.rename(editor.image.selected);
     editor.onFrame = () => {
       element('zoom-label').textContent = `${Math.round(editor.viewport.scale * 100)}%`;
@@ -42,6 +59,7 @@ export class EditorView {
       button.onclick = () => editor.actions.execute(button.dataset.action!);
     }
     input('brush-color').oninput = () => editor.setBrushColor(input('brush-color').value);
+    input('secondary-color').oninput = () => editor.setColors(editor.primaryColor, input('secondary-color').value);
     this.opacityControl = this.createOpacityControl();
     element('layer-opacity-control').append(this.opacityControl.element);
     element<HTMLSelectElement>('layer-blend').onchange = () => editor.run(() => {
@@ -58,26 +76,21 @@ export class EditorView {
       editor.run(() => {
         const width = input('new-width').valueAsNumber;
         const height = input('new-height').valueAsNumber;
-        if (this.dialogMode === 'document') editor.reset(width, height);
-        else {
-          const layer = createImageLayer(editor.gpu, input('new-layer-name').value.trim() || 'Pixel layer', width, height);
-          try { editor.image.add(layer); }
-          catch (error) { if (!layer.parent) editor.compositor.release(layer); throw error; }
-        }
+        editor.reset(width, height);
         element<HTMLDialogElement>('size-dialog').close();
       });
     };
-    element('layer-up').onclick = () => editor.run(() => {
-      editor.finishGesture();
-      const layer = editor.image.selected;
-      if (layer.parent) editor.image.move(layer, layer.parent, layer.parent.children.indexOf(layer) + 2);
-    });
-    element('layer-down').onclick = () => editor.run(() => {
-      editor.finishGesture();
-      const layer = editor.image.selected;
-      if (layer.parent) editor.image.move(layer, layer.parent, layer.parent.children.indexOf(layer) - 1);
-    });
     this.attachImport();
+    const tree = element('layer-tree');
+    this.layerPointerDrag = new LayerPointerDrag(tree, {
+      begin: (layer, row) => this.startLayerDrag(layer, row),
+      move: (position) => this.updateLayerDrag(position),
+      drop: (position) => this.dropLayer(position),
+      end: () => this.endLayerDrag(),
+      error: editor.report,
+    });
+    this.bindLayerDrop(tree, (event) => event.target === tree && !event.shiftKey ?
+      { kind: 'bottom', parent: this.editor.image.root, index: 0 } : null);
   }
 
   private createOpacityControl(): SliderInput {
@@ -111,15 +124,17 @@ export class EditorView {
     const { editor } = this;
     const layer = editor.image.selected;
     element('frame-label').textContent = `${editor.image.width} × ${editor.image.height} px`;
-    element('layer-kind').textContent = layer === editor.image.root ? 'ROOT' : layer.kind.toUpperCase();
+    element('layer-kind').textContent = layer.isSelection ? 'SELECTION' : layer instanceof ImageLayer && layer.channels === 1 ? 'MASK' : layer === editor.image.root ? 'ROOT' : layer.kind.toUpperCase();
     element('layer-size').textContent = layer instanceof ImageLayer ? `${layer.width} × ${layer.height} native pixels` : `${(layer as GroupLayer).children.length} children · isolated group`;
+    element('selection-actions').hidden = !layer.isSelection;
     this.opacityControl.sync(!editor.commitEdits);
     const blend = element<HTMLSelectElement>('layer-blend');
     blend.value = layer.blendMode;
     blend.disabled = !layer.parent;
     element('transform-fields').hidden = editor.activeTool.id !== 'transform' || !layer.parent;
     this.updateTransformFields();
-    input('brush-color').value = (editor.tools.get('brush') as BrushTool).color;
+    input('brush-color').value = editor.primaryColor;
+    input('secondary-color').value = editor.secondaryColor;
     element('tool-name').textContent = editor.activeTool.label;
     if (this.optionsTool !== editor.activeTool.id) {
       this.optionsTool = editor.activeTool.id;
@@ -130,6 +145,11 @@ export class EditorView {
     for (const button of document.querySelectorAll<HTMLButtonElement>('[data-action]')) {
       button.disabled = !editor.actions.enabled(button.dataset.action!);
       if (button.dataset.action!.startsWith('tool.')) button.classList.toggle('active', button.dataset.action === `tool.${editor.activeTool.id}`);
+      if (button.dataset.action === 'drawing.erase' || button.dataset.action === 'selection.mode') {
+        const enabled = button.dataset.action === 'drawing.erase' ? editor.eraseMode : editor.selectionMode;
+        button.classList.toggle('active', enabled);
+        button.setAttribute('aria-pressed', String(enabled));
+      }
     }
     this.renderFilters();
   }
@@ -137,22 +157,23 @@ export class EditorView {
   private renderTree(force = false): void {
     const { image } = this.editor;
     const layers = image.allLayers();
-    const signature = JSON.stringify(layers.map((layer) => [layer.id, layer.name, layer.visible, layer.parent?.id, layer.filters.length]));
+    const signature = JSON.stringify(layers.map((layer) => [layer.id, layer.name, layer.visible, layer.parent?.id, layer.filters.length, layer.isSelection]));
     if (force || signature !== this.treeSignature) {
+      this.endLayerDrag();
       this.treeSignature = signature;
       const tree = element('layer-tree');
       tree.replaceChildren();
       this.rows.clear();
+      this.groupDropEnds.clear();
       const visit = (layer: Layer, depth: number) => {
         const row = document.createElement('div');
-        row.className = 'layer-row';
+        row.className = `layer-row${layer.isSelection ? ' selection-layer' : layer instanceof ImageLayer && layer.channels === 1 ? ' mask-layer' : ''}`;
         row.style.paddingLeft = `${8 + depth * 14}px`;
-        row.draggable = !!layer.parent;
+        row.style.setProperty('--layer-indent', row.style.paddingLeft);
+        row.draggable = false;
         const visibility = document.createElement('button');
         visibility.className = 'visibility';
-        visibility.textContent = layer.visible ? '●' : '○';
-        visibility.setAttribute('aria-label', `${layer.visible ? 'Hide' : 'Show'} ${layer.name}`);
-        visibility.onclick = () => this.editor.run(() => this.editor.changeLayer(layer, 'Toggle layer visibility', () => layer.setVisible(!layer.visible)));
+        visibility.onclick = () => this.editor.run(() => this.editor.toggleLayerVisibility(layer));
         const choose = document.createElement('button');
         choose.className = 'select-layer';
         const preview = document.createElement('canvas');
@@ -168,6 +189,12 @@ export class EditorView {
         choose.onclick = () => { if (image.selected !== layer) this.editor.select(layer); };
         choose.ondblclick = (event) => { event.preventDefault(); this.rename(layer); };
         row.append(visibility, choose);
+        if (layer instanceof ImageLayer && layer.channels === 1) {
+          const badge = document.createElement('span');
+          badge.className = 'layer-badge mask-badge';
+          badge.textContent = layer.isSelection ? 'sel' : 'mask';
+          row.append(badge);
+        }
         if (layer.filters.length) {
           const badge = document.createElement('span');
           badge.className = 'layer-badge';
@@ -177,13 +204,41 @@ export class EditorView {
         this.bindLayerDrag(row, layer);
         tree.append(row);
         this.rows.set(layer.id, row);
-        if (layer instanceof GroupLayer) [...layer.children].reverse().forEach((child) => visit(child, depth + 1));
+        if (layer instanceof GroupLayer) {
+          [...layer.children].reverse().forEach((child) => visit(child, depth + 1));
+          const end = document.createElement('div');
+          end.className = 'layer-drop-end';
+          end.style.marginLeft = `${8 + (depth + 1) * 14}px`;
+          const label = document.createElement('span');
+          label.textContent = `Bottom of ${layer.name}`;
+          const path = [layer.name];
+          for (let parent = layer.parent; parent; parent = parent.parent) path.unshift(parent.name);
+          end.title = `Move to bottom of ${path.join(' / ')}`;
+          end.append(label);
+          this.groupDropEnds.set(layer, end);
+          this.bindLayerDrop(end, (event) => event.shiftKey ? null : { kind: 'bottom', parent: layer, index: 0 });
+          tree.append(end);
+        }
       };
       visit(image.root, 0);
     }
-    for (const [id, row] of this.rows) {
-      row.classList.toggle('selected', id === image.selected.id);
-      row.querySelector('.select-layer')?.setAttribute('aria-pressed', String(id === image.selected.id));
+    const editedMask = this.editor.maskEditLayer;
+    for (const layer of layers) {
+      const row = this.rows.get(layer.id);
+      if (!row) continue;
+      row.classList.toggle('selected', layer === image.selected);
+      row.querySelector('.select-layer')?.setAttribute('aria-pressed', String(layer === image.selected));
+      const visibility = row.querySelector<HTMLButtonElement>('.visibility')!;
+      const isMask = layer instanceof ImageLayer && layer.channels === 1;
+      const shown = isMask ? layer === editedMask : layer.visible;
+      visibility.textContent = shown ? '●' : '○';
+      visibility.classList.toggle('mask-edit-muted', !!editedMask && layer !== editedMask);
+      visibility.classList.toggle('mask-edit-active', layer === editedMask);
+      visibility.setAttribute('aria-pressed', String(shown));
+      const action = isMask ? layer === editedMask ? 'Return to image' : `Edit ${layer.name} in isolation` :
+        editedMask ? 'Return to image' : `${shown ? 'Hide' : 'Show'} ${layer.name}`;
+      visibility.title = action;
+      visibility.setAttribute('aria-label', action);
     }
     element('layer-count').textContent = String(layers.length - 1);
     const index = image.selected.parent?.children.indexOf(image.selected) ?? -1;
@@ -233,52 +288,112 @@ export class EditorView {
     field.select();
   }
 
-  private bindLayerDrag(row: HTMLElement, layer: Layer): void {
-    const clear = () => { for (const item of this.rows.values()) delete item.dataset.drop; };
-    const zone = (event: DragEvent): 'before' | 'after' | 'inside' => {
-      if (!layer.parent) return 'inside';
-      const rect = row.getBoundingClientRect();
-      const position = (event.clientY - rect.top) / rect.height;
-      if (layer instanceof GroupLayer && position > 0.25 && position < 0.75) return 'inside';
-      return position < 0.5 ? 'before' : 'after';
-    };
-    const allowed = (): boolean => {
-      if (!this.draggedLayer || this.draggedLayer === layer.id) return false;
-      for (let parent: Layer | null = layer; parent; parent = parent.parent) if (parent.id === this.draggedLayer) return false;
-      return true;
-    };
-    row.ondragstart = (event) => {
-      if (!layer.parent || isEditingText(event.target)) { event.preventDefault(); return; }
+  private clearLayerDrop(): void {
+    if (this.layerDropIndicator) {
+      delete this.layerDropIndicator.dataset.drop;
+      delete this.layerDropIndicator.dataset.dropLabel;
+    }
+    this.layerDropParent?.classList.remove('drop-parent');
+    this.layerDropIndicator = null;
+    this.layerDropParent = null;
+  }
+
+  private endLayerDrag(): void {
+    this.layerPointerDrag.cancel();
+    if (this.draggedLayer) this.rows.get(this.draggedLayer.id)?.classList.remove('layer-drag-source');
+    this.draggedLayer = null;
+    this.clearLayerDrop();
+    element('layer-tree').classList.remove('layer-dragging', 'mask-dragging');
+    for (const end of this.groupDropEnds.values()) end.classList.remove('drop-unavailable');
+  }
+
+  private allowedLayerDrop(drop: LayerDrop | null): drop is LayerDrop {
+    const source = this.draggedLayer;
+    if (!source || !drop || !this.editor.image.allLayers().includes(source)) return false;
+    return canReferenceLayer(drop.kind === 'mask' ? drop.layer : drop.parent, source);
+  }
+
+  private showLayerDrop(node: HTMLElement, drop: LayerDrop): void {
+    this.clearLayerDrop();
+    const indicator = node === element('layer-tree') && drop.kind === 'bottom' ? this.groupDropEnds.get(drop.parent) ?? node : node;
+    this.layerDropIndicator = indicator;
+    indicator.dataset.drop = drop.kind;
+    if (drop.kind === 'mask') {
+      indicator.dataset.dropLabel = drop.layer.filters.some((filter) => filter.kind === 'mask') ? 'Replace mask' : 'Set mask';
+    } else {
+      this.layerDropParent = this.rows.get(drop.parent.id) ?? null;
+      this.layerDropParent?.classList.add('drop-parent');
+    }
+  }
+
+  private bindLayerDrop(node: HTMLElement, resolve: (position: LayerDragPosition) => LayerDrop | null): void {
+    this.layerDropTargets.set(node, resolve);
+  }
+
+  private layerDropAt(position: LayerDragPosition): {
+    node: HTMLElement;
+    drop: LayerDrop;
+  } | null {
+    for (let node = position.target; node; node = node.parentElement) {
+      if (!(node instanceof HTMLElement)) continue;
+      const resolve = this.layerDropTargets.get(node);
+      if (!resolve) continue;
+      const drop = resolve(position);
+      return drop ? { node, drop } : null;
+    }
+    return null;
+  }
+
+  private updateLayerDrag(position: LayerDragPosition): 'alias' | 'grabbing' | 'not-allowed' {
+    element('layer-tree').classList.toggle('mask-dragging', position.shiftKey);
+    const candidate = this.layerDropAt(position);
+    if (!candidate || !this.allowedLayerDrop(candidate.drop)) {
+      this.clearLayerDrop();
+      return 'not-allowed';
+    }
+    this.showLayerDrop(candidate.node, candidate.drop);
+    return candidate.drop.kind === 'mask' ? 'alias' : 'grabbing';
+  }
+
+  private dropLayer(position: LayerDragPosition): void {
+    const source = this.draggedLayer;
+    const candidate = this.layerDropAt(position);
+    const allowed = candidate && this.allowedLayerDrop(candidate.drop);
+    this.endLayerDrag();
+    if (!source || !candidate || !allowed) return;
+    const drop = candidate.drop;
+    this.editor.run(() => {
       this.editor.finishGesture();
-      this.draggedLayer = layer.id;
-      event.dataTransfer!.effectAllowed = 'move';
-      event.dataTransfer!.setData('application/x-imged-layer', layer.id);
-    };
-    row.ondragover = (event) => {
-      if (!allowed()) return;
-      event.preventDefault();
-      event.stopPropagation();
-      clear();
-      row.dataset.drop = zone(event);
-      event.dataTransfer!.dropEffect = 'move';
-    };
-    row.ondragleave = () => { delete row.dataset.drop; };
-    row.ondragend = () => { this.draggedLayer = null; clear(); };
-    row.ondrop = (event) => {
-      event.preventDefault();
-      event.stopPropagation();
-      if (!allowed()) return;
-      const id = this.draggedLayer!;
-      const position = zone(event);
-      this.draggedLayer = null;
-      clear();
-      this.editor.run(() => {
-        this.editor.finishGesture();
-        const moving = this.editor.image.find(id);
-        if (position === 'inside' && layer instanceof GroupLayer) this.editor.image.move(moving, layer, layer.children.length);
-        else if (layer.parent) this.editor.image.move(moving, layer.parent, layer.parent.children.indexOf(layer) + Number(position === 'before'));
-      });
-    };
+      if (drop.kind === 'mask') this.editor.setLayerMask(drop.layer, source);
+      else this.editor.image.move(source, drop.parent, drop.index);
+    });
+  }
+
+  private startLayerDrag(layer: Layer, row: HTMLElement): boolean {
+    if (this.editor.halted || document.getElementById('app')?.inert) return false;
+    this.editor.finishGesture();
+    if (!row.isConnected || !layer.parent) return false;
+    this.draggedLayer = layer;
+    row.classList.add('layer-drag-source');
+    element('layer-tree').classList.add('layer-dragging');
+    for (const [group, end] of this.groupDropEnds) end.classList.toggle('drop-unavailable', !canReferenceLayer(group, layer));
+    return true;
+  }
+
+  private bindLayerDrag(row: HTMLElement, layer: Layer): void {
+    this.bindLayerDrop(row, (position) => {
+      if (position.shiftKey) return { kind: 'mask', layer };
+      if (this.draggedLayer === layer) return null;
+      const rect = row.getBoundingClientRect();
+      const fraction = (position.clientY - rect.top) / rect.height;
+      if (layer instanceof GroupLayer && (!layer.parent || fraction > 0.25 && fraction < 0.75)) {
+        return { kind: 'inside', parent: layer, index: layer.children.length };
+      }
+      if (!layer.parent) return null;
+      const kind = fraction < 0.5 ? 'before' : 'after';
+      return { kind, parent: layer.parent, index: layer.parent.children.indexOf(layer) + Number(kind === 'before') };
+    });
+    this.layerPointerDrag.bind(row, layer);
   }
 
   private updateTransformFields(): void {
@@ -326,7 +441,19 @@ export class EditorView {
     stack.replaceChildren();
     const add = element<HTMLSelectElement>('add-filter');
     add.replaceChildren(new Option('+ Add filter', ''));
-    for (const definition of this.editor.filters.list()) add.add(new Option(definition.label, definition.kind));
+    const groups = new Map<string, HTMLOptGroupElement>();
+    for (const definition of this.editor.filters.list()) {
+      const option = new Option(definition.label, definition.kind);
+      if (!definition.group) { add.add(option); continue; }
+      let group = groups.get(definition.group);
+      if (!group) {
+        group = document.createElement('optgroup');
+        group.label = definition.group;
+        groups.set(definition.group, group);
+        add.append(group);
+      }
+      group.append(option);
+    }
     add.onchange = () => { if (add.value) this.editor.actions.execute(`filter.${add.value}`); };
     for (const filter of layer.filters) this.drawFilter(layer, filter, stack);
   }
@@ -350,6 +477,11 @@ export class EditorView {
     const card = document.createElement('div');
     filter.drawUI(card, {
       histogram: () => this.editor.histogram(layer, filter.id),
+      layers: () => this.editor.image.allLayers().map((candidate) => {
+        const path = [candidate.name];
+        for (let parent = candidate.parent; parent && parent !== this.editor.image.root; parent = parent.parent) path.unshift(parent.name);
+        return { id: candidate.id, label: path.join(' / '), disabled: !canReferenceLayer(layer, candidate) };
+      }),
       begin: (name) => {
         if (before) return;
         this.editor.finishGesture();
@@ -357,7 +489,12 @@ export class EditorView {
         label = name;
         this.editor.commitEdits = commit;
       },
-      preview: (change) => { change(); layer.invalidate(); },
+      preview: (change) => this.editor.run(() => {
+        const previous = filter.serialize();
+        try { change(); validateLayerDependencies(layer); }
+        catch (error) { filter.deserialize(previous); this.editor.changed(); throw error; }
+        layer.invalidate();
+      }),
       commit,
       remove: () => this.editor.run(() => this.editor.removeFilter(layer, filter)),
     });
@@ -422,14 +559,10 @@ export class EditorView {
     };
   }
 
-  private showSizeDialog(mode: 'document' | 'layer'): void {
-    this.dialogMode = mode;
-    element('dialog-title').textContent = mode === 'document' ? 'New document' : 'New pixel layer';
-    element('dialog-description').textContent = mode === 'document'
-      ? 'Replace the current document and its history. These dimensions set the canonical canvas size and initial layer pixels.'
-      : 'Choose this layer’s native resolution. Its transform controls its size in the composition.';
-    element('confirm-size').textContent = mode === 'document' ? 'Create document' : 'Add layer';
-    element('new-layer-name-field').hidden = mode === 'document';
+  private showSizeDialog(): void {
+    element('dialog-title').textContent = 'New document';
+    element('dialog-description').textContent = 'Replace the current document and its history. These dimensions set the canonical canvas size and initial layer pixels.';
+    element('confirm-size').textContent = 'Create document';
     input('new-width').value = String(this.editor.image.frame.width);
     input('new-height').value = String(this.editor.image.frame.height);
     for (const id of ['new-width', 'new-height']) input(id).max = String(this.editor.gpu.device.limits.maxTextureDimension2D);

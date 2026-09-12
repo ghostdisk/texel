@@ -1,3 +1,4 @@
+const SINGLE_CHANNEL = false;
 struct Bounds {
   left: atomic<u32>,
   top: atomic<u32>,
@@ -20,7 +21,8 @@ fn main(@builtin(global_invocation_id) invocation: vec3u, @builtin(local_invocat
   }
   workgroupBarrier();
   if (all(invocation.xy < size)) {
-    if (textureLoad(source, vec2i(invocation.xy), 0).a > 0.0) {
+    let pixel = textureLoad(source, vec2i(invocation.xy), 0);
+    if (select(pixel.a, pixel.r, SINGLE_CHANNEL) > 0.0) {
       atomicMin(&tileBounds.left, invocation.x);
       atomicMin(&tileBounds.top, invocation.y);
       atomicMax(&tileBounds.right, invocation.x + 1u);

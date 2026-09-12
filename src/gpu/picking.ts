@@ -11,20 +11,31 @@ function inside(point: Point, bounds: Rect): boolean {
 export class PixelPicker {
   constructor(private readonly compositor: Compositor, private readonly readback: GpuReadback) {}
 
-  async color(root: GroupLayer, point: Point, canvas: Rect, density: number): Promise<SampledColor | null> {
+  private async isolatedColor(layer: Layer, point: Point, canvas: Rect, density: number): Promise<SampledColor | null> {
+    if (!inside(point, canvas)) return null;
+    const local = transformPoint(inverse(layer.worldTransform()), point);
+    const surface = this.compositor.resolve(layer, density);
+    if (!inside(local, surface.bounds)) return null;
+    const [color] = await this.readback.sample([{ surface, point: local }]);
+    return color;
+  }
+
+  async color(root: GroupLayer, point: Point, canvas: Rect, density: number, isolated: Layer | null = null): Promise<SampledColor | null> {
+    if (isolated) return this.isolatedColor(isolated, point, canvas, density);
     if (!root.visible || root.opacity === 0 || !inside(point, canvas)) return null;
     const surface = this.compositor.resolve(root, density);
     const [color] = await this.readback.sample([{ surface, point }]);
     return color[3] * root.opacity > 0 ? color : null;
   }
 
-  async layer(root: GroupLayer, point: Point, canvas: Rect, density: number): Promise<Layer | null> {
+  async layer(root: GroupLayer, point: Point, canvas: Rect, density: number, isolated: Layer | null = null): Promise<Layer | null> {
+    if (isolated) return await this.isolatedColor(isolated, point, canvas, density) ? isolated : null;
     if (!root.visible || root.opacity === 0 || !inside(point, canvas)) return null;
     this.compositor.resolve(root, density);
     const requests: PixelSample[] = [];
     const indices = new Map<Layer, number>();
     const collect = (layer: Layer) => {
-      if (!layer.visible || layer.opacity === 0 || !layer.output) return;
+      if (!layer.visibleInStack || layer.opacity === 0 || !layer.output) return;
       let local: Point;
       try { local = transformPoint(inverse(layer.worldTransform()), point); }
       catch { return; }
@@ -50,4 +61,3 @@ export class PixelPicker {
     return visit(root, 1);
   }
 }
-

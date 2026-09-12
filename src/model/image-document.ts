@@ -1,7 +1,7 @@
 import type { Gpu } from '../gpu/device';
 import type { Compositor } from '../gpu/compositor';
 import { createImageLayer } from '../gpu/images';
-import { createSurface, rasterBounds } from '../gpu/surface';
+import { createSurface, rasterBounds, MASK_FORMAT, WORKING_FORMAT } from '../gpu/surface';
 import { LayerReframer } from '../gpu/reframe';
 import type { Surface } from '../gpu/surface';
 import type { FilterRegistry, SerializedFilter } from '../filters/filter';
@@ -21,6 +21,7 @@ export interface SerializedLayer extends JsonObject {
   filters: SerializedFilter[];
   width: number;
   height: number;
+  channels: number;
   snapshotId: string | null;
   children: SerializedLayer[];
 }
@@ -64,6 +65,59 @@ export class ImageDocument implements UndoTarget {
     return layer;
   }
 
+  get selectionMask(): ImageLayer | null {
+    return this.allLayers().find((layer): layer is ImageLayer => layer instanceof ImageLayer && layer.isSelection) ?? null;
+  }
+
+  createPixelLayer(): void {
+    const parent = this.destination();
+    const layer = createImageLayer(this.gpu, 'Pixel layer', this.width, this.height);
+    try {
+      layer.setTransform(inverse(parent.worldTransform()));
+      this.add(layer, parent);
+    } catch (error) { if (!layer.parent) this.compositor.release(layer); throw error; }
+  }
+
+  createMask(): void {
+    const parent = this.destination();
+    const mask = createImageLayer(this.gpu, 'Mask', this.width, this.height, 1, 1);
+    mask.setTransform(inverse(parent.worldTransform()));
+    this.add(mask, parent, 0);
+  }
+
+  ensureSelection(fill = false): ImageLayer {
+    const existing = this.selectionMask;
+    if (existing) { if (fill) this.fillSelection(existing); return existing; }
+    const layer = createImageLayer(this.gpu, 'Selection', this.width, this.height, 1, Number(fill));
+    layer.setSelection(true);
+    layer.setTransform(inverse(this.root.worldTransform()));
+    this.add(layer, this.root, 0, false);
+    return layer;
+  }
+
+  private fillSelection(layer: ImageLayer): void {
+    const snapshots = new Map<string, Surface>();
+    const source = createImageLayer(this.gpu, 'Selection', this.width, this.height, 1, 1).source;
+    const beforeTransform = [...layer.transform];
+    const transform = inverse(layer.parent?.worldTransform() ?? IDENTITY);
+    try {
+      const before = this.capturePixels(layer, snapshots);
+      const after = this.captureSurface(source, snapshots);
+      layer.replaceSource(source);
+      layer.setTransform(transform);
+      this.history.push(new UndoOperation(
+        'Select all',
+        { type: 'layer', targetId: layer.id, action: 'reframe', data: { snapshotId: before, transform: beforeTransform } },
+        { type: 'layer', targetId: layer.id, action: 'reframe', data: { snapshotId: after, transform: [...transform] } },
+        snapshots,
+      ));
+    } catch (error) {
+      if (layer.source !== source) source.texture.destroy();
+      for (const snapshot of snapshots.values()) snapshot.texture.destroy();
+      throw error;
+    }
+  }
+
   select(layer: Layer): void { this.selected = layer; this.onChange?.(); }
   destination(): GroupLayer { return this.selected instanceof GroupLayer ? this.selected : this.selected.parent ?? this.root; }
 
@@ -89,7 +143,7 @@ export class ImageDocument implements UndoTarget {
 
   private captureSurface(source: Surface, snapshots: Map<string, Surface>): string {
     const id = crypto.randomUUID();
-    const snapshot = createSurface(this.gpu.device, 'Undo snapshot', source.bounds);
+    const snapshot = createSurface(this.gpu.device, 'Undo snapshot', source.bounds, source.scale, source.texture.format);
     try {
       const encoder = this.gpu.device.createCommandEncoder({ label: 'Snapshot layer pixels' });
       encoder.copyTextureToTexture(
@@ -161,16 +215,17 @@ export class ImageDocument implements UndoTarget {
       filters: layer.filters.map((filter) => filter.serialize()),
       width: layer instanceof ImageLayer ? layer.width : 0,
       height: layer instanceof ImageLayer ? layer.height : 0,
+      channels: layer instanceof ImageLayer ? layer.channels : 4,
       snapshotId: layer instanceof ImageLayer ? this.capturePixels(layer, snapshots) : null,
       children: layer instanceof GroupLayer ? layer.children.map((child) => this.serializeLayer(child, snapshots)) : [],
     };
   }
 
-  private restoreLayer(data: SerializedLayer, snapshots: Map<string, Surface>, duplicate = false): Layer {
-    const id = duplicate ? crypto.randomUUID() : data.id;
+  private restoreLayer(data: SerializedLayer, snapshots: Map<string, Surface>, duplicates?: ReadonlyMap<string, string>): Layer {
+    const id = duplicates?.get(data.id) ?? data.id;
     let layer: Layer;
     if (data.kind === 'image') {
-      const surface = createSurface(this.gpu.device, `${data.properties.name}: source`, { x: 0, y: 0, width: data.width, height: data.height });
+      const surface = createSurface(this.gpu.device, `${data.properties.name}: source`, { x: 0, y: 0, width: data.width, height: data.height }, 1, data.channels === 1 ? MASK_FORMAT : WORKING_FORMAT);
       layer = new ImageLayer(data.properties.name, surface, id);
       const snapshot = snapshots.get(data.snapshotId!);
       if (!snapshot) { surface.texture.destroy(); throw new Error('Missing layer pixel snapshot.'); }
@@ -179,32 +234,34 @@ export class ImageDocument implements UndoTarget {
     else throw new Error(`Unsupported layer kind: ${data.kind}`);
     try {
       layer.setProperties(data.properties);
+      if (duplicates) layer.setSelection(false);
       for (const serialized of data.filters) {
-        layer.addFilter(this.filters.deserialize(duplicate ? { ...serialized, id: crypto.randomUUID() } : serialized));
+        const filter = this.filters.deserialize(duplicates ? { ...serialized, id: crypto.randomUUID() } : serialized);
+        if (duplicates) filter.remapDependencies(duplicates);
+        layer.addFilter(filter);
       }
-      if (layer instanceof GroupLayer) for (const child of data.children) layer.add(this.restoreLayer(child, snapshots, duplicate));
+      if (layer instanceof GroupLayer) for (const child of data.children) layer.add(this.restoreLayer(child, snapshots, duplicates));
       return layer;
     } catch (error) { this.compositor.release(layer); throw error; }
   }
 
-  add(layer: Layer, parent = this.destination(), index = parent.children.length): void {
+  add(layer: Layer, parent = this.destination(), index = parent.children.length, selectAdded = true): void {
     const snapshots = new Map<string, Surface>();
     try {
       const serialized = this.serializeLayer(layer, snapshots);
       const previousSelection = this.selected.id;
       parent.add(layer, index);
-      this.selected = layer;
+      if (selectAdded) this.selected = layer;
       this.history.push(new UndoOperation(
         `Add ${layer instanceof GroupLayer ? 'group' : 'layer'}`,
         { type: 'image', targetId: this.id, action: 'remove-layer', data: { layerId: layer.id, selection: previousSelection } },
-        { type: 'image', targetId: this.id, action: 'add-layer', data: { parentId: parent.id, index, layer: serialized, selection: layer.id } },
+        { type: 'image', targetId: this.id, action: 'add-layer', data: { parentId: parent.id, index, layer: serialized, selection: this.selected.id } },
         snapshots,
       ));
     } catch (error) { for (const snapshot of snapshots.values()) snapshot.texture.destroy(); throw error; }
   }
 
-  deleteSelected(): void {
-    const layer = this.selected;
+  deleteSelected(layer = this.selected): void {
     const parent = layer.parent;
     if (!parent) return;
     const snapshots = new Map<string, Surface>();
@@ -212,13 +269,18 @@ export class ImageDocument implements UndoTarget {
     let serialized: SerializedLayer;
     try { serialized = this.serializeLayer(layer, snapshots); }
     catch (error) { for (const snapshot of snapshots.values()) snapshot.texture.destroy(); throw error; }
+    let nextSelection = this.selected;
+    for (let item: Layer | null = this.selected; item; item = item.parent) {
+      if (item === layer) { nextSelection = parent; break; }
+    }
+    const previousSelection = this.selected.id;
     parent.remove(layer);
     this.compositor.release(layer);
-    this.selected = parent;
+    this.selected = nextSelection;
     this.history.push(new UndoOperation(
       'Delete layer',
-      { type: 'image', targetId: this.id, action: 'add-layer', data: { parentId: parent.id, index, layer: serialized, selection: layer.id } },
-      { type: 'image', targetId: this.id, action: 'remove-layer', data: { layerId: layer.id, selection: parent.id } },
+      { type: 'image', targetId: this.id, action: 'add-layer', data: { parentId: parent.id, index, layer: serialized, selection: previousSelection } },
+      { type: 'image', targetId: this.id, action: 'remove-layer', data: { layerId: layer.id, selection: nextSelection.id } },
       snapshots,
     ));
   }
@@ -231,7 +293,10 @@ export class ImageDocument implements UndoTarget {
     let duplicate: Layer | undefined;
     try {
       const serialized = this.serializeLayer(original, snapshots);
-      duplicate = this.restoreLayer(serialized, snapshots, true);
+      const ids = new Map<string, string>();
+      const allocate = (data: SerializedLayer) => { ids.set(data.id, crypto.randomUUID()); data.children.forEach(allocate); };
+      allocate(serialized);
+      duplicate = this.restoreLayer(serialized, snapshots, ids);
       duplicate.name = `${original.name} copy`;
       this.add(duplicate, parent, parent.children.indexOf(original) + 1);
     } catch (error) { if (duplicate && !duplicate.parent) this.compositor.release(duplicate); throw error; }
