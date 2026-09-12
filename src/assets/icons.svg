@@ -17,7 +17,7 @@
   <symbol id="icon-polygon-lasso" viewBox="0 0 24 24"><path d="m5 5 14 3-3 11-10-2Z"/><circle cx="5" cy="5" r="1.5" fill="currentColor" stroke="none"/><circle cx="19" cy="8" r="1.5" fill="currentColor" stroke="none"/><circle cx="16" cy="19" r="1.5" fill="currentColor" stroke="none"/><circle cx="6" cy="17" r="1.5" fill="currentColor" stroke="none"/></symbol>
   <symbol id="icon-crop" viewBox="0 0 24 24"><path d="M7 3v14a2 2 0 0 0 2 2h12M3 7h14a2 2 0 0 1 2 2v12"/><path d="M3 3v4h4M21 21v-4h-4"/></symbol>
   <symbol id="icon-transform" viewBox="0 0 24 24"><path d="M12 3v18M3 12h18M9 6l3-3 3 3M9 18l3 3 3-3M6 9l-3 3 3 3M18 9l3 3-3 3"/></symbol>
-  <symbol id="icon-eyedropper" viewBox="0 0 24 24"><path d="m15 4 5 5M14 5l-9 9-1 5 5-1 9-9M15 4l2-2 5 5-2 2M5 14l4 4"/></symbol>
+  <symbol id="icon-eyedropper" viewBox="0 0 24 24"><path d="m14.5 4.5 5 5M13.5 5.5l-9 9-1 5 5-1 9-9M14.5 4.5 17 2l5 5-2.5 2.5M4.5 14.5l4 4"/><path d="M2.5 21.5h5M5 19v5"/></symbol>
   <symbol id="icon-selection" viewBox="0 0 24 24"><rect x="4" y="4" width="16" height="16" rx=".5" stroke-dasharray="3 3"/></symbol>
   <symbol id="icon-eraser" viewBox="0 0 24 24"><path d="m14 3 7 7-10 10H7l-5-5L14 3ZM7 10l7 7M11 20h10"/><path d="m14 3 7 7-7 7-7-7Z" fill="currentColor" fill-opacity=".2"/></symbol>
   <symbol id="icon-generate" viewBox="0 0 24 24"><g stroke="url(#generative-gradient)"><path d="m12 3 2.7 6.3L21 12l-6.3 2.7L12 21l-2.7-6.3L3 12l6.3-2.7Z" fill="url(#generative-gradient)" fill-opacity=".16"/><path d="M20 2v4M18 4h4"/></g></symbol>

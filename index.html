@@ -38,18 +38,24 @@
       </div>
       <div class="workspace">
         <aside class="tools" aria-label="Tools">
-          <button class="tool active" data-action="tool.brush" data-icon="brush" aria-label="Brush (B)" title="Brush (B)"></button>
-          <button class="tool" data-action="tool.clone-stamp" data-icon="clone-stamp" aria-label="Clone Stamp (K)" title="Clone Stamp (K) · Alt-click to sample"></button>
-          <button class="tool" data-action="tool.healing-brush" data-icon="healing-brush" aria-label="Healing Brush (H)" title="Healing Brush (H) · Alt-click to sample"></button>
-          <button class="tool" data-action="tool.rectangle" data-icon="rectangle" aria-label="Rectangle (R)" title="Rectangle (R)"></button>
-          <button class="tool" data-action="tool.ellipse" data-icon="ellipse" aria-label="Ellipse (O)" title="Ellipse (O) · Hold Shift for a circle"></button>
-          <button class="tool" data-action="tool.freehand-lasso" data-icon="freehand-lasso" aria-label="Freehand Lasso (L)" title="Freehand Lasso (L)"></button>
-          <button class="tool" data-action="tool.polygon-lasso" data-icon="polygon-lasso" aria-label="Polygon Lasso (P)" title="Polygon Lasso (P)"></button>
-          <button class="tool" data-action="tool.fill" data-icon="fill" aria-label="Fill (F)" title="Fill (F)"></button>
-          <button class="tool" data-action="tool.text" data-icon="text" aria-label="Text (T)" title="Text (T)"></button>
-          <button class="tool" data-action="tool.crop" data-icon="crop" aria-label="Crop (C)" title="Crop (C)"></button>
           <button class="tool" data-action="tool.transform" data-icon="transform" aria-label="Move and transform (V)" title="Move / transform (V)"></button>
+          <button class="tool" data-action="tool.crop" data-icon="crop" aria-label="Crop (C)" title="Crop (C)"></button>
           <button class="tool" data-action="tool.eyedropper" data-icon="eyedropper" aria-label="Eyedropper (I)" title="Eyedropper (I) · Hold Alt with Brush"></button>
+          <div class="tool-separator" role="separator"></div>
+          <div class="tool-group drawing-tools" role="group" aria-label="Drawing tools">
+            <button class="tool active" data-action="tool.brush" data-icon="brush" aria-label="Brush (B)" title="Brush (B)"></button>
+            <button class="tool" data-action="tool.rectangle" data-icon="rectangle" aria-label="Rectangle (R)" title="Rectangle (R)"></button>
+            <button class="tool" data-action="tool.ellipse" data-icon="ellipse" aria-label="Ellipse (O)" title="Ellipse (O) · Hold Shift for a circle"></button>
+            <button class="tool" data-action="tool.freehand-lasso" data-icon="freehand-lasso" aria-label="Freehand Lasso (L)" title="Freehand Lasso (L)"></button>
+            <button class="tool" data-action="tool.polygon-lasso" data-icon="polygon-lasso" aria-label="Polygon Lasso (P)" title="Polygon Lasso (P)"></button>
+            <button class="tool" data-action="tool.fill" data-icon="fill" aria-label="Fill (F)" title="Fill (F)"></button>
+          </div>
+          <div class="tool-separator" role="separator"></div>
+          <div class="tool-group" role="group" aria-label="Retouch and text tools">
+            <button class="tool" data-action="tool.clone-stamp" data-icon="clone-stamp" aria-label="Clone Stamp (K)" title="Clone Stamp (K) · Alt-click to sample"></button>
+            <button class="tool" data-action="tool.healing-brush" data-icon="healing-brush" aria-label="Healing Brush (H)" title="Healing Brush (H) · Alt-click to sample"></button>
+            <button class="tool" data-action="tool.text" data-icon="text" aria-label="Text (T)" title="Text (T)"></button>
+          </div>
           <div class="tool-modes">
             <button class="tool mode-tool" data-action="drawing.erase" data-icon="eraser" aria-label="Erase mode (E)" aria-pressed="false" title="Toggle draw / erase (E)"></button>
             <button class="tool mode-tool" data-action="selection.mode" data-icon="selection" aria-label="Edit selection (S)" aria-pressed="false" title="Toggle selection editing (S)"></button>

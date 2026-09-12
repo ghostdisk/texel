@@ -67,6 +67,8 @@ h2 { display: flex; align-items: center; gap: 7px; font-weight: 600; font-size: 
 .input-unit input { border: 0; background: transparent; }
 .workspace { display: flex; flex: 1; min-height: 0; gap: 6px; padding: 5px 5px 0; }
 .tools { display: flex; align-items: center; flex-direction: column; gap: 4px; width: 48px; flex-shrink: 0; padding: 6px 4px; background: var(--panel-gradient); border: 1px solid var(--border); border-bottom: 0; border-radius: 4px 4px 0 0; overflow-y: auto; scrollbar-width: none; }
+.tool-group { display: flex; align-items: center; flex-direction: column; gap: 4px; }
+.tool-separator { width: 28px; height: 1px; flex: 0 0 1px; margin: 3px 0; background: #434b5f; }
 .tool { display: grid; place-items: center; width: 36px; height: 36px; flex-shrink: 0; padding: 6px; background: transparent; border-color: transparent; border-radius: 4px; }
 .tool > .icon { width: 23px; height: 23px; }
 .tool.active { color: #f2eaff; border-color: #9770f3; background: linear-gradient(135deg, #594688, #322e50); box-shadow: inset 0 0 12px #a282ff13; }
