@@ -6,7 +6,10 @@ import type { JsonObject, UndoDirection, UndoOperation, UndoTarget } from '../hi
 import { IDENTITY, multiply, transformBounds, unionBounds } from './geometry';
 import type { Matrix, Rect } from './geometry';
 
-export type BlendMode = 'normal' | 'add';
+export const BLEND_MODES = ['normal', 'add', 'screen', 'exclusion'] as const;
+export type BlendMode = typeof BLEND_MODES[number];
+
+export function isBlendMode(value: unknown): value is BlendMode { return BLEND_MODES.some((mode) => mode === value); }
 
 export interface LayerProperties extends JsonObject {
   name: string;

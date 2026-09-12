@@ -108,7 +108,7 @@ Working textures contain premultiplied linear-light `rgba16float` pixels. Import
 
 Content edits invalidate their layer and ancestors. Placement edits invalidate the parent composite. The compositor processes children before parents and reuses clean results; panning only changes presentation. Pending paint, filters, and composition are submitted in order. Snapshot boundaries flush pending painting before copying pixels, without waiting for GPU completion on the CPU.
 
-Normal uses premultiplied source-over. Add uses additive RGB with source-over alpha. Groups are isolated before their own filters, opacity, and parent blending.
+Normal uses premultiplied source-over. Add uses additive RGB. Screen and Exclusion use their standard premultiplied linear-light equations. All modes retain source-over alpha. Groups are isolated before their own filters, opacity, and parent blending.
 
 ## Actions and tools
 

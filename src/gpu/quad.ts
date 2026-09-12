@@ -17,6 +17,16 @@ const ADDITIVE: GPUBlendState = {
   alpha: { srcFactor: 'one', dstFactor: 'one-minus-src-alpha', operation: 'add' },
 };
 
+const SCREEN: GPUBlendState = {
+  color: { srcFactor: 'one', dstFactor: 'one-minus-src', operation: 'add' },
+  alpha: { srcFactor: 'one', dstFactor: 'one-minus-src-alpha', operation: 'add' },
+};
+
+const EXCLUSION: GPUBlendState = {
+  color: { srcFactor: 'one-minus-dst', dstFactor: 'one-minus-src', operation: 'add' },
+  alpha: { srcFactor: 'one', dstFactor: 'one-minus-src-alpha', operation: 'add' },
+};
+
 export class QuadRenderer {
   private readonly layout: GPUBindGroupLayout;
   private readonly sampler: GPUSampler;
@@ -42,7 +52,12 @@ export class QuadRenderer {
       fragment: { module, entryPoint: 'fragmentMain', targets: [{ format, blend }] },
       primitive: { topology: 'triangle-list' },
     });
-    this.pipelines = { normal: pipeline(SOURCE_OVER), add: pipeline(ADDITIVE) };
+    this.pipelines = {
+      normal: pipeline(SOURCE_OVER),
+      add: pipeline(ADDITIVE),
+      screen: pipeline(SCREEN),
+      exclusion: pipeline(EXCLUSION),
+    };
     this.maskPipeline = pipeline(SOURCE_OVER, MASK_FORMAT);
     const present = device.createShaderModule({ label: 'Canvas presentation', code: presentShader });
     this.presentation = device.createRenderPipeline({

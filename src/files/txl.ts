@@ -6,7 +6,7 @@ import type { Surface } from '../gpu/surface';
 import type { FilterRegistry, SerializedFilter } from '../filters/filter';
 import type { JsonObject } from '../history/undo';
 import type { ImageDocument } from '../model/image-document';
-import { GroupLayer, ImageLayer, Layer, validateLayerDependencies } from '../model/layers';
+import { GroupLayer, ImageLayer, Layer, isBlendMode, validateLayerDependencies } from '../model/layers';
 import type { LayerProperties } from '../model/layers';
 import { inverse } from '../model/geometry';
 import type { Matrix } from '../model/geometry';
@@ -252,7 +252,7 @@ export class TxlFormat {
       const name = text(props.name, 4096), transform = matrix(props.transform);
       if (typeof props.opacity !== 'number' || !Number.isFinite(props.opacity) || props.opacity < 0 || props.opacity > 1) return bad('invalid opacity.');
       if (typeof props.visible !== 'boolean' || typeof props.selection !== 'boolean') return bad('invalid layer flags.');
-      if (props.blendMode !== 'normal' && props.blendMode !== 'add') return bad('unsupported blend mode.');
+      if (!isBlendMode(props.blendMode)) return bad('unsupported blend mode.');
       const properties: LayerProperties = { name, transform, opacity: props.opacity, visible: props.visible, selection: props.selection, blendMode: props.blendMode };
       const filters = array(data.filters).map((value) => {
         if (++filterCount > 10000) return bad('too many filters.');
