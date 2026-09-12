@@ -2,7 +2,7 @@ import compositeShader from '../shaders/composite.wgsl?raw';
 import presentShader from '../shaders/present.wgsl?raw';
 import { IDENTITY, inverse } from '../model/geometry';
 import type { Matrix, Rect } from '../model/geometry';
-import type { BlendMode } from '../model/layers';
+import type { FixedBlendMode } from '../model/layers';
 import { WORKING_FORMAT, MASK_FORMAT, isMaskSurface } from './surface';
 import type { Surface } from './surface';
 import type { Gpu, GpuFrame } from './device';
@@ -31,7 +31,7 @@ export class QuadRenderer {
   private readonly layout: GPUBindGroupLayout;
   private readonly sampler: GPUSampler;
   private readonly pointSampler: GPUSampler;
-  private readonly pipelines: Record<BlendMode, GPURenderPipeline>;
+  private readonly pipelines: Record<FixedBlendMode, GPURenderPipeline>;
   private readonly maskPipeline: GPURenderPipeline;
   private readonly presentation: GPURenderPipeline;
 
@@ -76,7 +76,7 @@ export class QuadRenderer {
 
   draw(
     pass: GPURenderPassEncoder, frame: GpuFrame, source: Surface, target: Surface,
-    matrix: Matrix = IDENTITY, opacity = 1, blend: BlendMode = 'normal', straightAlpha = false, pointSampling = false,
+    matrix: Matrix = IDENTITY, opacity = 1, blend: FixedBlendMode = 'normal', straightAlpha = false, pointSampling = false,
   ): void {
     const [a, b, c, d, e, f] = matrix;
     const src = source.bounds;

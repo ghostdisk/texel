@@ -6,10 +6,21 @@ import type { JsonObject, UndoDirection, UndoOperation, UndoTarget } from '../hi
 import { IDENTITY, multiply, transformBounds, unionBounds } from './geometry';
 import type { Matrix, Rect } from './geometry';
 
-export const BLEND_MODES = ['normal', 'add', 'screen', 'exclusion'] as const;
+export const BLEND_MODES = [
+  'normal', 'dissolve',
+  'darken', 'multiply', 'color-burn', 'linear-burn', 'darker-color',
+  'lighten', 'screen', 'color-dodge', 'add', 'lighter-color',
+  'overlay', 'soft-light', 'hard-light', 'vivid-light', 'linear-light', 'pin-light', 'hard-mix',
+  'difference', 'exclusion', 'subtract', 'divide',
+  'hue', 'saturation', 'color', 'luminosity',
+] as const;
 export type BlendMode = typeof BLEND_MODES[number];
 
+export const FIXED_BLEND_MODES = ['normal', 'add', 'screen', 'exclusion'] as const satisfies readonly BlendMode[];
+export type FixedBlendMode = typeof FIXED_BLEND_MODES[number];
+
 export function isBlendMode(value: unknown): value is BlendMode { return BLEND_MODES.some((mode) => mode === value); }
+export function isFixedBlendMode(mode: BlendMode): mode is FixedBlendMode { return FIXED_BLEND_MODES.some((fixed) => fixed === mode); }
 
 export interface LayerProperties extends JsonObject {
   name: string;

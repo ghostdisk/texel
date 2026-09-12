@@ -3,12 +3,13 @@ import { GenerationOverlay } from './generation-overlay';
 import type { GenerationVisual } from './generation-overlay';
 import { IDENTITY, inverse, maxScale, multiply, transformBounds, unionBounds } from '../model/geometry';
 import type { Matrix, Rect } from '../model/geometry';
-import { GroupLayer, ImageLayer, Layer, layerIndex, validateLayerDependencies } from '../model/layers';
+import { GroupLayer, ImageLayer, Layer, isFixedBlendMode, layerIndex, validateLayerDependencies } from '../model/layers';
 import type { RenderOperation } from './brush';
 import type { Gpu, GpuFrame } from './device';
 import { QuadRenderer } from './quad';
 import { FilterMixer } from './filter-mix';
 import { SelectionOutline } from './selection-outline';
+import { BlendCompositor } from './blend';
 import { createSurface, rasterBounds, MASK_FORMAT, WORKING_FORMAT } from './surface';
 import type { Surface } from './surface';
 
@@ -44,6 +45,7 @@ export class Compositor {
   private readonly caches = new Map<Layer, LayerCache>();
   private readonly outline: SelectionOutline;
   private readonly generationOverlay: GenerationOverlay;
+  private readonly blender: BlendCompositor;
   private index = new Map<string, Layer>();
   private evaluated = new Map<Layer, Evaluation>();
   private visiting = new Set<Layer>();
@@ -55,6 +57,7 @@ export class Compositor {
     this.mixer = new FilterMixer(gpu);
     this.outline = new SelectionOutline(gpu, canvasFormat);
     this.generationOverlay = new GenerationOverlay(gpu, canvasFormat);
+    this.blender = new BlendCompositor(gpu);
   }
 
   private generationPreview: {
@@ -162,14 +165,15 @@ export class Compositor {
         const world = group.worldTransform();
         const scale = density * maxScale(multiply(parentInverse, world));
         const bounds = unionBounds(children.map((child) => transformBounds(child.layer.transform, child.surface.bounds)));
-        let content = applyFilters ? temporary('Merge group contents', bounds, scale) : createSurface(this.gpu.device, 'Merged layers', bounds, scale);
-        if (!applyFilters) result = content;
-        const pass = this.quads.begin(frame, content);
-        for (const child of children) {
-          const magnified = maxScale(child.layer.transform) * content.scale > child.surface.scale;
-          this.quads.draw(pass, frame, child.surface, content, child.layer.transform, child.layer.opacity, child.layer.blendMode, false, magnified);
+        const needsShader = children.some((child) => !isFixedBlendMode(child.layer.blendMode));
+        const first = applyFilters ? temporary('Merge group contents', bounds, scale) : createSurface(this.gpu.device, 'Merged layers', bounds, scale);
+        const second = needsShader ? applyFilters ? temporary('Merge group blend', bounds, scale) :
+          createSurface(this.gpu.device, 'Merged layers blend', bounds, scale) : null;
+        let content = this.compositeChildren(frame, children, first, second);
+        if (!applyFilters) {
+          result = content;
+          if (second) frame.retire((content === first ? second : first).texture);
         }
-        pass.end();
         if (applyFilters) for (const filter of group.filters) {
           if (!filter.enabled) continue;
           const masks = new Map<string, Layer>();
@@ -306,6 +310,42 @@ export class Compositor {
     layer.output = null;
   }
 
+  private compositeChildren(
+    frame: GpuFrame, children: readonly EvaluatedChild[], first: Surface, second: Surface | null,
+  ): Surface {
+    let current = first;
+    let alternate = second;
+    let pass: GPURenderPassEncoder | null = this.quads.begin(frame, current);
+    if (!alternate) {
+      for (const child of children) {
+        if (!isFixedBlendMode(child.layer.blendMode)) throw new Error('Shader blend mode requires an alternate group surface.');
+        const magnified = maxScale(child.layer.transform) * current.scale > child.surface.scale;
+        this.quads.draw(pass, frame, child.surface, current, child.layer.transform, child.layer.opacity,
+          child.layer.blendMode, false, magnified);
+      }
+      pass.end();
+      return current;
+    }
+    pass.end();
+    pass = null;
+    for (const child of children) {
+      const magnified = maxScale(child.layer.transform) * current.scale > child.surface.scale;
+      if (isFixedBlendMode(child.layer.blendMode)) {
+        pass ??= this.quads.begin(frame, current, 'load');
+        this.quads.draw(pass, frame, child.surface, current, child.layer.transform, child.layer.opacity,
+          child.layer.blendMode, false, magnified);
+      } else {
+        pass?.end();
+        pass = null;
+        this.blender.encode(frame, current, child.surface, alternate, child.layer.transform,
+          child.layer.opacity, child.layer.blendMode, magnified);
+        [current, alternate] = [alternate, current];
+      }
+    }
+    pass?.end();
+    return current;
+  }
+
   private evaluate(frame: GpuFrame, layer: Layer, parentTransform: Matrix, pixelsPerUnit: number): Evaluation {
     const evaluated = this.evaluated.get(layer);
     if (evaluated) return evaluated;
@@ -381,13 +421,10 @@ export class Compositor {
       }
     }
     else if (layer instanceof GroupLayer) {
-      content = surface('children', groupBounds);
-      const pass = this.quads.begin(frame, content);
-      for (const child of children) {
-        const magnified = maxScale(child.layer.transform) * content.scale > child.surface.scale;
-        this.quads.draw(pass, frame, child.surface, content, child.layer.transform, child.layer.opacity, child.layer.blendMode, false, magnified);
-      }
-      pass.end();
+      const needsShader = children.some((child) => !isFixedBlendMode(child.layer.blendMode));
+      const first = surface(needsShader ? 'children-a' : 'children', groupBounds);
+      const second = needsShader ? surface('children-b', groupBounds) : null;
+      content = this.compositeChildren(frame, children, first, second);
     } else throw new Error(`No content renderer for layer kind: ${layer.kind}`);
 
     cache.filterInputs.clear();
