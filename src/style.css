@@ -57,6 +57,8 @@ h2 { display: flex; align-items: center; gap: 7px; font-weight: 600; font-size: 
 .crop-options label { display: flex; align-items: center; gap: 7px; color: #c3c9dc; white-space: nowrap; }
 .crop-options select { width: 108px; height: 28px; }
 .crop-options button { height: 28px; }
+.crop-custom-aspect { display: flex; align-items: center; gap: 4px; padding: 3px 5px; border: 1px solid #3d4351; border-radius: 4px; background: #1b1e26; }
+.crop-custom-aspect input { width: 58px; height: 20px; padding: 1px 4px; text-align: center; }
 .crop-size { min-width: 92px; color: #aeb8d2; font-variant-numeric: tabular-nums; text-align: center; }
 #transform-fields { display: flex; gap: 18px; align-items: center; min-width: 0; overflow-x: auto; height: 100%; }
 #transform-fields .field { flex-direction: row; align-items: center; margin: 0; white-space: nowrap; gap: 7px; }

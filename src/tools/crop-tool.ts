@@ -9,7 +9,7 @@ import type { PrecisionState } from '../model/precision';
 import { Tool } from './tool';
 import type { ToolPointer } from './tool';
 
-type CropAspect = 'free' | 'original' | '1:1' | '4:3' | '3:2' | '16:9';
+type CropAspect = 'free' | 'original' | '1:1' | '4:3' | '3:2' | '16:9' | 'custom';
 
 interface CropGesture {
   mode: 'new' | 'move' | 'resize';
@@ -43,10 +43,13 @@ export class CropTool extends Tool {
   private gesture: CropGesture | null = null;
   private aspect: CropAspect = 'free';
   private originalRatio = 1;
+  private customWidth = 1;
+  private customHeight = 1;
   private documentSignature = '';
   private defined = false;
   private applyButton: HTMLButtonElement | null = null;
   private sizeLabel: HTMLElement | null = null;
+  private customFields: HTMLElement | null = null;
 
   private sync(): void {
     const image = this.editor.image;
@@ -91,6 +94,7 @@ export class CropTool extends Tool {
   private ratio(): number | null {
     if (this.aspect === 'free') return null;
     if (this.aspect === 'original') return this.originalRatio;
+    if (this.aspect === 'custom') return this.customWidth / this.customHeight;
     const [width, height] = this.aspect.split(':').map(Number);
     return width / height;
   }
@@ -323,6 +327,7 @@ export class CropTool extends Tool {
 
   private updateUI(): void {
     if (this.applyButton) this.applyButton.disabled = !this.canApply;
+    if (this.customFields) this.customFields.hidden = this.aspect !== 'custom';
     if (this.sizeLabel) {
       const rect = this.normalized();
       this.sizeLabel.textContent = `${rect.width} × ${rect.height} px`;
@@ -378,10 +383,30 @@ export class CropTool extends Tool {
       new Option('4 : 3', '4:3'),
       new Option('3 : 2', '3:2'),
       new Option('16 : 9', '16:9'),
+      new Option('Custom', 'custom'),
     );
     select.value = this.aspect;
     select.onchange = () => this.editor.run(() => this.setAspect(select.value as CropAspect));
     label.append(select);
+    this.customFields = document.createElement('span');
+    this.customFields.className = 'crop-custom-aspect';
+    const customInput = (value: number, name: 'width' | 'height') => {
+      const input = document.createElement('input');
+      input.type = 'number';
+      input.min = '0.01';
+      input.max = '10000';
+      input.step = '0.01';
+      input.value = String(value);
+      input.setAttribute('aria-label', `Custom crop aspect ${name}`);
+      input.oninput = () => this.editor.run(() => {
+        if (!Number.isFinite(input.valueAsNumber) || input.valueAsNumber <= 0) return;
+        if (name === 'width') this.customWidth = input.valueAsNumber;
+        else this.customHeight = input.valueAsNumber;
+        this.setAspect('custom');
+      });
+      return input;
+    };
+    this.customFields.append(customInput(this.customWidth, 'width'), document.createTextNode(':'), customInput(this.customHeight, 'height'));
     this.sizeLabel = document.createElement('span');
     this.sizeLabel.className = 'crop-size';
     this.applyButton = document.createElement('button');
@@ -393,7 +418,7 @@ export class CropTool extends Tool {
     cancel.textContent = 'Cancel';
     cancel.dataset.action = 'crop.cancel';
     cancel.onclick = () => this.editor.actions.execute('crop.cancel');
-    container.append(label, this.sizeLabel, this.applyButton, cancel);
+    container.append(label, this.customFields, this.sizeLabel, this.applyButton, cancel);
     this.updateUI();
   }
 }
