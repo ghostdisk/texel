@@ -98,6 +98,7 @@ h2 { display: flex; align-items: center; gap: 7px; font-weight: 600; font-size: 
 .transform-outline { fill: none; stroke: #b4a1ff; stroke-width: 1.25; vector-effect: non-scaling-stroke; }
 .transform-handle { fill: #f1ebff; stroke: #7253cf; stroke-width: 1.5; vector-effect: non-scaling-stroke; }
 .selection-outline { fill: none; stroke: #c3c8d7; stroke-opacity: .38; stroke-width: 1; vector-effect: non-scaling-stroke; }
+.retouch-source { fill: none; stroke: #68dcff; stroke-width: 1.25; vector-effect: non-scaling-stroke; }
 .crop-shade { fill: #080b14; fill-opacity: .68; }
 .crop-outline { fill: none; stroke: #f4f1ff; stroke-width: 1.25; vector-effect: non-scaling-stroke; }
 .crop-grid { stroke: #f4f1ff; stroke-opacity: .42; stroke-width: 1; vector-effect: non-scaling-stroke; }
@@ -112,6 +113,8 @@ h2 { display: flex; align-items: center; gap: 7px; font-weight: 600; font-size: 
 .tool-checkbox { display: inline-flex; align-items: center; gap: 6px; flex-shrink: 0; white-space: nowrap; }
 .tool-status { color: #b6a3e9; white-space: nowrap; font-size: 11px; }
 .text-options { gap: 9px !important; }
+.retouch-options { gap: 9px !important; }
+.retouch-status { max-width: 220px; overflow: hidden; text-overflow: ellipsis; }
 .text-options > label, .text-panel label { display: flex; align-items: center; gap: 6px; flex-shrink: 0; color: #c3c9dc; }
 .text-options input, .text-options select { height: 28px; }
 .text-fontFamily { width: 135px; }

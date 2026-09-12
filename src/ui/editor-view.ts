@@ -175,12 +175,13 @@ export class EditorView {
     if (this.optionsTool !== editor.activeTool.id) {
       this.optionsTool = editor.activeTool.id;
       const glyphs: Record<string, IconName> = {
-        brush: 'brush', rectangle: 'rectangle', ellipse: 'ellipse', fill: 'fill', text: 'text', 'freehand-lasso': 'freehand-lasso',
+        brush: 'brush', rectangle: 'rectangle', ellipse: 'ellipse', fill: 'fill', text: 'text',
+        'clone-stamp': 'clone-stamp', 'healing-brush': 'healing-brush', 'freehand-lasso': 'freehand-lasso',
         'polygon-lasso': 'polygon-lasso', crop: 'crop', transform: 'transform', eyedropper: 'eyedropper', generation: 'generate',
       };
       element('active-tool-icon').replaceChildren(icon(glyphs[editor.activeTool.id] ?? 'brush'));
       element('tool-options').replaceChildren();
-      element('tool-options').classList.remove('generation-options', 'crop-options', 'polygon-options', 'text-options', 'transform-precision-options');
+      element('tool-options').classList.remove('generation-options', 'crop-options', 'polygon-options', 'text-options', 'transform-precision-options', 'retouch-options');
       editor.generation.onChange = undefined;
       editor.activeTool.drawUI(element('tool-options'));
     }

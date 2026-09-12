@@ -25,6 +25,8 @@ import type { Surface } from './gpu/surface';
 import type { MaskInput } from './gpu/mask';
 import { Brush } from './gpu/brush';
 import type { BrushStamp } from './gpu/brush';
+import { RetouchBrush } from './gpu/retouch';
+import type { RetouchInput, RetouchStamp } from './gpu/retouch';
 import { PathRenderer } from './gpu/path';
 import { Compositor } from './gpu/compositor';
 import type { RenderStats } from './gpu/compositor';
@@ -50,6 +52,7 @@ import { EllipseTool } from './tools/ellipse-tool';
 import { FreehandLassoTool } from './tools/freehand-lasso-tool';
 import { PolygonLassoTool } from './tools/polygon-lasso-tool';
 import { FillTool } from './tools/fill-tool';
+import { CloneStampTool, HealingBrushTool } from './tools/retouch-tool';
 import { TextTool } from './tools/text-tool';
 import { CropTool } from './tools/crop-tool';
 import { TransformTool } from './tools/transform-tool';
@@ -66,6 +69,7 @@ interface PointerGesture {
 export class Editor {
   readonly compositor: Compositor;
   readonly brush: Brush;
+  readonly retouch: RetouchBrush;
   readonly paths: PathRenderer;
   readonly filters = new FilterRegistry();
   readonly actions: ActionRegistry;
@@ -104,6 +108,7 @@ export class Editor {
   commitEdits?: () => void;
   private scheduledFrame = 0;
   private pendingStamps = new Map<ImageLayer, BrushStamp[]>();
+  private pendingRetouchStamps = new Map<ImageLayer, RetouchStamp[]>();
   private pointer: PointerGesture | null = null;
   private hoverPointer: ToolPointer | null = null;
   private context: GPUCanvasContext;
@@ -129,6 +134,7 @@ export class Editor {
     context.configure({ device: gpu.device, format, alphaMode: 'opaque', colorSpace: 'srgb' });
     this.compositor = new Compositor(gpu, format);
     this.brush = new Brush(gpu);
+    this.retouch = new RetouchBrush(gpu);
     this.paths = new PathRenderer(gpu);
     this.readback = new GpuReadback(gpu);
     this.previews = new LayerPreviews(this.readback);
@@ -158,6 +164,8 @@ export class Editor {
     this.tools.set('freehand-lasso', new FreehandLassoTool(this));
     this.tools.set('polygon-lasso', new PolygonLassoTool(this));
     this.tools.set('fill', new FillTool(this));
+    this.tools.set('clone-stamp', new CloneStampTool(this));
+    this.tools.set('healing-brush', new HealingBrushTool(this));
     this.tools.set('text', new TextTool(this));
     this.tools.set('crop', new CropTool(this));
     this.tools.set('transform', new TransformTool(this));
@@ -444,6 +452,7 @@ export class Editor {
     this.scheduledFrame = requestAnimationFrame(() => {
       this.scheduledFrame = 0;
       this.pendingStamps.clear();
+      this.pendingRetouchStamps.clear();
       this.run(() => {
         this.generation.validate();
         const density = this.canvas.width / this.viewport.width;
@@ -586,7 +595,26 @@ export class Editor {
     stamps.push(stamp);
   }
 
-  flushPaint(): void { this.compositor.flush(); this.pendingStamps.clear(); }
+  paintRetouch(layer: ImageLayer, stamp: RetouchStamp, input: RetouchInput): void {
+    let stamps = this.pendingRetouchStamps.get(layer);
+    if (!stamps) {
+      stamps = [];
+      this.pendingRetouchStamps.set(layer, stamps);
+      const batch = stamps;
+      const operation = this.retouch.operation(batch, input);
+      this.compositor.enqueue(layer, { encode: (pass, context) => {
+        try { operation.encode(pass, context); }
+        finally { if (this.pendingRetouchStamps.get(layer) === batch) this.pendingRetouchStamps.delete(layer); }
+      } });
+    }
+    stamps.push(stamp);
+  }
+
+  flushPaint(): void {
+    this.compositor.flush();
+    this.pendingStamps.clear();
+    this.pendingRetouchStamps.clear();
+  }
 
   finishGesture(): void {
     const pointer = this.pointer;
@@ -1040,6 +1068,8 @@ export class Editor {
     register({ id: 'tool.freehand-lasso', label: 'Freehand Lasso', menu: 'Tools', execute: () => this.switchTool('freehand-lasso') });
     register({ id: 'tool.polygon-lasso', label: 'Polygon Lasso', menu: 'Tools', execute: () => this.switchTool('polygon-lasso') });
     register({ id: 'tool.fill', label: 'Fill', menu: 'Tools', execute: () => this.switchTool('fill') });
+    register({ id: 'tool.clone-stamp', label: 'Clone Stamp', menu: 'Tools', execute: () => this.switchTool('clone-stamp') });
+    register({ id: 'tool.healing-brush', label: 'Healing Brush', menu: 'Tools', execute: () => this.switchTool('healing-brush') });
     register({ id: 'tool.text', label: 'Text', menu: 'Tools', execute: () => { this.setSelectionMode(false); this.switchTool('text'); } });
     register({
       id: 'polygon.apply', label: 'Apply polygon', menu: 'Tools', submenu: 'Polygon Lasso',
@@ -1109,6 +1139,8 @@ export class Editor {
     this.actions.bind('L', 'tool.freehand-lasso');
     this.actions.bind('P', 'tool.polygon-lasso');
     this.actions.bind('F', 'tool.fill');
+    this.actions.bind('K', 'tool.clone-stamp');
+    this.actions.bind('H', 'tool.healing-brush');
     this.actions.bind('T', 'tool.text');
     this.actions.bind('Enter', 'polygon.apply', { when: 'canApplyPolygon' });
     this.actions.bind('Escape', 'polygon.cancel', { when: 'hasPolygonPath' });
@@ -1204,7 +1236,7 @@ export class Editor {
     this.canvas.addEventListener('pointerup', (event) => this.run(() => {
       if (this.pointer?.id !== event.pointerId) return;
       this.hoverPointer = pointerData(event);
-      if (this.pointer.mode === 'tool' && ['transform', 'rectangle', 'ellipse', 'freehand-lasso', 'crop', 'eyedropper'].includes(this.activeTool.id)) {
+      if (this.pointer.mode === 'tool' && ['transform', 'rectangle', 'ellipse', 'freehand-lasso', 'crop', 'eyedropper', 'clone-stamp', 'healing-brush'].includes(this.activeTool.id)) {
         this.activeTool.pointerMove(this.hoverPointer);
       }
       if (this.activeTool instanceof PolygonLassoTool && this.activeTool.hasPath) {
