@@ -1,4 +1,6 @@
 import { ActionRegistry } from './actions';
+import { DocumentFiles } from './files/document-files';
+import type { LoadedDocument } from './files/txl';
 import { ImageGeneration } from './generation/image-generation';
 import { GenerationTool } from './tools/generation-tool';
 import { FilterRegistry } from './filters/filter';
@@ -54,6 +56,7 @@ export class Editor {
   readonly history: UndoStack;
   readonly generation: ImageGeneration;
   readonly image: ImageDocument;
+  readonly files: DocumentFiles;
   readonly viewport = new Viewport();
   readonly tools = new Map<string, Tool>();
   private baseTool: Tool;
@@ -128,6 +131,7 @@ export class Editor {
     this.tools.set('eyedropper', new EyedropperTool(this));
     this.generation = new ImageGeneration(this);
     this.tools.set('generation', new GenerationTool(this));
+    this.files = new DocumentFiles(this);
     this.image.onInvalidated = () => this.requestRender();
     this.image.onChange = () => this.changed();
     this.history.onChange = (operation, direction) => {
@@ -142,7 +146,7 @@ export class Editor {
     };
     this.viewport.onChange = () => { this.refreshHover(); this.requestRender(); };
     this.actions.beforeExecute = () => this.finishGesture();
-    this.actions.blocked = () => this.halted || this.reframing;
+    this.actions.blocked = () => this.halted || this.reframing || this.files.busy;
     this.actions.context = () => ({ hasSelection: !!this.image.selectionMask, isGenerating: this.generation.busy });
     this.registerActions();
     this.attachInput();
@@ -152,6 +156,7 @@ export class Editor {
 
   get activeTool(): Tool { return this.altHeld && this.baseTool.id === 'brush' ? this.tools.get('eyedropper')! : this.baseTool; }
   get maskEditLayer(): ImageLayer | null { return this.editedMask; }
+  get editingPixels(): boolean { return this.reframing; }
   get panHeld(): boolean { return this.panKeyHeld || this.panMode; }
 
   private setMaskEditLayer(layer: ImageLayer | null): void {
@@ -356,13 +361,14 @@ export class Editor {
   }
 
   run(action: () => unknown): void {
-    if (this.halted || this.reframing) return;
+    if (this.halted || this.reframing || this.files.busy) return;
     try { void Promise.resolve(action()).catch(this.report); }
     catch (error) { this.report(error); }
   }
 
   changed(): void {
     this.generation?.validate();
+    this.files?.sync();
     if (this.editedMask && (this.image.selected !== this.editedMask || !this.image.allLayers().includes(this.editedMask))) {
       this.setMaskEditLayer(null);
     }
@@ -421,6 +427,25 @@ export class Editor {
     this.setMaskEditLayer(null);
     this.generation.resetLens(width, height);
     this.image.reset(width, height);
+    this.queuePreviews();
+    this.viewport.fit(this.image.frame);
+    this.files.reset();
+    this.changed();
+  }
+
+  loadDocument(document: LoadedDocument): void {
+    this.generation.cancel();
+    this.finishGesture();
+    this.pickGeneration++;
+    this.tools.get('eyedropper')?.cancel();
+    this.previews.clear();
+    this.selectionMode = false;
+    this.selectionReturnId = null;
+    this.setMaskEditLayer(null);
+    this.image.replace(document.root, document.width, document.height, document.selection, document.activeSelectionId);
+    this.generation.resetLens(document.width, document.height);
+    this.generation.lens.setTransform(document.generationLens);
+    this.selectionMode = this.image.selected.isSelection && !!this.image.selectionMask;
     this.queuePreviews();
     this.viewport.fit(this.image.frame);
   }
@@ -627,6 +652,7 @@ export class Editor {
     const documentId = this.image.id;
     const parent = this.image.destination();
     const layer = await importImage(this.gpu, this.compositor.quads, name, blob);
+    await this.files.whenIdle();
     if (documentId !== this.image.id || !this.image.allLayers().includes(parent)) { this.compositor.release(layer); return; }
     try {
       this.finishGesture();
@@ -659,7 +685,10 @@ export class Editor {
   private registerActions(): void {
     const register = this.actions.register.bind(this.actions);
     register({ id: 'file.new', label: 'New document…', menu: 'File', execute: () => this.onNewDocument?.() });
-    register({ id: 'file.open', label: 'Add image…', menu: 'File', execute: async () => {
+    register({ id: 'file.open', label: 'Open…', menu: 'File', execute: () => this.files.open() });
+    register({ id: 'file.save', label: 'Save', menu: 'File', execute: () => this.files.save() });
+    register({ id: 'file.save-as', label: 'Save as…', menu: 'File', execute: () => this.files.save(true) });
+    register({ id: 'file.import', label: 'Add image…', menu: 'File', execute: async () => {
       const image = await window.desktop.openImage();
       if (image) await this.addImage(image.name, new Blob([image.bytes]));
     } });
@@ -745,11 +774,15 @@ export class Editor {
     });
     register({ id: 'tool.generation', label: 'Generate image', menu: 'Tools', execute: () => this.switchTool('generation') });
     register({
+      id: 'selection.remove', label: 'Remove selection', menu: 'Edit',
+      enabled: () => this.generation.canRemove, execute: () => this.generation.remove(),
+    });
+    register({
       id: 'generation.generate', label: 'Generate', menu: 'Tools', submenu: 'Generation',
       enabled: () => this.generation.canGenerate, execute: () => this.generation.generate(),
     });
     register({
-      id: 'generation.cancel', label: 'Cancel generation', menu: 'Tools', submenu: 'Generation',
+      id: 'generation.cancel', label: () => this.generation.removing ? 'Cancel removal' : 'Cancel generation', menu: 'Tools', submenu: 'Generation',
       enabled: () => this.generation.busy, execute: () => this.generation.cancel(),
     });
     register({ id: 'generation.fit', label: 'Fit generation lens to canvas', menu: 'Tools', submenu: 'Generation', enabled: () => !this.generation.busy, execute: () => this.generation.fitLens() });
@@ -800,6 +833,9 @@ export class Editor {
     this.actions.bind('Ctrl+Y', 'history.redo');
     this.actions.bind('Ctrl+N', 'file.new');
     this.actions.bind('Ctrl+O', 'file.open');
+    this.actions.bind('Ctrl+S', 'file.save');
+    this.actions.bind('Ctrl+Shift+S', 'file.save-as');
+    this.actions.bind('Ctrl+Shift+O', 'file.import');
   }
 
   private attachInput(): void {
@@ -871,9 +907,10 @@ export class Editor {
       this.run(() => {
         const units = event.deltaMode === 1 ? 16 : event.deltaMode === 2 ? this.viewport.height : 1;
         this.hoverPointer = pointerData(event);
-        if (event.shiftKey && this.activeTool instanceof BrushTool) {
+        if ((event.shiftKey || event.ctrlKey) && this.activeTool instanceof BrushTool) {
           const delta = Math.max(-500, Math.min(500, (event.deltaY || event.deltaX) * units));
-          this.activeTool.resizeByWheel(delta);
+          if (event.ctrlKey) this.activeTool.adjustByWheel(event.shiftKey ? 'flow' : 'hardness', delta);
+          else this.activeTool.resizeByWheel(delta);
           this.refreshHover();
           return;
         }

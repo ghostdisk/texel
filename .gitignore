@@ -7,3 +7,5 @@ dist/
 models/
 native/build/
 third_party/
+release/
+.packaging/

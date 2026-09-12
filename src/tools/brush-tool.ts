@@ -15,7 +15,11 @@ export class BrushTool extends DrawingTool {
   hardness = 0.8;
   flow = 1;
   private wheelSize = this.size;
+  private wheelHardness = this.hardness;
+  private wheelFlow = this.flow;
   private sizeControl: SliderInput | null = null;
+  private hardnessControl: SliderInput | null = null;
+  private flowControl: SliderInput | null = null;
   private last: Point = { x: 0, y: 0 };
 
   constructor(editor: Editor) { super(editor); }
@@ -69,6 +73,16 @@ export class BrushTool extends DrawingTool {
     this.sizeControl?.sync(true);
   }
 
+  adjustByWheel(property: 'hardness' | 'flow', delta: number): void {
+    const minimum = property === 'flow' ? 0.01 : 0;
+    const wheelProperty = property === 'hardness' ? 'wheelHardness' : 'wheelFlow';
+    const control = property === 'hardness' ? this.hardnessControl : this.flowControl;
+    if (Math.round(this[wheelProperty] * 100) !== Math.round(this[property] * 100)) this[wheelProperty] = this[property];
+    this[wheelProperty] = Math.max(minimum, Math.min(1, this[wheelProperty] - delta * 0.0005));
+    this[property] = Math.round(this[wheelProperty] * 100) / 100;
+    control?.sync(true);
+  }
+
   drawUI(container: HTMLElement): void {
     const add = (label: string, key: 'size' | 'hardness' | 'flow', min: number, max: number, step: number, unit: string) => {
       const factor = key === 'size' ? 1 : 100;
@@ -77,6 +91,8 @@ export class BrushTool extends DrawingTool {
         input: (value) => { this[key] = value / factor; },
       });
       if (key === 'size') this.sizeControl = control;
+      else if (key === 'hardness') this.hardnessControl = control;
+      else this.flowControl = control;
       control.element.classList.add('brush-slider');
       container.append(control.element);
     };

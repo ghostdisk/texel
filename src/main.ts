@@ -30,7 +30,10 @@ async function boot(): Promise<void> {
   window.desktop.onAction((id) => editor!.run(() => editor!.actions.execute(id)));
   editor.resize();
   editor.reset(1000, 750);
-  if (!failed) element('app').inert = false;
+  if (!failed) {
+    element('app').inert = false;
+    editor.files.listenForOpenRequests();
+  }
 }
 
 void boot().catch(reportError);

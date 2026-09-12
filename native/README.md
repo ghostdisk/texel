@@ -9,9 +9,9 @@ npm run native:build
 npm run dev
 ```
 
-The build script clones pinned revisions of stable-diffusion.cpp and IXWebSocket into `third_party/`, initializes the diffusion submodules, and runs the `clang-vulkan` CMake configure/build presets. Existing dependency checkouts are retained. Models and native build output are ignored by Git.
+The build script clones pinned revisions of stable-diffusion.cpp, vision.cpp, and IXWebSocket into `third_party/`, initializes their submodules, and runs the `clang-vulkan` CMake configure/build presets. Existing dependency checkouts are retained. Models and native build output are ignored by Git.
 
-Windows prerequisites: CMake 3.27+, Ninja, LLVM/Clang with clang-cl and lld-link, Visual Studio C++ build tools, a Windows SDK, and the Vulkan SDK for the Vulkan preset. CMake, Ninja, and LLVM must be on PATH. The toolchain discovers the MSVC/Windows SDK headers and libraries itself; a developer shell or vcvars is not needed.
+Windows prerequisites: CMake 3.28+, Ninja, LLVM/Clang with clang-cl and lld-link, Visual Studio C++ build tools, a Windows SDK, and the Vulkan SDK for the Vulkan preset. CMake, Ninja, and LLVM must be on PATH. The toolchain discovers the MSVC/Windows SDK headers and libraries itself; a developer shell or vcvars is not needed.
 
 Equivalent direct commands, after `npm run native:setup`:
 
@@ -22,6 +22,12 @@ cmake --build --preset clang-vulkan
 ```
 
 The editor remains usable when the backend is missing or unavailable. The Generate tool reports the connection error. Restart Electron after building the backend or changing its configuration.
+
+## Packaged application
+
+`npm run dist` builds the `clang-vulkan-release` preset and packages the native process with Electron. `npm run dist -- --preset clang-cpu-release` selects CPU inference. See the [production packaging instructions](../README.md#windows-production-package).
+
+In an installed app, the executable and its runtime DLLs live in `resources/native/` outside the ASAR archive. Logs and editable model definitions live under Electron's writable user-data directory. Set `TEXEL_MODELS_DIR` to reuse an existing models folder and `TEXEL_MODELS_CONFIG` to use custom definitions. The default development paths below still apply when running from source.
 
 ## Backend selection
 
@@ -50,7 +56,19 @@ CMake also exposes `IMGED_VULKAN` and `IMGED_CUDA`. Other build combinations can
 - `text_encoders/qwen_3_06b_base.safetensors`
 - `vae/qwen_image_vae.safetensors`
 
-The UI lists it as `local/miaomiaoHarem_anima16`. A model is advertised only when all three configured files exist. The provided files are sufficient; no additional model download is required. The model context is loaded on demand and retained between requests. Switching model bundles releases the old context.
+The UI lists it as `local/miaomiaoHarem_anima16`. The diffusion model is advertised only when all three configured files exist. The model context is loaded on demand and retained between requests. Switching between diffusion and removal releases the previous model context.
+
+### MI-GAN removal
+
+The toolbar's **Remove selection** action uses [MI-GAN](https://github.com/Picsart-AI-Research/MI-GAN) through [vision.cpp](https://github.com/Acly/vision.cpp), inside the existing `imged-native` process. It uses Vulkan with the Vulkan preset and CPU with the CPU preset; `IMGED_INFERENCE_BACKEND=CPU` also forces CPU removal. No Python runtime or separate command-line program is involved.
+
+The model definition in `native/models.json` points to `models/inpaint/MIGAN-512-places2-F16.gguf`. Download the [converted weights](https://huggingface.co/Acly/MIGAN-GGUF/resolve/6c410de2373fe94080e739642339b3e9f748b034/MIGAN-512-places2-F16.gguf) from Acly's model repository into that location (14,758,080 bytes). SHA-256: `3e47592bf716d0dc306f8dc02d4476cfcdaf2c055fa3c3c8e0ced4db775eb64b`. These weights and MI-GAN are MIT licensed. For an existing installed app, also copy the removal entry from `native/models.json` into its editable model definitions. Rebuild the native backend and restart Electron after adding this integration.
+
+Removal requires an active selection. It measures that selection on the GPU and takes a crop of the visible composition with surrounding context, independent of generation prompts, lens placement, scale, and feather settings. The native adapter pads rectangular crops without stretching them, resizes to the model's 512 × 512 resolution, and uses white mask coverage for removal. Max coverage during mask reduction keeps thin selections in the model input. Large crops are reduced to at most 2048 pixels per side for transport; the full-resolution soft selection stays on the GPU and is applied once to the result.
+
+Completion adds a **Removed selection** layer above the existing root children and records one **Remove selection** undo operation. The top bar and Escape support cancellation. Input and selection are frozen when captured; replacing the document cancels the operation. MI-GAN inference has no intermediate previews or interrupt callback, so cancellation discards the result; the existing timeout restarts the native process if necessary.
+
+`native/vision/` adds a small C adapter to the vision.cpp library. CMake builds it as `texel-vision` with its own statically linked GGML, isolated from stable-diffusion.cpp's GGML revision. Only the library target is built. The existing native packaging step includes its DLL and dependency licenses.
 
 ## Using generation
 
@@ -79,6 +97,7 @@ Electron starts the native process when the app opens. The binary binds an avail
 Binary messages begin with a four-byte little-endian JSON header length, followed by the UTF-8 JSON header and payload:
 
 - Request: `type: generate`, request ID, model ID, prompt/negativePrompt, width/height, steps/guidance/strength/seed, inputBytes/maskBytes. Payload: tightly packed sRGB RGBA8 input, then optional linear grayscale RGBA8 selection/feather mask data.
+- Removal uses the same packet layout with `type: remove`, a removal model ID, an empty prompt, and a required mask. Discovery entries carry `task: generate | remove`; removal models stay out of the prompt-generation model selector.
 - Preview/result: `type: preview | result`, request ID, width/height, and step. Payload: PNG bytes.
 - Text messages: progress phase/step/steps, errors, cancel requests, and cancellation acknowledgements.
 

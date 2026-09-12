@@ -1,11 +1,12 @@
 import type { Editor } from '../editor';
 import { GroupLayer, ImageLayer } from '../model/layers';
-import { inverse, multiply } from '../model/geometry';
+import { inverse, multiply, transformBounds } from '../model/geometry';
 import type { Matrix } from '../model/geometry';
 import type { Surface } from '../gpu/surface';
 import type { GenerationVisual } from '../gpu/generation-overlay';
 import { GenerationBlend } from '../gpu/generation-blend';
 import { GenerationMask } from '../gpu/generation-mask';
+import { LayerReframer } from '../gpu/reframe';
 import { importImage } from '../gpu/images';
 import { UndoOperation } from '../history/undo';
 import { GenerationProviders } from './provider';
@@ -15,6 +16,7 @@ import { GenerationLens } from './lens';
 import type { GenerationFrame } from './lens';
 
 interface RunningGeneration {
+  removal: boolean;
   id: string;
   documentId: string;
   root: GroupLayer;
@@ -49,15 +51,20 @@ export class ImageGeneration {
   private running: RunningGeneration | null = null;
   private readonly blend: GenerationBlend;
   private readonly masks: GenerationMask;
+  private readonly reframer: LayerReframer;
+  private removalModel = '';
 
   constructor(private readonly editor: Editor) {
     this.providers.register(new LocalGenerationProvider());
     this.blend = new GenerationBlend(editor.gpu);
     this.masks = new GenerationMask(editor.gpu);
+    this.reframer = new LayerReframer(editor.gpu, editor.compositor.quads);
     this.lens = new GenerationLens(editor.image.width, editor.image.height, () => this.notify());
   }
 
   get busy(): boolean { return !!this.running; }
+  get removing(): boolean { return !!this.running?.removal; }
+  get canRemove(): boolean { return !this.busy && !!this.editor.image.selectionMask; }
   get displayLens(): GenerationLens { return this.running?.lens ?? this.lens; }
   get frame(): GenerationFrame { return this.running?.frame ?? this.lens.frame(this.scale); }
   get visual(): GenerationVisual | null {
@@ -106,7 +113,9 @@ export class ImageGeneration {
   async refreshModels(): Promise<void> {
     try {
       this.error = '';
-      this.models = await this.providers.models();
+      const models = await this.providers.models();
+      this.models = models.filter((model) => model.task !== 'remove');
+      this.removalModel = models.find((model) => model.task === 'remove')?.id ?? '';
       if (!this.models.some((model) => model.id === this.model)) this.model = this.models[0]?.id ?? '';
       if (!this.busy) this.progress = { phase: this.models.length ? 'Ready' : 'No local models found', step: 0, steps: 0 };
     } catch (error) {
@@ -168,10 +177,53 @@ export class ImageGeneration {
     } finally { run.previewReading = false; }
   }
 
-  async generate(): Promise<void> {
-    if (!this.canGenerate) return;
+  async remove(): Promise<void> {
+    if (!this.canRemove) return;
+    if (!this.removalModel) await this.refreshModels();
+    if (!this.canRemove) return;
+    if (!this.removalModel) {
+      throw new Error(this.error || 'MI-GAN is unavailable. Install its weights in models/inpaint and restart the native backend.');
+    }
+    await this.generate(true);
+  }
+
+  private async removalLens(run: RunningGeneration): Promise<GenerationLens> {
+    const selection = this.editor.image.selectionMask;
+    if (!selection) throw new Error('Removal requires a selection.');
+    const source = this.editor.compositor.resolve(selection, 1);
+    const revision = selection.revision;
+    const transform = selection.worldTransform();
+    const bounds = await this.reframer.contentBounds(source);
+    if (!this.valid(run)) throw new DOMException('Removal cancelled.', 'AbortError');
+    if (selection !== this.editor.image.selectionMask || selection.revision !== revision ||
+        transform.some((value, index) => value !== selection.worldTransform()[index])) {
+      throw new Error('The selection changed while preparing removal. Try again.');
+    }
+    if (!bounds) throw new Error('The selection is empty.');
+    const world = transformBounds(transform, {
+      x: source.bounds.x + bounds.x / source.scale, y: source.bounds.y + bounds.y / source.scale,
+      width: bounds.width / source.scale, height: bounds.height / source.scale,
+    });
+    const canvas = this.editor.image;
+    const left = Math.max(0, Math.floor(world.x) - 1), top = Math.max(0, Math.floor(world.y) - 1);
+    const right = Math.min(canvas.width, Math.ceil(world.x + world.width) + 1);
+    const bottom = Math.min(canvas.height, Math.ceil(world.y + world.height) + 1);
+    if (right <= left || bottom <= top) throw new Error('The selection does not cover the canvas.');
+    const side = Math.max(512, 2 * Math.max(right - left, bottom - top));
+    const width = Math.min(canvas.width, side), height = Math.min(canvas.height, side);
+    const x = Math.max(0, Math.min(canvas.width - width, Math.floor((left + right - width) / 2)));
+    const y = Math.max(0, Math.min(canvas.height - height, Math.floor((top + bottom - height) / 2)));
+    const lens = new GenerationLens(width, height);
+    lens.setTransform([1, 0, 0, 1, x, y]);
+    return lens;
+  }
+
+  async generate(removal = false): Promise<void> {
+    if (removal ? !this.canRemove : !this.canGenerate) return;
     this.editor.finishGesture();
+    const model = removal ? this.removalModel : this.model;
     const run: RunningGeneration = {
+      removal,
       id: crypto.randomUUID(), documentId: this.editor.image.id, root: this.editor.image.root,
       lens: this.lens.snapshot(), frame: this.lens.frame(this.scale), input: null, mask: null, preview: null,
       controller: new AbortController(), finishing: false, pendingPreview: null, previewReading: false,
@@ -183,21 +235,49 @@ export class ImageGeneration {
     this.previewUrl = '';
     this.notify();
     try {
+      if (removal) {
+        run.lens = await this.removalLens(run);
+        run.frame = run.lens.frame(1);
+      }
       const capture = this.editor.compositor.captureGenerationInput(run.root, run.frame, this.editor.image.selectionMask);
       run.input = capture.input;
       run.mask = capture.mask;
-      const feathered = this.masks.create(run.mask, run.frame, this.feather, run.input);
+      const feathered = this.masks.create(run.mask, run.frame, removal ? 0 : this.feather, run.input);
       if (feathered !== run.mask) { run.mask?.texture.destroy(); run.mask = feathered; }
-      const [input, mask] = await Promise.all([
-        this.editor.readback.rgba(run.input), run.mask ? this.editor.readback.rgba(run.mask, true) : Promise.resolve(null),
-      ]);
+      // Retain full-resolution selection coverage for the resulting layer; only
+      // the inference transport is reduced for large removal crops.
+      const requestFrame = removal ? run.lens.frame(Math.min(1, 2048 / Math.max(run.frame.width, run.frame.height))) : run.frame;
+      let inputSurface = run.input, maskSurface = run.mask;
+      let input: Uint8Array<ArrayBuffer>, mask: Uint8Array<ArrayBuffer> | null;
+      try {
+        if (requestFrame.width !== run.frame.width || requestFrame.height !== run.frame.height) {
+          const bounds = { x: 0, y: 0, width: requestFrame.width, height: requestFrame.height };
+          inputSurface = this.reframer.normalize(run.input, bounds, [bounds.width / run.frame.width, 0, 0, bounds.height / run.frame.height, 0, 0]);
+        }
+        if (removal) maskSurface = this.masks.support(run.mask!, requestFrame.width, requestFrame.height);
+        [input, mask] = await Promise.all([
+          this.editor.readback.rgba(inputSurface), maskSurface ? this.editor.readback.rgba(maskSurface, true) : Promise.resolve(null),
+        ]);
+      } finally {
+        if (inputSurface !== run.input) inputSurface.texture.destroy();
+        if (maskSurface !== run.mask) maskSurface?.texture.destroy();
+      }
       if (!this.valid(run)) throw new DOMException('Generation cancelled.', 'AbortError');
-      if (mask && !mask.some((value, index) => index % 4 === 0 && value > 0)) throw new Error('The selection does not cover the generation lens.');
-      const result = await this.providers.provider(this.model).generate({
-        id: run.id, model: this.model, prompt: this.prompt, negativePrompt: this.negativePrompt, width: run.frame.width, height: run.frame.height,
-        steps: this.steps, guidance: this.guidance, strength: this.strength, seed: this.seed, input, mask,
+      if (mask && !mask.some((value, index) => index % 4 === 0 && value > 0)) {
+        throw new Error(removal ? 'The selection does not cover the canvas.' : 'The selection does not cover the generation lens.');
+      }
+      const result = await this.providers.provider(model).generate({
+        id: run.id, model, operation: removal ? 'remove' : undefined,
+        prompt: removal ? '' : this.prompt, negativePrompt: removal ? '' : this.negativePrompt,
+        width: requestFrame.width, height: requestFrame.height,
+        steps: removal ? 1 : this.steps, guidance: removal ? 0 : this.guidance, strength: removal ? 1 : this.strength, seed: this.seed, input, mask,
       }, {
-        progress: (progress) => { if (this.valid(run)) { this.progress = progress; this.onChange?.(); } },
+        progress: (progress) => {
+          if (!this.valid(run)) return;
+          this.progress = progress;
+          if (removal) this.notify();
+          else this.onChange?.();
+        },
         preview: (blob) => {
           if (!this.valid(run) || run.finishing) return;
           this.showPreview(blob);
@@ -207,25 +287,31 @@ export class ImageGeneration {
       }, run.controller.signal);
       run.finishing = true;
       run.pendingPreview = null;
+      await this.editor.files.whenIdle();
+      if (!this.valid(run)) throw new DOMException('Generation cancelled.', 'AbortError');
       const imported = await importImage(this.editor.gpu, this.editor.compositor.quads, 'Generated image', result);
       try {
+        await this.editor.files.whenIdle();
         if (!this.valid(run)) throw new DOMException('Generation cancelled.', 'AbortError');
         const output = this.blend.apply(imported.source, run.frame, run.mask);
-        const layer = new ImageLayer('Generated image', output);
+        const layer = new ImageLayer(removal ? 'Removed selection' : 'Generated image', output);
         try {
           layer.setTransform(multiply(inverse(run.root.worldTransform()), run.frame.transform));
           this.clearPreview(run);
           this.running = null;
-          this.editor.image.add(layer, run.root, run.root.children.length, true, 'Generate image');
+          this.editor.image.add(layer, run.root, run.root.children.length, true, removal ? 'Remove selection' : 'Generate image');
         } catch (error) { if (!layer.parent) this.editor.compositor.release(layer); throw error; }
         this.showPreview(result);
-        const steps = this.progress.steps || this.steps;
+        const steps = this.progress.steps || (removal ? 1 : this.steps);
         this.progress = { phase: 'Complete', step: steps, steps };
       } finally { imported.sourceTexture.destroy(); }
     } catch (error) {
       const cancelled = run.controller.signal.aborted || (error instanceof DOMException && error.name === 'AbortError');
-      this.progress = { phase: cancelled ? 'Cancelled' : 'Generation failed', step: 0, steps: 0 };
-      if (!cancelled) this.error = error instanceof Error ? error.message : String(error);
+      this.progress = { phase: cancelled ? 'Cancelled' : removal ? 'Removal failed' : 'Generation failed', step: 0, steps: 0 };
+      if (!cancelled) {
+        this.error = error instanceof Error ? error.message : String(error);
+        if (removal) this.editor.report(error);
+      }
     } finally {
       run.pendingPreview = null;
       if (this.running === run) { this.clearPreview(run); this.running = null; }

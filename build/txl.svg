@@ -1,0 +1,12 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="1024" height="1024" viewBox="0 0 1024 1024">
+  <path d="M204 72h416l200 200v626c0 30-24 54-54 54H204c-30 0-54-24-54-54V126c0-30 24-54 54-54z" fill="#20232b" stroke="#f7f6fb" stroke-width="32" stroke-linejoin="round"/>
+  <path d="M620 72v200h200z" fill="#743bff" stroke="#743bff" stroke-width="2" stroke-linejoin="round"/>
+  <g>
+    <rect x="294" y="326" width="116" height="116" fill="#743bff"/>
+    <rect x="430" y="326" width="116" height="116" fill="#f7f6fb"/>
+    <rect x="566" y="326" width="116" height="116" fill="#743bff"/>
+    <rect x="430" y="462" width="116" height="116" fill="#9b46f5"/>
+    <rect x="430" y="598" width="116" height="116" fill="#4a1ed6"/>
+  </g>
+  <text x="485" y="842" fill="#f7f6fb" font-family="Arial, Helvetica, sans-serif" font-size="118" font-weight="700" text-anchor="middle" letter-spacing="10">TXL</text>
+</svg>

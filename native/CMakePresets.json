@@ -2,7 +2,7 @@
   "version": 6,
   "cmakeMinimumRequired": {
     "major": 3,
-    "minor": 27,
+    "minor": 28,
     "patch": 0
   },
   "configurePresets": [
@@ -25,6 +25,34 @@
       "cacheVariables": {
         "IMGED_VULKAN": "OFF"
       }
+    },
+    {
+      "name": "clang-vulkan-release",
+      "displayName": "Clang + Vulkan distribution",
+      "inherits": "clang-vulkan",
+      "binaryDir": "${sourceDir}/build/clang-vulkan-release",
+      "cacheVariables": {
+        "IMGED_PACKAGE_RUNTIME": "ON",
+        "CMAKE_MSVC_RUNTIME_LIBRARY": "MultiThreaded$<$<CONFIG:Debug>:Debug>",
+        "BUILD_SHARED_LIBS": "OFF",
+        "SD_BUILD_SHARED_LIBS": "OFF",
+        "SD_BUILD_SHARED_GGML_LIB": "OFF",
+        "GGML_NATIVE": "OFF",
+        "GGML_AVX": "OFF",
+        "GGML_AVX2": "OFF",
+        "GGML_FMA": "OFF",
+        "GGML_F16C": "OFF",
+        "GGML_AVX512": "OFF"
+      }
+    },
+    {
+      "name": "clang-cpu-release",
+      "displayName": "Clang + CPU distribution",
+      "inherits": "clang-vulkan-release",
+      "binaryDir": "${sourceDir}/build/clang-cpu-release",
+      "cacheVariables": {
+        "IMGED_VULKAN": "OFF"
+      }
     }
   ],
   "buildPresets": [
@@ -36,6 +64,16 @@
     {
       "name": "clang-cpu",
       "configurePreset": "clang-cpu",
+      "jobs": 2
+    },
+    {
+      "name": "clang-vulkan-release",
+      "configurePreset": "clang-vulkan-release",
+      "jobs": 2
+    },
+    {
+      "name": "clang-cpu-release",
+      "configurePreset": "clang-cpu-release",
       "jobs": 2
     }
   ]

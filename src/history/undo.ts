@@ -62,9 +62,12 @@ export interface UndoTarget {
 export class UndoStack {
   private entries: UndoOperation[] = [];
   private position = 0;
+  private states: string[] = [crypto.randomUUID()];
   onChange?: (operation?: UndoOperation, direction?: UndoDirection) => void;
 
   constructor(private readonly apply: (operation: UndoOperation, direction: UndoDirection) => void) {}
+
+  get stateId(): string { return this.states[this.position]; }
 
   get canUndo(): boolean { return this.position > 0; }
   get canRedo(): boolean { return this.position < this.entries.length; }
@@ -74,11 +77,14 @@ export class UndoStack {
   /** Record an edit already applied by a completed gesture or command. */
   push(operation: UndoOperation): void {
     for (const entry of this.entries.splice(this.position)) entry.dispose();
+    this.states.splice(this.position + 1);
+    this.states.push(crypto.randomUUID());
     this.entries.push(operation);
     this.position = this.entries.length;
     let bytes = this.entries.reduce((total, entry) => total + entry.bytes, 0);
     while (this.entries.length > 1 && (this.entries.length > 100 || bytes > 256 * 1024 * 1024)) {
       const removed = this.entries.shift()!;
+      this.states.shift();
       bytes -= removed.bytes;
       removed.dispose();
       this.position--;
@@ -104,6 +110,7 @@ export class UndoStack {
     for (const operation of this.entries) operation.dispose();
     this.entries = [];
     this.position = 0;
+    this.states = [crypto.randomUUID()];
     this.onChange?.();
   }
 }

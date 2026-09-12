@@ -2,9 +2,11 @@ export interface GenerationModel {
   id: string;
   label: string;
   source: string;
+  task?: 'generate' | 'remove';
 }
 
 export interface GenerationRequest {
+  operation?: 'remove';
   id: string;
   model: string;
   prompt: string;

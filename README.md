@@ -1,6 +1,6 @@
-# imged
+# Texel
 
-Electron + TypeScript image editor. Pixel sources, brush operations, filter intermediates, snapshots, and composition live on the GPU.
+Texel is an Electron + TypeScript image editor. Pixel sources, brush operations, filter intermediates, snapshots, and composition live on the GPU.
 
 ## Running
 
@@ -13,9 +13,53 @@ npm run dev
 
 Closing Electron stops the development server. `npm run build` followed by `npm start` opens the production renderer. Changes to the Electron main process or preload require restarting the Electron application.
 
+## Windows production package
+
+On an x64 Windows machine, install the dependencies with `npm ci`, then run:
+
+```powershell
+npm run dist
+```
+
+This builds the production renderer and the native C++ backend, stages native runtime dependencies, and packages Electron, Chromium, Node.js, and the application into:
+
+- `release/Texel-0.1.0-Setup.exe`: an assisted installer with shortcuts, an uninstaller, and the .txl file association.
+- `release/win-unpacked/Texel.exe`: the runnable app. Distribute the **whole win-unpacked folder**, including resources and DLLs.
+
+`npm run package:dir` produces just the app folder. Build outputs go in `release/`; the native staging directory is `.packaging/native/`. Both are ignored by Git. The version and installer filename follow `package.json`.
+
+The build machine needs the [native build prerequisites](native/README.md#build-and-run), including the Vulkan SDK for the default preset. The app includes its runtime; end users need no Node.js, CMake, Visual Studio tools, or Vulkan SDK. Vulkan inference uses the installed GPU driver. To package the CPU backend instead:
+
+```powershell
+npm run dist -- --preset clang-cpu-release
+```
+
+The distribution presets use a static C/C++ runtime and a baseline x64 CPU target, avoiding build-machine-specific instruction sets. Development presets retain their current optimization settings. The Electron Vulkan loader is also copied beside the native executable. Backend selection stays outside the renderer protocol.
+
+Double-clicking a .txl file opens it in Texel. If Texel is already running, that window is restored and receives the file. Requests arriving during startup or another file operation wait until the editor is ready, and unsaved changes use the usual Save / Discard / Cancel prompt. The unpacked executable also accepts file paths, for example `Texel.exe "D:\Art\painting.txl"`.
+
+Model weights are external. Packaged Texel uses `TEXEL_MODELS_DIR` when set, then a `models/` directory next to Texel.exe if present, otherwise `%APPDATA%/Texel/models/`. To use this checkout's models:
+
+```powershell
+$env:TEXEL_MODELS_DIR = 'D:\texel\models'
+& '.\release\win-unpacked\Texel.exe'
+```
+
+The first packaged launch seeds editable model definitions at `%APPDATA%/Texel/models.json`. Paths in that file are relative to the selected models directory. `TEXEL_MODELS_CONFIG` overrides the definitions file; `TEXEL_NATIVE_BINARY` can override the executable. Logs go to `%APPDATA%/Texel/logs/native-backend.log`. App updates and uninstallation preserve user data and external model files.
+
+The packaging script does not publish artifacts. Signing is optional and can be configured through electron-builder's usual certificate environment settings.
+
+## Documents
+
+**Ctrl+N** creates a document, **Ctrl+O** opens a Texel .txl file, **Ctrl+S** saves, and **Ctrl+Shift+S** saves under a new name. **Add image… / Ctrl+Shift+O** imports an image as a layer. New, Open, and closing the window offer Save / Discard / Cancel when the document has unsaved edits.
+
+TXL version 1 uses a small binary header, a JSON metadata chunk, and a binary chunk of lossless half-float source pixels. It retains canonical dimensions, layer/group structure, transforms, filters, masks, selections, and the generation lens. See [the format specification](docs/txl-format.md).
+
 ## Local image generation
 
 Build the native backend with `npm run native:build`, then restart Electron. Press **G** to position, resize, and rotate a generation lens. Scale sets the output resolution independently of the lens; completion creates a new layer fitted to it. Generation supports live previews, selection inpainting, edge feathering, cancellation, and undo. **Layer → New sized layer…** creates a separate layer at the desired resolution. See [native/README.md](native/README.md) for models, Clang/CMake setup, backend selection, and the provider protocol.
+
+With a selection active, click **Remove selection** in the left toolbar (or **Edit → Remove selection**) to fill it using MI-GAN. Removal samples the visible composition around the selection and adds a **Removed selection** layer with the original soft selection coverage and one undo entry. It needs no prompt or generation lens. **Cancel removal** or **Escape** cancels it. MI-GAN runs through vision.cpp inside the existing native backend; see [weight installation](native/README.md#mi-gan-removal).
 
 ## Navigation and tools
 
@@ -53,7 +97,7 @@ Each command produces one undo entry with full before/after GPU source snapshots
 
 The document has canonical pixel dimensions fixed at creation, exposed as "width" and "height" on ImageDocument. These dimensions define the canvas rectangle and initial layer size. Each image layer still has its own native resolution and affine transform into its parent. A 2000 × 2000 source stays at that resolution when transformed onto a 500 × 500 canvas. Groups rasterize their transformed children at a density chosen for the current view. Presentation clips to the canvas; layer pixels outside it remain available.
 
-Working textures contain premultiplied linear-light `rgba16float` pixels. Imports upload a temporary `ImageBitmap` into an sRGB texture, then convert and premultiply on the GPU. Presentation converts back to sRGB over a checkerboard. CPU-side arrays contain commands, parameters, and metadata. Readbacks include sampled colors, histograms, bounds, 64 × 64 layer previews, and explicit image-generation inputs; editable pixels remain on the GPU.
+Working textures contain premultiplied linear-light `rgba16float` pixels. Imports upload a temporary `ImageBitmap` into an sRGB texture, then convert and premultiply on the GPU. Presentation converts back to sRGB over a checkerboard. CPU-side arrays contain commands, parameters, and metadata. Readbacks include sampled colors, histograms, bounds, 64 × 64 layer previews, project-file transport, and explicit image-generation inputs; editable pixels remain on the GPU.
 
 Content edits invalidate their layer and ancestors. Placement edits invalidate the parent composite. The compositor processes children before parents and reuses clean results; panning only changes presentation. Pending paint, filters, and composition are submitted in order. Snapshot boundaries flush pending painting before copying pixels, without waiting for GPU completion on the CPU.
 
@@ -99,7 +143,7 @@ New edits discard redo entries. Evicted entries destroy their snapshots. History
 
 Textures remain monolithic. Group rasterization is capped to GPU texture limits and roughly 16 megapixels per group so zooming can magnify cached output without unbounded allocations. There is no tiled backing store, dirty-region evaluation, or complete GPU memory manager. Render statistics remain available internally; the status bar shows zoom.
 
-Project persistence, export, device-loss recovery, and remote AI providers are still future work. Closing or replacing a document discards its GPU-resident contents and history.
+TXL project files persist editable source pixels and document structure. Undo history remains session-local. Image export, device-loss recovery, and remote AI providers are still future work.
 
 ## Additional filters
 

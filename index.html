@@ -4,17 +4,19 @@
     <meta charset="UTF-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
     <meta http-equiv="Content-Security-Policy" content="default-src 'self'; script-src 'self'; style-src 'self' 'unsafe-inline'; img-src 'self' blob: data:; connect-src 'self' ws://127.0.0.1:*" />
-    <title>imged</title>
+    <title>Texel</title>
   </head>
   <body>
     <div id="error" role="alert" hidden></div>
     <div id="app" inert>
       <header class="topbar">
-        <span class="wordmark">imged<span>.</span></span>
+        <span class="wordmark">Texel<span>.</span></span>
         <span class="separator"></span>
         <button data-action="file.new">New</button>
-        <button data-action="file.open">Add image…</button>
-        <span class="document-name">Untitled <span id="frame-label"></span></span>
+        <button data-action="file.open" title="Open (Ctrl+O)">Open…</button>
+        <button data-action="file.save" title="Save (Ctrl+S)">Save</button>
+        <button data-action="file.import" title="Add image (Ctrl+Shift+O)">Add image…</button>
+        <span class="document-name"><span id="document-title">Untitled</span><span id="frame-label"></span></span>
         <button id="cancel-generation" data-action="generation.cancel" hidden>Cancel generation</button>
         <button data-action="history.undo" title="Undo (Ctrl+Z)">↶</button>
         <button data-action="history.redo" title="Redo (Ctrl+Shift+Z)">↷</button>
@@ -28,6 +30,9 @@
             <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" aria-hidden="true"><path d="m15 4 5 5M14 5l-9 9-1 5 5-1 9-9M15 4l2-2 5 5-2 2M5 14l4 4"/></svg>
           </button>
           <button class="tool" data-action="tool.generation" aria-label="Generate image (G)" title="Generate image (G)">✦</button>
+          <button class="tool" id="remove-selection" data-action="selection.remove" aria-label="Remove selection" title="Remove selection">
+            <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" aria-hidden="true"><path d="m13 7 6 6-7 7H7l-4-4L13 7ZM7 12l6 6M12 20h9M18 2v6M15 5h6"/></svg>
+          </button>
           <div class="tool-modes">
             <button class="tool mode-tool" data-action="drawing.erase" aria-label="Erase mode (E)" aria-pressed="false" title="Toggle draw / erase (E)">
               <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" aria-hidden="true"><path d="m14 3 7 7-10 10H7l-5-5L14 3ZM7 10l7 7M11 20h10"/></svg>
@@ -55,6 +60,7 @@
           </div>
           <footer class="statusbar">
             <button id="zoom-label" data-action="view.fit" title="Fit image">100%</button>
+            <span id="image-operation-status" role="status"></span>
           </footer>
         </main>
         <aside class="sidebar">

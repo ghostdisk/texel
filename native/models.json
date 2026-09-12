@@ -5,6 +5,12 @@
       "diffusion": "diffusion_models/miaomiaoHarem_anima16.safetensors",
       "llm": "text_encoders/qwen_3_06b_base.safetensors",
       "vae": "vae/qwen_image_vae.safetensors"
+    },
+    {
+      "id": "local/migan-512-places2",
+      "label": "MI-GAN removal",
+      "task": "remove",
+      "weights": "inpaint/MIGAN-512-places2-F16.gguf"
     }
   ]
 }

@@ -223,3 +223,7 @@ body.layer-pointer-drag .layer-row .select-layer { outline: none; }
 
 .layer-row.selected.active-layer { border-color: #b49ae8; }
 .filter-header .filter-apply { flex: 0 0 auto; width: auto; margin-left: 0; padding: 0 4px; font-size: 10px; }
+.topbar .document-name { display: flex; align-items: center; min-width: 0; overflow: hidden; }
+.document-name #document-title { color: #c4c7d1; margin-left: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.document-name #frame-label { flex-shrink: 0; }
+.topbar > button { flex-shrink: 0; }

@@ -2,11 +2,12 @@ import type { Editor } from '../editor';
 import type { UndoDirection, UndoOperation } from '../history/undo';
 import { Tool } from './tool';
 import type { ToolPointer } from './tool';
+import { EYEDROPPER_CURSOR } from './cursors';
 
 export class EyedropperTool extends Tool {
   readonly id = 'eyedropper';
   readonly label = 'Eyedropper';
-  readonly cursor = 'crosshair';
+  readonly cursor = EYEDROPPER_CURSOR;
   readonly hint = '';
   private pendingHover: ToolPointer | null = null;
   private pendingPick: ToolPointer | null = null;

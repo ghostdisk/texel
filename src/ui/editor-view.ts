@@ -79,12 +79,12 @@ export class EditorView {
     element('cancel-size').onclick = () => element<HTMLDialogElement>('size-dialog').close();
     element('size-form').onsubmit = (event) => {
       event.preventDefault();
-      editor.run(() => {
+      editor.run(async () => {
         const width = input('new-width').valueAsNumber;
         const height = input('new-height').valueAsNumber;
-        if (this.sizedLayerDialog) editor.image.createPixelLayer(width, height);
-        else editor.reset(width, height);
         element<HTMLDialogElement>('size-dialog').close();
+        if (this.sizedLayerDialog) editor.image.createPixelLayer(width, height);
+        else await editor.files.newDocument(width, height);
       });
     };
     this.attachImport();
@@ -132,6 +132,8 @@ export class EditorView {
     this.renderTree();
     const { editor } = this;
     const layer = editor.image.selected;
+    element('document-title').textContent = editor.files.name + (editor.files.dirty ? ' *' : '');
+    element('document-title').title = editor.files.name;
     element('frame-label').textContent = `${editor.image.width} × ${editor.image.height} px`;
     element('layer-kind').textContent = editor.image.selectedLayers.length > 1 ? editor.image.selectedLayers.length + ' LAYERS' : layer.isSelection ? 'SELECTION' : layer instanceof ImageLayer && layer.channels === 1 ? 'MASK' : layer === editor.image.root ? 'ROOT' : layer.kind.toUpperCase();
     element('layer-size').textContent = editor.image.selectedLayers.length > 1 ? '' : layer instanceof ImageLayer ? `${layer.width} × ${layer.height} native pixels` : `${(layer as GroupLayer).children.length} children · isolated group`;
@@ -163,6 +165,9 @@ export class EditorView {
     }
     this.renderFilters();
     element('cancel-generation').hidden = !editor.generation.busy;
+    element('cancel-generation').textContent = editor.generation.removing ? 'Cancel removal' : 'Cancel generation';
+    element('remove-selection').setAttribute('aria-busy', String(editor.generation.removing));
+    element('image-operation-status').textContent = editor.generation.removing ? editor.generation.progress.phase : '';
     editor.generation.onChange?.();
   }
 

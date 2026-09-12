@@ -2,6 +2,7 @@ import type { Editor } from '../editor';
 import { IDENTITY, inverse, multiply, transformPoint } from '../model/geometry';
 import type { Matrix, Point, Rect } from '../model/geometry';
 import type { ToolPointer } from './tool';
+import { ROTATE_CURSOR } from './cursors';
 
 export interface TransformTarget {
   readonly transform: Matrix;
@@ -69,6 +70,13 @@ export class TransformControls {
     const near = (point: Point) => Math.hypot(point.x - screen.x, point.y - screen.y) <= 9;
     if (near(this.rotationPoint(layer))) return 'rotate';
     return HANDLES.find((handle) => near(this.handlePoint(layer, handle))) ?? null;
+  }
+
+  private resizeCursor(layer: TransformTarget, handle: Point): string {
+    const point = this.handlePoint(layer, handle);
+    const center = this.handlePoint(layer, { x: 0, y: 0 });
+    const direction = Math.round(Math.atan2(point.y - center.y, point.x - center.x) / (Math.PI / 4));
+    return ['ew-resize', 'nwse-resize', 'ns-resize', 'nesw-resize'][((direction % 4) + 4) % 4];
   }
 
   pointerDown(pointer: ToolPointer): void {
@@ -147,7 +155,8 @@ export class TransformControls {
     if (!pointer || this.editor.panHeld) return;
     const layer = this.target();
     const handle = this.enabled() ? this.hitHandle(layer, pointer.screen) : null;
-    this.editor.canvas.style.cursor = handle === 'rotate' ? 'crosshair' : handle ? 'nwse-resize' : this.enabled() && this.contains(layer, pointer.world) ? 'move' : 'default';
+    this.editor.canvas.style.cursor = handle === 'rotate' ? ROTATE_CURSOR : handle ? this.resizeCursor(layer, handle) :
+      this.enabled() && this.contains(layer, pointer.world) ? 'move' : 'default';
   }
 
   drawOverlay(controls = true): void {

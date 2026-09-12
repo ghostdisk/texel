@@ -188,17 +188,29 @@ export class ImageDocument implements UndoTarget {
 
   reset(width: number, height: number): void {
     const initial = createImageLayer(this.gpu, 'Pixel layer', width, height);
+    const root = new GroupLayer('Document');
+    root.add(initial);
+    this.replace(root, width, height, { ids: [initial.id], active: initial.id }, null);
+  }
+
+  /** Adopt a fully decoded tree only after loading and validation have succeeded. */
+  replace(root: GroupLayer, width: number, height: number, selection: JsonObject, activeSelectionId: string | null): void {
+    if (root.parent) throw new Error('The document root cannot have a parent.');
     this.flush();
-    this.history.clear();
-    this.root.onInvalidated = undefined;
-    this.compositor.release(this.root);
+    const previous = this.root;
+    previous.onInvalidated = undefined;
+    this.root = root;
     this.id = crypto.randomUUID();
-    this.root = new GroupLayer('Document');
-    this.root.onInvalidated = () => this.onInvalidated?.();
     this.canvasWidth = width;
     this.canvasHeight = height;
-    this.root.add(initial);
-    this.select(initial);
+    this.inactiveSelection = null;
+    root.onInvalidated = () => this.onInvalidated?.();
+    this.restoreSelection(selection);
+    const mask = this.selectionLayer;
+    if (mask && mask.id !== activeSelectionId) this.deactivateEmptySelection(mask);
+    this.history.clear();
+    this.compositor.release(previous);
+    this.onChange?.();
   }
 
   capturePixels(layer: ImageLayer, snapshots: Map<string, Surface>): string {

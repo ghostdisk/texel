@@ -78,8 +78,8 @@ export class LocalGenerationProvider implements GenerationProvider {
     if (this.pending) throw new Error('Generation is already running.');
     const socket = this.socket;
     if (!socket || socket.readyState !== WebSocket.OPEN) throw new Error('The local generation backend is not connected.');
-    const { input, mask, ...settings } = request;
-    const header = new TextEncoder().encode(JSON.stringify({ type: 'generate', ...settings, inputBytes: input.byteLength, maskBytes: mask?.byteLength ?? 0 }));
+    const { input, mask, operation, ...settings } = request;
+    const header = new TextEncoder().encode(JSON.stringify({ type: operation ?? 'generate', ...settings, inputBytes: input.byteLength, maskBytes: mask?.byteLength ?? 0 }));
     const packet = new Uint8Array(4 + header.byteLength + input.byteLength + (mask?.byteLength ?? 0));
     new DataView(packet.buffer).setUint32(0, header.byteLength, true);
     packet.set(header, 4);

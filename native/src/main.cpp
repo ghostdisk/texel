@@ -1,6 +1,7 @@
 #include <ixwebsocket/IXWebSocketServer.h>
 #include <ixwebsocket/IXGetFreePort.h>
 #include <stable-diffusion.h>
+#include <migan.h>
 #include <json.hpp>
 #define STB_IMAGE_WRITE_STATIC
 #define STB_IMAGE_WRITE_IMPLEMENTATION
@@ -47,8 +48,9 @@ static void send_json(const std::shared_ptr<Session>& session, const Json& value
 static std::string encode_image(const Job& job, const char* type, const sd_image_t& image, int step = 0) {
     const int requested_width = job.request.at("width").get<int>();
     const int requested_height = job.request.at("height").get<int>();
-    const int padded_width = std::max(64, (requested_width + 15) / 16 * 16);
-    const int padded_height = std::max(64, (requested_height + 15) / 16 * 16);
+    const bool removal = job.request.at("type") == "remove";
+    const int padded_width = removal ? requested_width : std::max(64, (requested_width + 15) / 16 * 16);
+    const int padded_height = removal ? requested_height : std::max(64, (requested_height + 15) / 16 * 16);
     const int width = std::max(1, static_cast<int>((static_cast<uint64_t>(image.width) * requested_width + padded_width - 1) / padded_width));
     const int height = std::max(1, static_cast<int>((static_cast<uint64_t>(image.height) * requested_height + padded_height - 1) / padded_height));
     std::string png;
@@ -87,6 +89,8 @@ class Backend {
     std::atomic<bool> busy_{false};
     sd_ctx_t* context_ = nullptr;
     std::string loaded_model_;
+    std::unique_ptr<TexelMigan, decltype(&texel_migan_destroy)> migan_{nullptr, texel_migan_destroy};
+    std::string loaded_migan_;
 
     static void progress(int step, int steps, float seconds, void* data) {
         auto& job = *static_cast<Job*>(data);
@@ -116,6 +120,8 @@ class Backend {
 
     void load_model(const Json& model, Job& job) {
         if (loaded_model_ == model.at("id").get<std::string>() && context_) return;
+        migan_.reset();
+        loaded_migan_.clear();
         send_json(job.session, {{"type", "progress"}, {"id", job.id}, {"phase", "Loading model"}, {"step", 0}, {"steps", 0}});
         const auto diffusion = model_path(model, "diffusion").string();
         const auto llm = model_path(model, "llm").string();
@@ -148,6 +154,35 @@ class Backend {
         }
     }
 
+    std::string remove(const Json& model, Job& job) {
+        char error[512]{};
+        const auto id = model.at("id").get<std::string>();
+        if (!migan_ || loaded_migan_ != id) {
+            const auto weights = model_path(model, "weights").string();
+            send_json(job.session, {{"type", "progress"}, {"id", job.id}, {"phase", "Loading MI-GAN"}, {"step", 0}, {"steps", 0}});
+            {
+                std::lock_guard<std::mutex> lock(context_mutex_);
+                if (context_) free_sd_ctx(context_);
+                context_ = nullptr;
+                loaded_model_.clear();
+            }
+            migan_.reset();
+            loaded_migan_.clear();
+            migan_.reset(texel_migan_load(weights.c_str(), backend_ == "CPU", error, sizeof(error)));
+            if (!migan_) throw std::runtime_error(std::string("Could not load MI-GAN: ") + error);
+            loaded_migan_ = id;
+        }
+        if (job.cancelled) return {};
+        send_json(job.session, {{"type", "progress"}, {"id", job.id}, {"phase", "Removing selection"}, {"step", 0}, {"steps", 1}});
+        const int width = job.request.at("width").get<int>(), height = job.request.at("height").get<int>();
+        std::vector<uint8_t> output(static_cast<size_t>(width) * height * 3);
+        if (!texel_migan_remove(migan_.get(), width, height, job.input.data(), job.mask.data(), output.data(), error, sizeof(error))) {
+            throw std::runtime_error(std::string("MI-GAN removal failed: ") + error);
+        }
+        if (job.cancelled) return {};
+        return encode_image(job, "result", {static_cast<uint32_t>(width), static_cast<uint32_t>(height), 3, output.data()});
+    }
+
     void generate(const std::shared_ptr<Job>& job) {
         sd_image_t* images = nullptr;
         int image_count = 0;
@@ -157,38 +192,45 @@ class Backend {
             const auto model_id = job->request.at("model").get<std::string>();
             const auto found = std::find_if(models_.begin(), models_.end(), [&](const auto& model) { return model.at("id") == model_id; });
             if (found == models_.end()) throw std::runtime_error("Unknown local model.");
-            load_model(*found, *job);
-            if (!job->cancelled) {
-                const auto prompt = job->request.at("prompt").get<std::string>();
-                const auto negative = job->request.value("negativePrompt", std::string{});
-                sd_img_gen_params_t params;
-                sd_img_gen_params_init(&params);
-                params.prompt = prompt.c_str();
-                params.negative_prompt = negative.c_str();
-                params.width = std::max(64, (job->request.at("width").get<int>() + 15) / 16 * 16);
-                params.height = std::max(64, (job->request.at("height").get<int>() + 15) / 16 * 16);
-                params.seed = job->request.value("seed", int64_t{-1});
-                if (params.seed < 0) params.seed = static_cast<int64_t>(std::random_device{}()) & 0x7fffffff;
-                params.batch_count = 1;
-                params.strength = job->request.value("strength", 0.75f);
-                params.sample_params.sample_steps = job->request.value("steps", 20);
-                params.sample_params.sample_method = EULER_SAMPLE_METHOD;
-                params.sample_params.scheduler = sd_get_default_scheduler(context_, EULER_SAMPLE_METHOD);
-                params.sample_params.guidance.txt_cfg = job->request.value("guidance", 6.0f);
-                params.vae_tiling_params.enabled = true;
-                params.init_image = {static_cast<uint32_t>(params.width), static_cast<uint32_t>(params.height), 3, job->input.data()};
-                if (!job->mask.empty()) params.mask_image = {params.init_image.width, params.init_image.height, 1, job->mask.data()};
-                sd_set_progress_callback(progress, job.get());
-                sd_set_preview_callback(preview, PREVIEW_PROJ, 1, true, false, job.get());
-                {
-                    std::lock_guard<std::mutex> lock(context_mutex_);
-                    sd_cancel_generation(context_, job->cancelled ? SD_CANCEL_ALL : SD_CANCEL_RESET);
-                }
-                send_json(job->session, {{"type", "progress"}, {"id", job->id}, {"phase", "Encoding input"}, {"step", 0}, {"steps", 0}, {"seed", params.seed}});
-                const bool success = generate_image(context_, &params, &images, &image_count);
+            const bool removal = job->request.at("type") == "remove";
+            if (found->value("task", std::string{"generate"}) != (removal ? "remove" : "generate")) {
+                throw std::runtime_error("The model does not support this operation.");
+            }
+            if (removal) result = remove(*found, *job);
+            else {
+                load_model(*found, *job);
                 if (!job->cancelled) {
-                    if (!success || image_count < 1 || !images) throw std::runtime_error("Image generation failed. See the native backend log.");
+                    const auto prompt = job->request.at("prompt").get<std::string>();
+                    const auto negative = job->request.value("negativePrompt", std::string{});
+                    sd_img_gen_params_t params;
+                    sd_img_gen_params_init(&params);
+                    params.prompt = prompt.c_str();
+                    params.negative_prompt = negative.c_str();
+                    params.width = std::max(64, (job->request.at("width").get<int>() + 15) / 16 * 16);
+                    params.height = std::max(64, (job->request.at("height").get<int>() + 15) / 16 * 16);
+                    params.seed = job->request.value("seed", int64_t{-1});
+                    if (params.seed < 0) params.seed = static_cast<int64_t>(std::random_device{}()) & 0x7fffffff;
+                    params.batch_count = 1;
+                    params.strength = job->request.value("strength", 0.75f);
+                    params.sample_params.sample_steps = job->request.value("steps", 20);
+                    params.sample_params.sample_method = EULER_SAMPLE_METHOD;
+                    params.sample_params.scheduler = sd_get_default_scheduler(context_, EULER_SAMPLE_METHOD);
+                    params.sample_params.guidance.txt_cfg = job->request.value("guidance", 6.0f);
+                    params.vae_tiling_params.enabled = true;
+                    params.init_image = {static_cast<uint32_t>(params.width), static_cast<uint32_t>(params.height), 3, job->input.data()};
+                    if (!job->mask.empty()) params.mask_image = {params.init_image.width, params.init_image.height, 1, job->mask.data()};
+                    sd_set_progress_callback(progress, job.get());
+                    sd_set_preview_callback(preview, PREVIEW_PROJ, 1, true, false, job.get());
+                    {
+                        std::lock_guard<std::mutex> lock(context_mutex_);
+                        sd_cancel_generation(context_, job->cancelled ? SD_CANCEL_ALL : SD_CANCEL_RESET);
+                    }
+                    send_json(job->session, {{"type", "progress"}, {"id", job->id}, {"phase", "Encoding input"}, {"step", 0}, {"steps", 0}, {"seed", params.seed}});
+                    const bool success = generate_image(context_, &params, &images, &image_count);
+                    if (!job->cancelled) {
+                        if (!success || image_count < 1 || !images) throw std::runtime_error("Image generation failed. See the native backend log.");
                     result = encode_image(*job, "result", images[0]);
+                    }
                 }
             }
         } catch (const std::exception& error) {
@@ -262,15 +304,18 @@ public:
                 Json available = Json::array();
                 for (const auto& model : models_) {
                     try {
-                        model_path(model, "diffusion"); model_path(model, "llm"); model_path(model, "vae");
-                        available.push_back({{"id", model.at("id")}, {"label", model.at("id")}, {"source", "local"}});
+                        const auto task = model.value("task", std::string{"generate"});
+                        if (task == "remove") model_path(model, "weights");
+                        else { model_path(model, "diffusion"); model_path(model, "llm"); model_path(model, "vae"); }
+                        available.push_back({{"id", model.at("id")}, {"label", model.value("label", model.at("id"))}, {"source", "local"}, {"task", task}});
                     } catch (const std::exception& error) { std::cerr << error.what() << '\n'; }
                 }
                 send_json(session, {{"type", "models"}, {"models", available}, {"protocol", 1}});
                 return;
             }
             if (type == "cancel") { cancel(session, id); return; }
-            if (type != "generate" || !binary || id.empty() || id.size() > 128) throw std::runtime_error("Invalid generation request.");
+            if ((type != "generate" && type != "remove") || !binary || id.empty() || id.size() > 128) throw std::runtime_error("Invalid image request.");
+            const bool removal = type == "remove";
             const int width = request.at("width").get<int>();
             const int height = request.at("height").get<int>();
             if (width < 1 || height < 1 || width > 2048 || height > 2048) {
@@ -282,6 +327,7 @@ public:
             if (input_bytes != pixels * 4 || (mask_bytes != 0 && mask_bytes != pixels * 4) || data.size() - offset != input_bytes + mask_bytes) {
                 throw std::runtime_error("Image data does not match the layer dimensions.");
             }
+            if (removal && !mask_bytes) throw std::runtime_error("Removal requires a selection.");
             const int steps = request.value("steps", 20);
             const float strength = request.value("strength", 0.75f);
             const float guidance = request.value("guidance", 6.0f);
@@ -294,8 +340,8 @@ public:
             job->id = id;
             job->session = session;
             job->request = std::move(request);
-            const int padded_width = std::max(64, (width + 15) / 16 * 16);
-            const int padded_height = std::max(64, (height + 15) / 16 * 16);
+            const int padded_width = removal ? width : std::max(64, (width + 15) / 16 * 16);
+            const int padded_height = removal ? height : std::max(64, (height + 15) / 16 * 16);
             const size_t padded_pixels = static_cast<size_t>(padded_width) * padded_height;
             job->input.resize(padded_pixels * 3);
             if (mask_bytes) job->mask.resize(padded_pixels, 0);
@@ -306,6 +352,9 @@ public:
                 // The sampler rounds its mask to binary. Keep every selected pixel in
                 // its support; the editor applies the original soft coverage exactly once.
                 if (mask_bytes && x < width && y < height) job->mask[destination] = data[offset + input_bytes + source * 4] != 0 ? 255 : 0;
+            }
+            if (removal && std::none_of(job->mask.begin(), job->mask.end(), [](uint8_t value) { return value != 0; })) {
+                throw std::runtime_error("The selection is empty.");
             }
             std::lock_guard<std::mutex> lock(job_mutex_);
             if (busy_) throw std::runtime_error("The local backend is already generating an image.");
