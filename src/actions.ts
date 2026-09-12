@@ -29,6 +29,7 @@ export interface ActionMenu {
 export interface KeybindingOptions {
   when?: string;
   hold?: boolean;
+  repeat?: boolean;
 }
 
 type ActionContext = Readonly<Record<string, boolean>>;
@@ -184,7 +185,7 @@ export class ActionRegistry {
         (event.code === 'Space' && !event.ctrlKey && !event.metaKey ? this.binding('space', context) : undefined);
       if (!binding) return;
       event.preventDefault();
-      if (event.repeat) return;
+      if (event.repeat && !binding.repeat) return;
       const action = this.actions.get(binding.actionId)!;
       if (binding.hold) {
         if (!this.enabled(action.id) || this.held.has(event.code)) return;

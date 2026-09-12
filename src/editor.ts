@@ -35,13 +35,15 @@ import type { SampledColor } from './gpu/readback';
 import { PixelPicker } from './gpu/picking';
 import { LayerPreviews } from './ui/layer-previews';
 import { UndoOperation, UndoStack } from './history/undo';
-import type { UndoDirection } from './history/undo';
+import type { JsonObject, UndoDirection } from './history/undo';
 import { ImageDocument } from './model/image-document';
 import type { ReframeMode } from './model/image-document';
 import { GroupLayer, ImageLayer, Layer, canReferenceLayer } from './model/layers';
 import type { LayerProperties } from './model/layers';
-import { inverse, multiply } from './model/geometry';
+import { inverse, multiply, unionBounds } from './model/geometry';
 import type { Point } from './model/geometry';
+import { applyWorldTransform, around, translation, worldBounds } from './model/precision';
+import type { Guide, PrecisionState } from './model/precision';
 import { BrushTool } from './tools/brush-tool';
 import { RectangleTool } from './tools/rectangle-tool';
 import { EllipseTool } from './tools/ellipse-tool';
@@ -98,6 +100,7 @@ export class Editor {
   onNewDocument?: () => void;
   onNewSizedLayer?: () => void;
   onRename?: () => void;
+  onGuideSettings?: () => void;
   commitEdits?: () => void;
   private scheduledFrame = 0;
   private pendingStamps = new Map<ImageLayer, BrushStamp[]>();
@@ -107,6 +110,9 @@ export class Editor {
   private lastMenus = '';
   private reframing = false;
   private selectionCheck = 0;
+  showGrid = false;
+  showGuides = true;
+  snapping = true;
 
   constructor(
     readonly gpu: Gpu,
@@ -183,6 +189,7 @@ export class Editor {
       isCropping: this.activeTool.id === 'crop',
       hasPolygonPath: this.activeTool.id === 'polygon-lasso' && (this.activeTool as PolygonLassoTool).hasPath,
       canApplyPolygon: this.activeTool.id === 'polygon-lasso' && (this.activeTool as PolygonLassoTool).canApply,
+      isTransforming: this.activeTool.id === 'transform' && this.image.selectedRoots.length > 0,
     });
     this.registerActions();
     this.attachInput();
@@ -445,6 +452,7 @@ export class Editor {
           this.image.selectionMask, this.selectionMode, this.editedMask, this.generation.visual,
         );
         this.overlay.replaceChildren();
+        this.drawPrecisionOverlay();
         if (this.activeTool.id === 'generation' || this.activeTool.id === 'crop') this.activeTool.drawOverlay();
         else if (this.activeTool.id === 'transform') this.activeTool.drawOverlay();
         else {
@@ -459,6 +467,41 @@ export class Editor {
         if ((this.image.selectionMask && !this.editedMask) || this.generation.visual) this.requestRender();
       });
     });
+  }
+
+  private drawPrecisionOverlay(): void {
+    const addLine = (a: Point, b: Point, className: string) => {
+      const line = document.createElementNS(this.overlay.namespaceURI, 'line');
+      line.setAttribute('x1', String(a.x));
+      line.setAttribute('y1', String(a.y));
+      line.setAttribute('x2', String(b.x));
+      line.setAttribute('y2', String(b.y));
+      line.setAttribute('class', className);
+      this.overlay.append(line);
+    };
+    if (this.showGrid) {
+      const visible = this.viewport.bounds();
+      const left = Math.max(0, visible.x), top = Math.max(0, visible.y);
+      const right = Math.min(this.image.width, visible.x + visible.width);
+      const bottom = Math.min(this.image.height, visible.y + visible.height);
+      let spacing = this.image.gridSize;
+      while (spacing * this.viewport.scale < 8 || (right - left + bottom - top) / spacing > 300) spacing *= 2;
+      for (let x = Math.ceil(left / spacing) * spacing; x <= right; x += spacing) {
+        addLine(this.viewport.worldToScreen({ x, y: 0 }), this.viewport.worldToScreen({ x, y: this.image.height }), 'document-grid');
+      }
+      for (let y = Math.ceil(top / spacing) * spacing; y <= bottom; y += spacing) {
+        addLine(this.viewport.worldToScreen({ x: 0, y }), this.viewport.worldToScreen({ x: this.image.width, y }), 'document-grid');
+      }
+    }
+    if (this.showGuides) for (const guide of this.image.guides) {
+      if (guide.axis === 'vertical') {
+        const x = this.viewport.worldToScreen({ x: guide.position, y: 0 }).x;
+        if (x >= 0 && x <= this.viewport.width) addLine({ x, y: 0 }, { x, y: this.viewport.height }, 'document-guide');
+      } else {
+        const y = this.viewport.worldToScreen({ x: 0, y: guide.position }).y;
+        if (y >= 0 && y <= this.viewport.height) addLine({ x: 0, y }, { x: this.viewport.width, y }, 'document-guide');
+      }
+    }
   }
 
   resize(): void {
@@ -497,7 +540,7 @@ export class Editor {
     this.selectionMode = false;
     this.selectionReturnId = null;
     this.setMaskEditLayer(null);
-    this.image.replace(document.root, document.width, document.height, document.selection, document.activeSelectionId);
+    this.image.replace(document.root, document.width, document.height, document.selection, document.activeSelectionId, document.precision);
     this.generation.resetLens(document.width, document.height);
     this.generation.lens.setTransform(document.generationLens);
     this.selectionMode = this.image.selected.isSelection && !!this.image.selectionMask;
@@ -609,6 +652,111 @@ export class Editor {
         layers: layers.map((layer, index) => ({ layerId: layer.id, properties: after[index] })), selection,
       } },
     ));
+  }
+
+  nudgeSelection(dx: number, dy: number): void {
+    this.changeSelectedGeometry('Nudge', (layers) => {
+      const operation = translation(dx, dy);
+      for (const layer of layers) applyWorldTransform(layer, operation);
+    });
+  }
+
+  alignSelection(mode: 'left' | 'center' | 'right' | 'top' | 'middle' | 'bottom'): void {
+    this.changeSelectedGeometry('Align ' + mode, (layers) => {
+      const bounds = layers.map(worldBounds);
+      const target = layers.length === 1 ? this.image.frame : unionBounds(bounds);
+      for (let index = 0; index < layers.length; index++) {
+        const bounds = worldBounds(layers[index]);
+        let dx = 0, dy = 0;
+        if (mode === 'left') dx = target.x - bounds.x;
+        if (mode === 'center') dx = target.x + target.width / 2 - bounds.x - bounds.width / 2;
+        if (mode === 'right') dx = target.x + target.width - bounds.x - bounds.width;
+        if (mode === 'top') dy = target.y - bounds.y;
+        if (mode === 'middle') dy = target.y + target.height / 2 - bounds.y - bounds.height / 2;
+        if (mode === 'bottom') dy = target.y + target.height - bounds.y - bounds.height;
+        applyWorldTransform(layers[index], translation(dx, dy));
+      }
+    });
+  }
+
+  distributeSelection(axis: 'horizontal' | 'vertical'): void {
+    this.changeSelectedGeometry(`Distribute ${axis} centers`, (layers) => {
+      if (layers.length < 3) return;
+      const entries = layers.map((layer) => {
+        const bounds = worldBounds(layer);
+        return { layer, center: axis === 'horizontal' ? bounds.x + bounds.width / 2 : bounds.y + bounds.height / 2 };
+      }).sort((a, b) => a.center - b.center);
+      const first = entries[0].center;
+      const interval = (entries[entries.length - 1].center - first) / (entries.length - 1);
+      for (let index = 1; index < entries.length - 1; index++) {
+        const offset = first + interval * index - entries[index].center;
+        applyWorldTransform(entries[index].layer, translation(axis === 'horizontal' ? offset : 0, axis === 'vertical' ? offset : 0));
+      }
+    });
+  }
+
+  rotateSelection(clockwise: boolean): void {
+    this.changeSelectedGeometry(clockwise ? 'Rotate 90° clockwise' : 'Rotate 90° counterclockwise', (layers) => {
+      const bounds = unionBounds(layers.map(worldBounds));
+      const center = { x: bounds.x + bounds.width / 2, y: bounds.y + bounds.height / 2 };
+      const operation = around(center, clockwise ? [0, 1, -1, 0, 0, 0] : [0, -1, 1, 0, 0, 0]);
+      for (const layer of layers) applyWorldTransform(layer, operation);
+    });
+  }
+
+  flipSelection(axis: 'horizontal' | 'vertical'): void {
+    this.changeSelectedGeometry(axis === 'horizontal' ? 'Flip horizontally' : 'Flip vertically', (layers) => {
+      const bounds = unionBounds(layers.map(worldBounds));
+      const center = { x: bounds.x + bounds.width / 2, y: bounds.y + bounds.height / 2 };
+      const operation = around(center, axis === 'horizontal' ? [-1, 0, 0, 1, 0, 0] : [1, 0, 0, -1, 0, 0]);
+      for (const layer of layers) applyWorldTransform(layer, operation);
+    });
+  }
+
+  setPrecisionState(state: PrecisionState, label: string): void {
+    this.finishGesture();
+    const before = this.image.precisionState();
+    this.image.setPrecisionState(state);
+    const after = this.image.precisionState();
+    if (JSON.stringify(before) === JSON.stringify(after)) return;
+    this.history.push(new UndoOperation(
+      label,
+      { type: 'image', targetId: this.image.id, action: 'precision', data: before as unknown as JsonObject },
+      { type: 'image', targetId: this.image.id, action: 'precision', data: after as unknown as JsonObject },
+    ));
+  }
+
+  addGuide(axis: Guide['axis'], position: number): void {
+    const state = this.image.precisionState();
+    state.guides.push({ axis, position });
+    this.setPrecisionState(state, 'Add guide');
+  }
+
+  updateGuide(index: number, guide: Guide): void {
+    const state = this.image.precisionState();
+    if (!state.guides[index]) return;
+    state.guides[index] = guide;
+    this.setPrecisionState(state, 'Edit guide');
+  }
+
+  deleteGuide(index: number): void {
+    const state = this.image.precisionState();
+    if (!state.guides[index]) return;
+    state.guides.splice(index, 1);
+    this.setPrecisionState(state, 'Delete guide');
+  }
+
+  private changeSelectedGeometry(label: string, mutate: (layers: readonly Layer[]) => void): void {
+    this.finishGesture();
+    const layers = this.image.selectedRoots;
+    if (!layers.length) return;
+    const before = layers.map((layer) => layer.properties());
+    try { mutate(layers); }
+    catch (error) {
+      for (let index = 0; index < layers.length; index++) layers[index].setProperties(before[index]);
+      throw error;
+    }
+    this.recordLayerChanges(layers, before, layers.length > 1 ? label + ' layers' : label + ' layer');
   }
 
   addFilter(kind: string): void {
@@ -780,6 +928,37 @@ export class Editor {
     });
     register({ id: 'layer.delete', label: () => this.image.selectedRoots.length > 1 ? 'Delete layers' : 'Delete layer', menu: 'Layer', enabled: () => !!this.image.selected.parent, execute: () => this.image.deleteSelected() });
     register({ id: 'layer.rename', label: 'Rename layer', menu: 'Layer', enabled: () => this.image.selectedLayers.length === 1, execute: () => this.onRename?.() });
+    const canTransform = () => this.image.selectedRoots.length > 0;
+    for (const [id, label, dx, dy] of [
+      ['left', 'Nudge left', -1, 0], ['right', 'Nudge right', 1, 0],
+      ['up', 'Nudge up', 0, -1], ['down', 'Nudge down', 0, 1],
+    ] as const) register({
+      id: `transform.nudge-${id}`, label, menu: 'Layer', submenu: 'Transform', enabled: canTransform,
+      execute: () => this.nudgeSelection(dx, dy),
+    });
+    for (const [id, label, dx, dy] of [
+      ['left', 'Nudge left 10 px', -10, 0], ['right', 'Nudge right 10 px', 10, 0],
+      ['up', 'Nudge up 10 px', 0, -10], ['down', 'Nudge down 10 px', 0, 10],
+    ] as const) register({
+      id: `transform.nudge-${id}-10`, label, menu: 'Layer', submenu: 'Transform', enabled: canTransform,
+      execute: () => this.nudgeSelection(dx, dy),
+    });
+    for (const mode of ['left', 'center', 'right', 'top', 'middle', 'bottom'] as const) register({
+      id: `transform.align-${mode}`, label: `Align ${mode}`, menu: 'Layer', submenu: 'Align', enabled: canTransform,
+      execute: () => this.alignSelection(mode),
+    });
+    register({
+      id: 'transform.distribute-horizontal', label: 'Distribute horizontal centers', menu: 'Layer', submenu: 'Distribute',
+      enabled: () => this.image.selectedRoots.length >= 3, execute: () => this.distributeSelection('horizontal'),
+    });
+    register({
+      id: 'transform.distribute-vertical', label: 'Distribute vertical centers', menu: 'Layer', submenu: 'Distribute',
+      enabled: () => this.image.selectedRoots.length >= 3, execute: () => this.distributeSelection('vertical'),
+    });
+    register({ id: 'transform.rotate-cw', label: 'Rotate 90° clockwise', menu: 'Layer', submenu: 'Transform', enabled: canTransform, execute: () => this.rotateSelection(true) });
+    register({ id: 'transform.rotate-ccw', label: 'Rotate 90° counterclockwise', menu: 'Layer', submenu: 'Transform', enabled: canTransform, execute: () => this.rotateSelection(false) });
+    register({ id: 'transform.flip-horizontal', label: 'Flip horizontally', menu: 'Layer', submenu: 'Transform', enabled: canTransform, execute: () => this.flipSelection('horizontal') });
+    register({ id: 'transform.flip-vertical', label: 'Flip vertically', menu: 'Layer', submenu: 'Transform', enabled: canTransform, execute: () => this.flipSelection('vertical') });
     for (const [direction, offset] of [['up', 1], ['down', -1]] as const) register({
       id: `layer.${direction}`, label: `Move layer ${direction}`, menu: 'Layer',
       enabled: () => this.image.commands.canStep(offset),
@@ -907,6 +1086,19 @@ export class Editor {
       },
     });
     register({ id: 'view.fit', label: 'Fit image', menu: 'View', execute: () => this.viewport.fit(this.image.frame) });
+    register({
+      id: 'view.grid', label: () => this.showGrid ? 'Hide grid' : 'Show grid', menu: 'View',
+      execute: () => { this.showGrid = !this.showGrid; this.changed(); },
+    });
+    register({
+      id: 'view.guides', label: () => this.showGuides ? 'Hide guides' : 'Show guides', menu: 'View',
+      execute: () => { this.showGuides = !this.showGuides; this.changed(); },
+    });
+    register({
+      id: 'view.snapping', label: () => this.snapping ? 'Disable snapping' : 'Enable snapping', menu: 'View',
+      execute: () => { this.snapping = !this.snapping; this.changed(); },
+    });
+    register({ id: 'view.guide-settings', label: 'Grid and guides…', menu: 'View', execute: () => this.onGuideSettings?.() });
     this.actions.bind('D', 'colors.reset');
     this.actions.bind('X', 'colors.swap');
     this.actions.bind('G', 'tool.generation');
@@ -929,6 +1121,14 @@ export class Editor {
     this.actions.bind('Ctrl+A', 'selection.all');
     this.actions.bind('Ctrl+D', 'selection.deselect');
     this.actions.bind('V', 'tool.transform');
+    this.actions.bind('ArrowLeft', 'transform.nudge-left', { when: 'isTransforming', repeat: true });
+    this.actions.bind('ArrowRight', 'transform.nudge-right', { when: 'isTransforming', repeat: true });
+    this.actions.bind('ArrowUp', 'transform.nudge-up', { when: 'isTransforming', repeat: true });
+    this.actions.bind('ArrowDown', 'transform.nudge-down', { when: 'isTransforming', repeat: true });
+    this.actions.bind('Shift+ArrowLeft', 'transform.nudge-left-10', { when: 'isTransforming', repeat: true });
+    this.actions.bind('Shift+ArrowRight', 'transform.nudge-right-10', { when: 'isTransforming', repeat: true });
+    this.actions.bind('Shift+ArrowUp', 'transform.nudge-up-10', { when: 'isTransforming', repeat: true });
+    this.actions.bind('Shift+ArrowDown', 'transform.nudge-down-10', { when: 'isTransforming', repeat: true });
     this.actions.bind('I', 'tool.eyedropper');
     this.actions.bind('Alt', 'tool.eyedropper', { hold: true });
     this.actions.bind('Ctrl+I', 'filter.invert');
@@ -962,7 +1162,7 @@ export class Editor {
       return {
         screen, world: this.viewport.screenToWorld(screen),
         pressure: event instanceof PointerEvent && event.pointerType === 'pen' ? event.pressure : 1,
-        shift: event.shiftKey, ctrl: event.ctrlKey || event.metaKey,
+        shift: event.shiftKey, ctrl: event.ctrlKey || event.metaKey, alt: event.altKey,
       };
     };
     this.canvas.tabIndex = 0;

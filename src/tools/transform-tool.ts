@@ -1,9 +1,10 @@
 import type { Editor } from '../editor';
 import { UndoOperation } from '../history/undo';
 import type { JsonObject, UndoDirection } from '../history/undo';
-import { Layer } from '../model/layers';
+import { GroupLayer, Layer } from '../model/layers';
 import { IDENTITY, inverse, multiply, transformBounds, unionBounds } from '../model/geometry';
 import type { Matrix, Rect } from '../model/geometry';
+import { snapTransform, worldBounds } from '../model/precision';
 import { Tool } from './tool';
 import type { ToolPointer } from './tool';
 import { TransformControls } from './transform-controls';
@@ -43,10 +44,49 @@ export class TransformTool extends Tool {
   readonly hint = 'Drag to move · Drag bounds to resize · Shift constrains · Hold Space to pan';
   private readonly controls: TransformControls;
   private multiple: LayerSelectionTransform | null = null;
+  private actionControls: {
+    select: HTMLSelectElement;
+    actions: readonly string[];
+  }[] = [];
 
   constructor(editor: Editor) {
     super(editor);
-    this.controls = new TransformControls(editor, () => this.target(), () => editor.image.selectedRoots.length > 0);
+    this.controls = new TransformControls(
+      editor,
+      () => this.target(),
+      () => editor.image.selectedRoots.length > 0,
+      (target, matrix, _pointer, axis) => this.snap(target, matrix, axis),
+    );
+  }
+
+  private snap(target: TransformTarget, matrix: Matrix, axis: 'x' | 'y' | null): Matrix {
+    if (!this.editor.snapping) return matrix;
+    const excluded = new Set<Layer>();
+    const visit = (layer: Layer) => {
+      excluded.add(layer);
+      if (layer instanceof GroupLayer) for (const child of layer.children) visit(child);
+    };
+    for (const layer of this.editor.image.selectedRoots) {
+      visit(layer);
+      for (let parent = layer.parent; parent; parent = parent.parent) excluded.add(parent);
+    }
+    const visible = (layer: Layer) => {
+      for (let current: Layer | null = layer; current; current = current.parent) if (!current.visible) return false;
+      return !layer.isSelection;
+    };
+    const otherBounds = this.editor.image.allLayers()
+      .filter((layer) => !!layer.parent && visible(layer) && !excluded.has(layer))
+      .map(worldBounds);
+    return snapTransform(target, matrix, {
+      frame: this.editor.image.frame,
+      gridSize: this.editor.image.gridSize,
+      guides: this.editor.image.guides,
+      otherBounds,
+      grid: this.editor.showGrid,
+      guideLines: this.editor.showGuides,
+      threshold: 6 / this.editor.viewport.scale,
+      axis,
+    });
   }
 
   private target(): TransformTarget {
@@ -113,5 +153,40 @@ export class TransformTool extends Tool {
     } else throw new Error('Unsupported transform undo operation.');
   }
 
-  drawUI(_container: HTMLElement): void {}
+  drawUI(container: HTMLElement): void {
+    this.actionControls = [];
+    container.classList.add('transform-precision-options');
+    this.actionSelect(container, 'Align', [
+      ['transform.align-left', 'Left'], ['transform.align-center', 'Center'], ['transform.align-right', 'Right'],
+      ['transform.align-top', 'Top'], ['transform.align-middle', 'Middle'], ['transform.align-bottom', 'Bottom'],
+    ]);
+    this.actionSelect(container, 'Distribute', [
+      ['transform.distribute-horizontal', 'Horizontal centers'], ['transform.distribute-vertical', 'Vertical centers'],
+    ]);
+    this.actionSelect(container, 'Transform', [
+      ['transform.rotate-cw', 'Rotate 90° CW'], ['transform.rotate-ccw', 'Rotate 90° CCW'],
+      ['transform.flip-horizontal', 'Flip horizontal'], ['transform.flip-vertical', 'Flip vertical'],
+    ]);
+  }
+
+  private actionSelect(container: HTMLElement, label: string, actions: readonly (readonly [string, string])[]): void {
+    const select = document.createElement('select');
+    select.setAttribute('aria-label', label);
+    select.add(new Option(label, ''));
+    for (const [id, text] of actions) select.add(new Option(text, id));
+    select.onchange = () => {
+      const id = select.value;
+      select.value = '';
+      if (id) this.editor.actions.execute(id);
+    };
+    container.append(select);
+    this.actionControls.push({ select, actions: actions.map(([id]) => id) });
+  }
+
+  syncUI(): void {
+    for (const control of this.actionControls) {
+      for (const option of [...control.select.options].slice(1)) option.disabled = !this.editor.actions.enabled(option.value);
+      control.select.disabled = control.actions.every((id) => !this.editor.actions.enabled(id));
+    }
+  }
 }

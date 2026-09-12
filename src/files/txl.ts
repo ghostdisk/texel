@@ -12,6 +12,8 @@ import { inverse } from '../model/geometry';
 import type { Matrix } from '../model/geometry';
 import { TextLayer, validateText } from '../model/text-layer';
 import type { TextProperties } from '../model/text-layer';
+import { DEFAULT_GRID_SIZE, MAX_GUIDES, validatePrecision } from '../model/precision';
+import type { Guide, PrecisionState } from '../model/precision';
 
 const MAGIC = 0x004c5854; // "TXL\0"
 const JSON_CHUNK = 0x4e4f534a;
@@ -45,6 +47,8 @@ interface TxlDocument {
   activeLayerId: string;
   activeSelectionId: string | null;
   generationLens: number[];
+  gridSize: number;
+  guides: Guide[];
 }
 interface TxlManifest {
   format: 'texel';
@@ -59,6 +63,7 @@ export interface LoadedDocument {
   selection: JsonObject;
   activeSelectionId: string | null;
   generationLens: Matrix;
+  precision: PrecisionState;
 }
 
 /** Version 1: a GLB-style header followed by JSON and raw half-float BIN chunks. */
@@ -100,6 +105,7 @@ export class TxlFormat {
         width: image.width, height: image.height, root: serialize(image.root),
         selectedLayerIds: image.selectedLayers.map((layer) => layer.id), activeLayerId: image.selected.id,
         activeSelectionId: image.selectionMask?.id ?? null, generationLens: [...lens],
+        gridSize: image.gridSize, guides: image.guides.map((guide) => ({ ...guide })),
       },
       buffers,
     };
@@ -170,6 +176,7 @@ export class TxlFormat {
       root, width: document.width, height: document.height,
       selection: { ids: document.selectedLayerIds, active: document.activeLayerId },
       activeSelectionId: document.activeSelectionId, generationLens: document.generationLens as unknown as Matrix,
+      precision: { gridSize: document.gridSize, guides: document.guides },
     };
   }
 
@@ -284,6 +291,16 @@ export class TxlFormat {
     };
     const doc = object(manifest.document);
     const width = integer(doc.width, 1, limit), height = integer(doc.height, 1, limit);
+    const guideValues = doc.guides === undefined ? [] : array(doc.guides, MAX_GUIDES);
+    if (doc.gridSize !== undefined && typeof doc.gridSize !== 'number') return bad('invalid grid spacing.');
+    const precision = validatePrecision({
+      gridSize: doc.gridSize === undefined ? DEFAULT_GRID_SIZE : doc.gridSize,
+      guides: guideValues.map((value) => {
+        const guide = object(value);
+        if (typeof guide.position !== 'number') return bad('invalid guide position.');
+        return { axis: guide.axis as Guide['axis'], position: guide.position };
+      }),
+    });
     const root = layer(doc.root, 0);
     if (root.kind !== 'group') return bad('the document root must be a group.');
     const selectedLayerIds = array(doc.selectedLayerIds).map((id) => text(id));
@@ -295,7 +312,10 @@ export class TxlFormat {
     if (doc.activeSelectionId === null && selectionId && selectedLayerIds.includes(selectionId)) return bad('an inactive selection mask cannot be the selected layer.');
     return {
       format: 'texel', schemaVersion: manifest.schemaVersion, buffers,
-      document: { width, height, root, selectedLayerIds, activeLayerId, activeSelectionId: doc.activeSelectionId as string | null, generationLens: matrix(doc.generationLens) },
+      document: {
+        width, height, root, selectedLayerIds, activeLayerId, activeSelectionId: doc.activeSelectionId as string | null,
+        generationLens: matrix(doc.generationLens), gridSize: precision.gridSize, guides: precision.guides,
+      },
     };
   }
 }

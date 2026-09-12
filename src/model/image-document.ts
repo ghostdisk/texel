@@ -14,6 +14,8 @@ import type { Matrix, Rect } from './geometry';
 import { LayerCommands } from './layer-commands';
 import { TextLayer, validateText } from './text-layer';
 import type { TextProperties } from './text-layer';
+import { DEFAULT_GRID_SIZE, validatePrecision } from './precision';
+import type { Guide, PrecisionState } from './precision';
 
 export type ReframeMode = 'normalize' | 'trim' | 'extend';
 
@@ -48,6 +50,8 @@ export class ImageDocument implements UndoTarget {
   } | null = null;
   private canvasWidth = 1000;
   private canvasHeight = 750;
+  private gridSpacing = DEFAULT_GRID_SIZE;
+  private documentGuides: Guide[] = [];
   private readonly reframer: LayerReframer;
   onChange?: () => void;
   onInvalidated?: () => void;
@@ -68,6 +72,17 @@ export class ImageDocument implements UndoTarget {
   get width(): number { return this.canvasWidth; }
   get height(): number { return this.canvasHeight; }
   get frame(): Rect { return { x: 0, y: 0, width: this.width, height: this.height }; }
+  get gridSize(): number { return this.gridSpacing; }
+  get guides(): readonly Guide[] { return this.documentGuides; }
+
+  precisionState(): PrecisionState { return { gridSize: this.gridSpacing, guides: this.documentGuides.map((guide) => ({ ...guide })) }; }
+
+  setPrecisionState(state: PrecisionState): void {
+    const precision = validatePrecision(state);
+    this.gridSpacing = precision.gridSize;
+    this.documentGuides = precision.guides;
+    this.onChange?.();
+  }
 
   setCanvasState(width: number, height: number, layers: readonly CanvasLayerState[], selection: JsonObject): void {
     const limit = this.gpu.device.limits.maxTextureDimension2D;
@@ -218,8 +233,12 @@ export class ImageDocument implements UndoTarget {
   }
 
   /** Adopt a fully decoded tree only after loading and validation have succeeded. */
-  replace(root: GroupLayer, width: number, height: number, selection: JsonObject, activeSelectionId: string | null): void {
+  replace(
+    root: GroupLayer, width: number, height: number, selection: JsonObject, activeSelectionId: string | null,
+    precision: PrecisionState = { gridSize: DEFAULT_GRID_SIZE, guides: [] },
+  ): void {
     if (root.parent) throw new Error('The document root cannot have a parent.');
+    const validatedPrecision = validatePrecision(precision);
     this.flush();
     const previous = this.root;
     previous.onInvalidated = undefined;
@@ -227,6 +246,8 @@ export class ImageDocument implements UndoTarget {
     this.id = crypto.randomUUID();
     this.canvasWidth = width;
     this.canvasHeight = height;
+    this.gridSpacing = validatedPrecision.gridSize;
+    this.documentGuides = validatedPrecision.guides;
     this.inactiveSelection = null;
     root.onInvalidated = () => this.onInvalidated?.();
     this.restoreSelection(selection);
@@ -385,6 +406,8 @@ export class ImageDocument implements UndoTarget {
       }[];
       for (const entry of entries) this.find(entry.layerId).setProperties(entry.properties);
       this.restoreSelection(data.selection as JsonObject);
+    } else if (payload.action === 'precision') {
+      this.setPrecisionState(data as unknown as PrecisionState);
     } else if (payload.action === 'layer-batch') {
       this.commands.apply(operation, direction);
     } else if (payload.action === 'add-layer') {

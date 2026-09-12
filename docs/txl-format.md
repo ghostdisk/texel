@@ -24,7 +24,7 @@ The top-level object contains:
 
 - format: "texel"
 - schemaVersion: 2 (schema 1 remains readable)
-- document: canonical width/height, root layer, selectedLayerIds, activeLayerId, activeSelectionId, and generationLens
+- document: canonical width/height, root layer, selectedLayerIds, activeLayerId, activeSelectionId, generationLens, gridSize, and guides
 - buffers: descriptors for the binary pixel payloads
 
 A layer contains id, kind ("image", "group", or "text"), properties, filters, buffer, children, and text (null for other layer types). Properties contain name, transform (six affine matrix values), opacity, visible, blendMode, and selection. Children are ordered from bottom to top. Filters are ordered from first to last and use each filter class's serialized id, kind, enabled, mix, and properties fields. Mask filters reference layer IDs.
@@ -36,6 +36,8 @@ Schema 2 adds text layers. Their text object stores text, fontFamily, fontSize, 
 activeSelectionId is the ID of the active temporary selection mask, or null. An inactive temporary mask may remain in the tree; its pixels and filter links are retained but it does not restrict editing. selectedLayerIds and activeLayerId describe layer selection independently of the pixel selection mask.
 
 generationLens is an affine matrix mapping the canonical canvas rectangle to the lens frame. Lens placement is retained; provider settings and running generation jobs are not part of the document.
+
+gridSize is a finite document-pixel spacing from 1 to 1,000,000. guides contains at most 1,000 objects with axis ("horizontal" or "vertical") and a finite document-coordinate position. Older schema 1 and 2 files without these fields open with a 32-pixel grid and no guides. Cropping translates guide positions with the document origin.
 
 ## Binary pixels
 

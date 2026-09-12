@@ -4,6 +4,8 @@ import type { JsonObject, UndoDirection } from '../history/undo';
 import { inverse, multiply } from '../model/geometry';
 import type { Matrix, Point, Rect } from '../model/geometry';
 import type { CanvasLayerState } from '../model/image-document';
+import { validatePrecision } from '../model/precision';
+import type { PrecisionState } from '../model/precision';
 import { Tool } from './tool';
 import type { ToolPointer } from './tool';
 
@@ -22,6 +24,7 @@ interface CropState {
   layers: CanvasLayerState[];
   selection: JsonObject;
   lens: Matrix;
+  precision: PrecisionState;
 }
 
 const HANDLES: readonly Point[] = [
@@ -241,11 +244,14 @@ export class CropTool extends Tool {
       })),
       selection: this.editor.image.selectionState(),
       lens: [...this.editor.generation.lens.transform] as unknown as Matrix,
+      precision: this.editor.image.precisionState(),
     };
   }
 
   private applyState(state: CropState): void {
+    const precision = validatePrecision(state.precision);
     this.editor.image.setCanvasState(state.width, state.height, state.layers, state.selection);
+    this.editor.image.setPrecisionState(precision);
     this.editor.generation.resetLens(state.width, state.height);
     this.editor.generation.lens.setTransform(state.lens);
     this.editor.viewport.fit(this.editor.image.frame);
@@ -268,6 +274,13 @@ export class CropTool extends Tool {
       lens: multiply(shift, multiply(before.lens, [
         before.width / rect.width, 0, 0, before.height / rect.height, 0, 0,
       ])),
+      precision: {
+        gridSize: before.precision.gridSize,
+        guides: before.precision.guides.map((guide) => ({
+          axis: guide.axis,
+          position: guide.position - (guide.axis === 'vertical' ? rect.x : rect.y),
+        })),
+      },
     };
     this.applyState(after);
     this.editor.history.push(new UndoOperation(
@@ -287,6 +300,7 @@ export class CropTool extends Tool {
       layers: data.layers as unknown as CanvasLayerState[],
       selection: data.selection as JsonObject,
       lens: data.lens as unknown as Matrix,
+      precision: data.precision as unknown as PrecisionState,
     });
   }
 

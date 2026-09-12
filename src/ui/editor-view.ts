@@ -12,6 +12,7 @@ import { HistoryPanel } from './history-panel';
 import { LayerPointerDrag } from './layer-pointer-drag';
 import type { LayerDragPosition } from './layer-pointer-drag';
 import type { Matrix } from '../model/geometry';
+import type { GuideAxis } from '../model/precision';
 
 export function element<T extends HTMLElement>(id: string): T {
   const node = document.getElementById(id);
@@ -65,6 +66,7 @@ export class EditorView {
     editor.onNewDocument = () => this.showSizeDialog();
     editor.onNewSizedLayer = () => this.showSizeDialog(true);
     editor.onRename = () => this.rename(editor.image.selected);
+    editor.onGuideSettings = () => this.showPrecisionDialog();
     editor.onFrame = () => {
       element('zoom-label').textContent = `${Math.round(editor.viewport.scale * 100)}%`;
       if (editor.activeTool.id === 'transform') this.updateTransformFields();
@@ -88,6 +90,17 @@ export class EditorView {
       input(id).onchange = () => editor.run(() => this.changeTransform(id));
     }
     element('cancel-size').onclick = () => element<HTMLDialogElement>('size-dialog').close();
+    element('close-precision').onclick = () => element<HTMLDialogElement>('precision-dialog').close();
+    element('precision-form').onsubmit = (event) => event.preventDefault();
+    input('grid-size').onchange = () => editor.run(() => {
+      const state = editor.image.precisionState();
+      state.gridSize = input('grid-size').valueAsNumber;
+      editor.setPrecisionState(state, 'Change grid size');
+    });
+    element('add-guide').onclick = () => editor.run(() => {
+      const axis = element<HTMLSelectElement>('new-guide-axis').value as GuideAxis;
+      editor.addGuide(axis, input('new-guide-position').valueAsNumber);
+    });
     element('size-form').onsubmit = (event) => {
       event.preventDefault();
       editor.run(async () => {
@@ -167,11 +180,12 @@ export class EditorView {
       };
       element('active-tool-icon').replaceChildren(icon(glyphs[editor.activeTool.id] ?? 'brush'));
       element('tool-options').replaceChildren();
-      element('tool-options').classList.remove('generation-options', 'crop-options', 'polygon-options', 'text-options');
+      element('tool-options').classList.remove('generation-options', 'crop-options', 'polygon-options', 'text-options', 'transform-precision-options');
       editor.generation.onChange = undefined;
       editor.activeTool.drawUI(element('tool-options'));
     }
     editor.activeTool.syncUI();
+    if (element<HTMLDialogElement>('precision-dialog').open) this.renderGuideSettings();
     for (const button of document.querySelectorAll<HTMLButtonElement>('[data-action]')) {
       button.disabled = !editor.actions.enabled(button.dataset.action!);
       if (button.dataset.action!.startsWith('tool.')) {
@@ -628,6 +642,47 @@ export class EditorView {
     input('new-height').value = String(sizedLayer ? 512 : this.editor.image.frame.height);
     for (const id of ['new-width', 'new-height']) input(id).max = String(this.editor.gpu.device.limits.maxTextureDimension2D);
     element<HTMLDialogElement>('size-dialog').showModal();
+  }
+
+  private showPrecisionDialog(): void {
+    input('grid-size').value = String(this.editor.image.gridSize);
+    this.renderGuideSettings();
+    element<HTMLDialogElement>('precision-dialog').showModal();
+  }
+
+  private renderGuideSettings(): void {
+    input('grid-size').value = String(this.editor.image.gridSize);
+    const list = element('guide-list');
+    list.replaceChildren();
+    if (!this.editor.image.guides.length) {
+      const empty = document.createElement('div');
+      empty.className = 'guide-empty';
+      empty.textContent = 'No guides';
+      list.append(empty);
+      return;
+    }
+    this.editor.image.guides.forEach((guide, index) => {
+      const row = document.createElement('div');
+      row.className = 'guide-row';
+      const axis = document.createElement('select');
+      axis.setAttribute('aria-label', `Guide ${index + 1} direction`);
+      axis.add(new Option('Vertical', 'vertical'));
+      axis.add(new Option('Horizontal', 'horizontal'));
+      axis.value = guide.axis;
+      const position = document.createElement('input');
+      position.type = 'number';
+      position.step = '1';
+      position.value = String(guide.position);
+      position.setAttribute('aria-label', `Guide ${index + 1} position`);
+      const remove = document.createElement('button');
+      remove.type = 'button';
+      remove.textContent = 'Delete';
+      axis.onchange = () => this.editor.run(() => this.editor.updateGuide(index, { axis: axis.value as GuideAxis, position: position.valueAsNumber }));
+      position.onchange = () => this.editor.run(() => this.editor.updateGuide(index, { axis: axis.value as GuideAxis, position: position.valueAsNumber }));
+      remove.onclick = () => this.editor.run(() => this.editor.deleteGuide(index));
+      row.append(axis, position, remove);
+      list.append(row);
+    });
   }
 
   private attachImport(): void {

@@ -27,6 +27,7 @@ interface TransformGesture {
   parentInverse: Matrix;
   worldInverse: Matrix;
   start: Point;
+  startWorld: Point;
   startLocal: Point;
   mode: 'move' | 'resize' | 'rotate';
   handle: Point;
@@ -43,7 +44,12 @@ const HANDLES: readonly Point[] = [
 export class TransformControls {
   private gesture: TransformGesture | null = null;
 
-  constructor(private readonly editor: Editor, private readonly target: () => TransformTarget, private readonly enabled: () => boolean) {}
+  constructor(
+    private readonly editor: Editor,
+    private readonly target: () => TransformTarget,
+    private readonly enabled: () => boolean,
+    private readonly snapMove?: (target: TransformTarget, matrix: Matrix, pointer: ToolPointer, axis: 'x' | 'y' | null) => Matrix,
+  ) {}
 
   private contains(layer: TransformTarget, world: Point): boolean {
     try {
@@ -89,7 +95,7 @@ export class TransformControls {
     const bounds = layer.localBounds();
     const center = transformPoint(layer.transform, { x: bounds.x + bounds.width / 2, y: bounds.y + bounds.height / 2 });
     this.gesture = {
-      layer, before: [...layer.transform], parentInverse, worldInverse: inverse(layer.worldTransform()), start,
+      layer, before: [...layer.transform], parentInverse, worldInverse: inverse(layer.worldTransform()), start, startWorld: pointer.world,
       startLocal: transformPoint(inverse(layer.worldTransform()), pointer.world),
       mode: handle === 'rotate' ? 'rotate' : handle ? 'resize' : 'move',
       handle: handle && handle !== 'rotate' ? handle : { x: 0, y: 0 }, bounds, center,
@@ -104,10 +110,23 @@ export class TransformControls {
     const before = gesture.before;
     let matrix: Matrix;
     if (gesture.mode === 'move') {
-      let dx = current.x - gesture.start.x;
-      let dy = current.y - gesture.start.y;
-      if (pointer.shift) { if (Math.abs(dx) > Math.abs(dy)) dy = 0; else dx = 0; }
-      matrix = [before[0], before[1], before[2], before[3], before[4] + dx, before[5] + dy];
+      if (this.snapMove) {
+        let dx = pointer.world.x - gesture.startWorld.x;
+        let dy = pointer.world.y - gesture.startWorld.y;
+        let axis: 'x' | 'y' | null = null;
+        if (pointer.shift) {
+          if (Math.abs(dx) > Math.abs(dy)) { dy = 0; axis = 'x'; }
+          else { dx = 0; axis = 'y'; }
+        }
+        const parentWorld = gesture.layer.parent?.worldTransform() ?? IDENTITY;
+        matrix = multiply(inverse(parentWorld), multiply([1, 0, 0, 1, dx, dy], multiply(parentWorld, before)));
+        if (!pointer.alt) matrix = this.snapMove(gesture.layer, matrix, pointer, axis);
+      } else {
+        let dx = current.x - gesture.start.x;
+        let dy = current.y - gesture.start.y;
+        if (pointer.shift) { if (Math.abs(dx) > Math.abs(dy)) dy = 0; else dx = 0; }
+        matrix = [before[0], before[1], before[2], before[3], before[4] + dx, before[5] + dy];
+      }
     } else if (gesture.mode === 'resize') {
       const currentLocal = transformPoint(gesture.worldInverse, pointer.world);
       const { bounds, handle } = gesture;

@@ -8,6 +8,7 @@ export interface ToolPointer {
   pressure: number;
   shift: boolean;
   ctrl: boolean;
+  alt: boolean;
 }
 
 export abstract class Tool implements UndoTarget {
