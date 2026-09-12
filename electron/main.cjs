@@ -87,7 +87,7 @@ function startApplication() {
   ipcMain.handle('window:open-context-menu', (event, items, x, y) => {
     const owner = ownerOf(event);
     if (!owner || !Array.isArray(items) || !Number.isFinite(x) || !Number.isFinite(y)) return;
-    const allowed = new Set(['selection.layer-copy', 'selection.layer-cut']);
+    const allowed = new Set(['selection.promote', 'selection.layer-copy', 'selection.layer-cut']);
     const dispatch = (id) => { if (!owner.isDestroyed()) owner.webContents.send('action:execute', id); };
     const template = items.flatMap((item) => {
       if (!item || !allowed.has(item.id) || typeof item.label !== 'string') return [];
