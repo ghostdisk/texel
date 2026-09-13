@@ -66,20 +66,41 @@ const sharedLink = `if(TEXEL_SHARED_VULKAN_RUNTIME)
         ${vanillaLink}
     endif()`;
 const sharedLinkWithoutSdkHeaders = sharedLink.replace('            \${Vulkan_INCLUDE_DIRS}\n', '');
+const sdkDiscovery = 'find_package(Vulkan COMPONENTS glslc REQUIRED)';
+const previousVendoredDiscovery = `if(NOT Vulkan_INCLUDE_DIRS)
+    message(FATAL_ERROR "Texel's vendored Vulkan headers were not provided")
+endif()
+if(NOT Vulkan_GLSLC_EXECUTABLE)
+    find_program(Vulkan_GLSLC_EXECUTABLE NAMES glslc REQUIRED)
+endif()`;
+const vendoredDiscovery = `if(NOT Vulkan_INCLUDE_DIRS)
+    message(FATAL_ERROR "Texel's vendored Vulkan headers were not provided")
+endif()
+if(NOT Vulkan_GLSLC_EXECUTABLE)
+    find_program(Vulkan_GLSLC_EXECUTABLE NAMES glslc REQUIRED)
+endif()
+set(Vulkan_FOUND TRUE)`;
+const spirvDiscovery = 'find_package(SPIRV-Headers CONFIG REQUIRED)';
 
 for (const relative of [
   'stable-diffusion.cpp/ggml/src/ggml-vulkan/CMakeLists.txt',
   'vision.cpp/depend/llama/ggml/src/ggml-vulkan/CMakeLists.txt',
 ]) {
   const file = path.join(root, 'third_party', relative);
-  let source = readFileSync(file, 'utf8');
+  const originalSource = readFileSync(file, 'utf8');
+  let source = originalSource;
+  if (source.includes(sdkDiscovery)) source = source.replace(sdkDiscovery, vendoredDiscovery);
+  else if (source.includes(previousVendoredDiscovery)) {
+    source = source.replace(previousVendoredDiscovery, vendoredDiscovery);
+  } else if (!source.includes(vendoredDiscovery)) throw new Error('Unable to patch Vulkan discovery in ' + file);
+  if (source.includes(spirvDiscovery)) source = source.replace(spirvDiscovery, 'message(STATUS "Using Texel vendored SPIR-V headers")');
   if (!source.includes(sharedLink)) {
     if (source.includes(sharedLinkWithoutSdkHeaders)) source = source.replace(sharedLinkWithoutSdkHeaders, sharedLink);
     else if (source.includes(previousLink)) source = source.replace(previousLink, sharedLink);
     else if (source.includes(vanillaLink)) source = source.replace(vanillaLink, sharedLink);
     else throw new Error('Unable to patch shared Vulkan linkage in ' + file);
-    writeFileSync(file, source);
   }
+  if (source !== originalSource) writeFileSync(file, source);
 }
 
 function patchShaderGenerator(relative, namespace) {

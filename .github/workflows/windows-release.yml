@@ -1,0 +1,111 @@
+name: Windows release
+
+on:
+  push:
+    branches: [main]
+    paths: [package.json]
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+env:
+  VULKAN_SDK_VERSION: 1.4.357.0
+  VULKAN_SDK_SHA256: 81f474711e9042f4cd22b31b2f7a8870db2e428b21586fb43dd80150be97310d
+
+jobs:
+  installer:
+    name: Build Windows installer
+    runs-on: windows-2025
+    timeout-minutes: 120
+
+    steps:
+      - name: Check out source
+        uses: actions/checkout@v7
+        with:
+          fetch-depth: 2
+
+      - name: Detect version change
+        id: version
+        shell: pwsh
+        env:
+          BEFORE_SHA: ${{ github.event.before }}
+        run: |
+          $current = (Get-Content package.json -Raw | ConvertFrom-Json).version
+          $changed = '${{ github.event_name }}' -eq 'workflow_dispatch'
+          if (-not $changed) {
+            $previousSource = git show "$($env:BEFORE_SHA):package.json" 2>$null
+            if ($LASTEXITCODE -ne 0) {
+              $changed = $true
+            } else {
+              $previous = ($previousSource | ConvertFrom-Json).version
+              $changed = $previous -ne $current
+            }
+          }
+          "version=$current" >> $env:GITHUB_OUTPUT
+          "changed=$($changed.ToString().ToLowerInvariant())" >> $env:GITHUB_OUTPUT
+          if (-not $changed) { "package.json changed without a version change; skipping the release build." }
+
+      - name: Set up Node.js
+        if: steps.version.outputs.changed == 'true'
+        uses: actions/setup-node@v7
+        with:
+          node-version: 24
+          cache: npm
+
+      - name: Install JavaScript dependencies
+        if: steps.version.outputs.changed == 'true'
+        run: npm ci
+
+      - name: Cache local AI dependencies and objects
+        if: steps.version.outputs.changed == 'true'
+        uses: actions/cache@v6
+        with:
+          path: |
+            packages/texel-editor/local-ai-base/third_party
+            packages/texel-editor/local-ai-base/build
+            packages/texel-editor/local-ai-vulkan/third_party
+            packages/texel-editor/local-ai-vulkan/build
+          key: windows-local-ai-${{ hashFiles('packages/texel-editor/local-ai-base/native/**', 'packages/texel-editor/local-ai-base/setup.mjs', 'packages/texel-editor/local-ai-base/build.mjs', 'packages/texel-editor/local-ai-vulkan/native/**', 'packages/texel-editor/local-ai-vulkan/setup.mjs', 'packages/texel-editor/local-ai-vulkan/build.mjs') }}
+
+      - name: Install Vulkan shader compiler
+        if: steps.version.outputs.changed == 'true'
+        shell: pwsh
+        run: |
+          $installer = Join-Path $env:RUNNER_TEMP 'vulkan-sdk.exe'
+          $root = Join-Path $env:RUNNER_TEMP 'VulkanSDK'
+          Invoke-WebRequest "https://sdk.lunarg.com/sdk/download/$env:VULKAN_SDK_VERSION/windows/vulkan_sdk.exe" -OutFile $installer
+          $actualHash = (Get-FileHash $installer -Algorithm SHA256).Hash.ToLowerInvariant()
+          if ($actualHash -ne $env:VULKAN_SDK_SHA256) { throw "Unexpected Vulkan SDK checksum: $actualHash" }
+          $process = Start-Process $installer -Wait -PassThru -ArgumentList '--root', $root, '--accept-licenses', '--default-answer', '--confirm-command', 'install', 'copy_only=1'
+          if ($process.ExitCode -ne 0) { throw "Vulkan SDK installer exited with $($process.ExitCode)" }
+          "TEXEL_GLSLC=$(Join-Path $root 'Bin\glslc.exe')" >> $env:GITHUB_ENV
+
+      - name: Build installer
+        if: steps.version.outputs.changed == 'true'
+        run: npm run dist
+
+      - name: Upload installer
+        if: steps.version.outputs.changed == 'true'
+        uses: actions/upload-artifact@v7
+        with:
+          name: Texel-${{ steps.version.outputs.version }}-windows-x64
+          path: release/Texel-${{ steps.version.outputs.version }}-Setup.exe
+          if-no-files-found: error
+          compression-level: 0
+
+      - name: Publish GitHub release
+        if: steps.version.outputs.changed == 'true'
+        shell: pwsh
+        env:
+          GH_TOKEN: ${{ github.token }}
+          VERSION: ${{ steps.version.outputs.version }}
+        run: |
+          $tag = "v$env:VERSION"
+          $installer = "release/Texel-$env:VERSION-Setup.exe"
+          gh release view $tag *> $null
+          if ($LASTEXITCODE -eq 0) {
+            gh release upload $tag $installer --clobber
+          } else {
+            gh release create $tag $installer --target $env:GITHUB_SHA --title "Texel $env:VERSION" --generate-notes
+          }

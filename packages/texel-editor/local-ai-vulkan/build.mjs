@@ -33,3 +33,11 @@ for (const [sourceFile, destination] of [
 ]) {
   copyFileSync(path.join(root, 'third_party', sourceFile), path.join(install, 'licenses', destination));
 }
+copyFileSync(
+  path.join(source, 'vendor', 'vulkan-headers', 'LICENSE.md'),
+  path.join(install, 'licenses', 'vulkan-headers.txt'),
+);
+copyFileSync(
+  path.join(source, 'vendor', 'vulkan-headers', 'SPIRV-LICENSE'),
+  path.join(install, 'licenses', 'spirv-headers.txt'),
+);
