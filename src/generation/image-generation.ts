@@ -9,7 +9,7 @@ import { GenerationMask } from '../gpu/generation-mask';
 import { LayerReframer } from '../gpu/reframe';
 import { importImage } from '../gpu/images';
 import { UndoOperation } from '../history/undo';
-import { GenerationProviders } from './provider';
+import { GenerationModelRegistry } from './provider';
 import type { GenerationModel, GenerationProgress } from './provider';
 import { LocalGenerationProvider } from './local-provider';
 import { GenerationLens } from './lens';
@@ -32,7 +32,7 @@ interface RunningGeneration {
 }
 
 export class ImageGeneration {
-  readonly providers = new GenerationProviders();
+  readonly registry = new GenerationModelRegistry();
   models: readonly GenerationModel[] = [];
   model = '';
   prompt = '';
@@ -55,7 +55,7 @@ export class ImageGeneration {
   private removalModel = '';
 
   constructor(private readonly editor: Editor) {
-    this.providers.register(new LocalGenerationProvider());
+    this.registry.register(new LocalGenerationProvider());
     this.blend = new GenerationBlend(editor.gpu);
     this.masks = new GenerationMask(editor.gpu);
     this.reframer = editor.layerReframer;
@@ -64,6 +64,7 @@ export class ImageGeneration {
 
   get busy(): boolean { return !!this.running; }
   get removing(): boolean { return !!this.running?.removal; }
+  get selectedModel(): GenerationModel | undefined { return this.registry.model(this.model); }
   get canRemove(): boolean { return !this.busy && !!this.editor.image.selectionMask; }
   get displayLens(): GenerationLens { return this.running?.lens ?? this.lens; }
   get frame(): GenerationFrame { return this.running?.frame ?? this.lens.frame(this.scale); }
@@ -73,7 +74,7 @@ export class ImageGeneration {
   }
   get sizeError(): string {
     const { width, height } = this.frame;
-    const limit = this.model.startsWith('local/') ? 2048 : this.editor.gpu.device.limits.maxTextureDimension2D;
+    const limit = this.selectedModel?.capabilities.maxDimension ?? this.editor.gpu.device.limits.maxTextureDimension2D;
     return !Number.isFinite(width) || !Number.isFinite(height) || width > limit || height > limit ?
       'Generation is limited to ' + limit + ' px per side. Reduce Scale or resize the lens.' : '';
   }
@@ -115,7 +116,7 @@ export class ImageGeneration {
   async refreshModels(): Promise<void> {
     try {
       this.error = '';
-      const models = await this.providers.models();
+      const models = await this.registry.refresh();
       this.models = models.filter((model) => model.task !== 'remove');
       this.removalModel = models.find((model) => model.task === 'remove')?.id ?? '';
       if (!this.models.some((model) => model.id === this.model)) this.model = this.models[0]?.id ?? '';
@@ -241,7 +242,9 @@ export class ImageGeneration {
         run.lens = await this.removalLens(run);
         run.frame = run.lens.frame(1);
       }
-      const capture = this.editor.compositor.captureGenerationInput(run.root, run.frame, this.editor.image.selectionMask);
+      const modelCapabilities = this.registry.model(model)?.capabilities;
+      const selection = modelCapabilities?.mask ? this.editor.image.selectionMask : null;
+      const capture = this.editor.compositor.captureGenerationInput(run.root, run.frame, selection);
       run.input = capture.input;
       run.mask = capture.mask;
       const feathered = this.masks.create(run.mask, run.frame, removal ? 0 : this.feather, run.input);
@@ -268,7 +271,7 @@ export class ImageGeneration {
       if (mask && !mask.some((value, index) => index % 4 === 0 && value > 0)) {
         throw new Error(removal ? 'The selection does not cover the canvas.' : 'The selection does not cover the generation lens.');
       }
-      const result = await this.providers.provider(model).generate({
+      const result = await this.registry.provider(model).generate({
         id: run.id, model, operation: removal ? 'remove' : undefined,
         prompt: removal ? '' : this.prompt, negativePrompt: removal ? '' : this.negativePrompt,
         width: requestFrame.width, height: requestFrame.height,

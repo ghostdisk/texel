@@ -10,6 +10,7 @@ interface PendingGeneration {
 
 export class LocalGenerationProvider implements GenerationProvider {
   readonly source = 'local';
+  readonly label = 'Local';
   private socket: WebSocket | null = null;
   private connecting: Promise<readonly GenerationModel[]> | null = null;
   private pending: PendingGeneration | null = null;
@@ -37,7 +38,20 @@ export class LocalGenerationProvider implements GenerationProvider {
           try {
             if (typeof data === 'string') {
               const message = JSON.parse(data);
-              if (message.type === 'models') { clearTimeout(timer); resolve(message.models as GenerationModel[]); return; }
+              if (message.type === 'models') {
+                clearTimeout(timer);
+                resolve((message.models as Omit<GenerationModel, 'capabilities'>[]).map((model) => ({
+                  ...model,
+                  capabilities: model.task === 'remove' ? {
+                    inputImages: 1, mask: true, negativePrompt: false, steps: false, guidance: false,
+                    seed: false, denoiseStrength: false, partialPreview: true, maxDimension: 2048,
+                  } : {
+                    inputImages: 1, mask: true, negativePrompt: true, steps: true, guidance: true,
+                    seed: true, denoiseStrength: true, partialPreview: true, maxDimension: 2048,
+                  },
+                })));
+                return;
+              }
               if (!this.pending || message.id !== this.pending.id) return;
               if (message.type === 'progress') this.pending.events.progress(message as GenerationProgress);
               else if (message.type === 'cancelled') this.pending.reject(new DOMException('Generation cancelled.', 'AbortError'));
@@ -79,6 +93,7 @@ export class LocalGenerationProvider implements GenerationProvider {
     const socket = this.socket;
     if (!socket || socket.readyState !== WebSocket.OPEN) throw new Error('The local generation backend is not connected.');
     const { input, mask, operation, ...settings } = request;
+    if (!input) throw new Error('The local image model requires an input image.');
     const header = new TextEncoder().encode(JSON.stringify({ type: operation ?? 'generate', ...settings, inputBytes: input.byteLength, maskBytes: mask?.byteLength ?? 0 }));
     const packet = new Uint8Array(4 + header.byteLength + input.byteLength + (mask?.byteLength ?? 0));
     new DataView(packet.buffer).setUint32(0, header.byteLength, true);
