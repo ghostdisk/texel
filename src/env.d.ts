@@ -22,6 +22,15 @@ interface GenerationEndpoint {
   error?: string;
 }
 
+interface StoredSettings {
+  theme: string;
+}
+
+interface WindowTheme {
+  dark: boolean;
+  background: string;
+}
+
 interface Window {
   desktop: {
     openMenu(label: string, x: number, y: number): Promise<void>;
@@ -44,6 +53,9 @@ interface Window {
     onCloseRequest(callback: () => void): () => void;
     generationBackend(): Promise<GenerationEndpoint>;
     restartGenerationBackend(): Promise<GenerationEndpoint>;
+    getSettings(): Promise<StoredSettings | null>;
+    updateSettings(settings: StoredSettings): Promise<StoredSettings | null>;
+    setWindowTheme(theme: WindowTheme): Promise<void>;
     setMenus(menus: import('./actions').ActionMenu[]): Promise<void>;
     onAction(callback: (id: string) => void): () => void;
   };

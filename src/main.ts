@@ -13,8 +13,8 @@ function reportError(error: unknown): void {
 }
 
 async function boot(): Promise<void> {
-  const settings = new SettingsStore();
-  settings.applyTheme();
+  const settings = new SettingsStore(reportError);
+  await settings.load();
   const gpu = await Gpu.create();
   let editor: Editor | undefined;
   let failed = false;

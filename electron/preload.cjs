@@ -26,6 +26,9 @@ contextBridge.exposeInMainWorld('desktop', {
   },
   generationBackend: () => ipcRenderer.invoke('generation:backend'),
   restartGenerationBackend: () => ipcRenderer.invoke('generation:restart'),
+  getSettings: () => ipcRenderer.invoke('settings:get'),
+  updateSettings: (settings) => ipcRenderer.invoke('settings:update', settings),
+  setWindowTheme: (theme) => ipcRenderer.invoke('window:set-theme', theme),
   setMenus: (menus) => ipcRenderer.invoke('actions:set-menus', menus),
   onAction: (callback) => {
     const listener = (_event, id) => { if (typeof id === 'string') callback(id); };
