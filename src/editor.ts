@@ -206,7 +206,7 @@ export class Editor {
     window.addEventListener('resize', () => this.resize());
   }
 
-  get activeTool(): Tool { return this.altHeld && this.baseTool.id === 'brush' ? this.tools.get('eyedropper')! : this.baseTool; }
+  get activeTool(): Tool { return this.altHeld && this.baseTool.supportsAltEyedropper ? this.tools.get('eyedropper')! : this.baseTool; }
   get document(): EditorDocument { return this.currentDocument; }
   get image(): ImageDocument { return this.currentDocument.image; }
   get history(): UndoStack { return this.currentDocument.history; }
@@ -573,8 +573,8 @@ export class Editor {
 
   setAltHeld(held: boolean): void {
     if (this.altHeld === held) return;
-    if (this.baseTool.id === 'brush') {
-      if (this.pointer?.mode !== 'pan') this.finishGesture();
+    if (this.baseTool.supportsAltEyedropper) {
+      if (this.pointer?.mode === 'tool') this.finishGesture();
       this.activeTool.hover(null);
     }
     this.altHeld = held;

@@ -17,6 +17,7 @@ interface RetouchStroke {
 
 abstract class RetouchTool extends BrushLikeTool {
   abstract readonly heal: boolean;
+  override readonly supportsAltEyedropper = false;
   readonly cursor = 'crosshair';
   readonly hint = 'Alt-click a color image layer to sample · Paint on an editable color pixel layer';
   aligned = true;
