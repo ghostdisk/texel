@@ -39,7 +39,8 @@ export abstract class BrushLikeTool extends DrawingTool {
     const wheelProperty = property === 'hardness' ? 'wheelHardness' : 'wheelFlow';
     const control = property === 'hardness' ? this.hardnessControl : this.flowControl;
     if (Math.round(this[wheelProperty] * 100) !== Math.round(this[property] * 100)) this[wheelProperty] = this[property];
-    this[wheelProperty] = Math.max(minimum, Math.min(1, this[wheelProperty] - delta * 0.0005));
+    const fineFlow = property === 'flow' && (this[wheelProperty] < 0.1 || delta > 0 && this[wheelProperty] <= 0.1);
+    this[wheelProperty] = Math.max(minimum, Math.min(1, this[wheelProperty] - delta * (fineFlow ? 0.0001 : 0.0005)));
     this[property] = Math.round(this[wheelProperty] * 100) / 100;
     control?.sync(true);
   }
