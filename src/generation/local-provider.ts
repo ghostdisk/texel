@@ -42,6 +42,7 @@ export class LocalGenerationProvider implements GenerationProvider {
                 clearTimeout(timer);
                 resolve((message.models as Omit<GenerationModel, 'capabilities'>[]).map((model) => ({
                   ...model,
+                  label: model.label.startsWith('local/') ? model.label.slice('local/'.length) : model.label,
                   capabilities: model.task === 'remove' ? {
                     inputImages: 1, mask: true, negativePrompt: false, steps: false, guidance: false,
                     seed: false, denoiseStrength: false, partialPreview: true, maxDimension: 2048,

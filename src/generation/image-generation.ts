@@ -15,6 +15,12 @@ import { LocalGenerationProvider } from './local-provider';
 import { OpenRouterGenerationProvider } from './openrouter-provider';
 import { GenerationLens } from './lens';
 import type { GenerationFrame } from './lens';
+import { rgbaToPng } from './image-codec';
+
+export interface GenerationInputPreview {
+  input: Blob | null;
+  mask: Blob | null;
+}
 
 interface RunningGeneration {
   removal: boolean;
@@ -81,6 +87,33 @@ export class ImageGeneration {
       'Generation is limited to ' + limit + ' px per side. Reduce Scale or resize the lens.' : '';
   }
   get canGenerate(): boolean { return !this.busy && !!this.model && !!this.prompt.trim() && !this.sizeError; }
+
+  async inputPreview(): Promise<GenerationInputPreview> {
+    const model = this.selectedModel;
+    if (!model || this.busy) return { input: null, mask: null };
+    const frame = this.frame;
+    const selection = model.capabilities.mask ? this.editor.image.selectionMask : null;
+    const capture = this.editor.compositor.captureGenerationInput(this.editor.image.root, frame, selection);
+    let mask = capture.mask;
+    if (mask && this.feather > 0) {
+      const feathered = this.masks.create(mask, frame, this.feather, capture.input);
+      if (feathered !== mask) { mask.texture.destroy(); mask = feathered; }
+    }
+    try {
+      const [inputPixels, maskPixels] = await Promise.all([
+        model.capabilities.inputImages ? this.editor.readback.rgba(capture.input) : Promise.resolve(null),
+        mask ? this.editor.readback.rgba(mask, true) : Promise.resolve(null),
+      ]);
+      const [input, maskImage] = await Promise.all([
+        inputPixels ? rgbaToPng(inputPixels, frame.width, frame.height) : Promise.resolve(null),
+        maskPixels ? rgbaToPng(maskPixels, frame.width, frame.height) : Promise.resolve(null),
+      ]);
+      return { input, mask: maskImage };
+    } finally {
+      capture.input.texture.destroy();
+      mask?.texture.destroy();
+    }
+  }
 
   private notify(): void { this.onChange?.(); this.editor.changed(); }
 
@@ -249,13 +282,13 @@ export class ImageGeneration {
       const capture = this.editor.compositor.captureGenerationInput(run.root, run.frame, selection);
       run.input = capture.input;
       run.mask = capture.mask;
-      const feathered = this.masks.create(run.mask, run.frame, removal ? 0 : this.feather, run.input);
+      const feathered = run.mask ? this.masks.create(run.mask, run.frame, removal ? 0 : this.feather, run.input) : null;
       if (feathered !== run.mask) { run.mask?.texture.destroy(); run.mask = feathered; }
       // Retain full-resolution selection coverage for the resulting layer; only
       // the inference transport is reduced for large removal crops.
       const requestFrame = removal ? run.lens.frame(Math.min(1, 2048 / Math.max(run.frame.width, run.frame.height))) : run.frame;
       let inputSurface = run.input, maskSurface = run.mask;
-      let input: Uint8Array<ArrayBuffer>, mask: Uint8Array<ArrayBuffer> | null;
+      let input: Uint8Array<ArrayBuffer> | null, mask: Uint8Array<ArrayBuffer> | null;
       try {
         if (requestFrame.width !== run.frame.width || requestFrame.height !== run.frame.height) {
           const bounds = { x: 0, y: 0, width: requestFrame.width, height: requestFrame.height };
@@ -263,7 +296,8 @@ export class ImageGeneration {
         }
         if (removal) maskSurface = this.masks.support(run.mask!, requestFrame.width, requestFrame.height);
         [input, mask] = await Promise.all([
-          this.editor.readback.rgba(inputSurface), maskSurface ? this.editor.readback.rgba(maskSurface, true) : Promise.resolve(null),
+          modelCapabilities?.inputImages ? this.editor.readback.rgba(inputSurface) : Promise.resolve(null),
+          maskSurface ? this.editor.readback.rgba(maskSurface, true) : Promise.resolve(null),
         ]);
       } finally {
         if (inputSurface !== run.input) inputSurface.texture.destroy();

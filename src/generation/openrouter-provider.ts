@@ -1,12 +1,5 @@
 import type { GenerationEvents, GenerationModel, GenerationProvider, GenerationRequest } from './provider';
-
-async function encodePng(pixels: Uint8Array<ArrayBuffer>, width: number, height: number): Promise<Uint8Array<ArrayBuffer>> {
-  const canvas = new OffscreenCanvas(width, height);
-  const context = canvas.getContext('2d');
-  if (!context) throw new Error('Unable to encode the OpenRouter input image.');
-  context.putImageData(new ImageData(new Uint8ClampedArray(pixels), width, height), 0, 0);
-  return new Uint8Array(await (await canvas.convertToBlob({ type: 'image/png' })).arrayBuffer());
-}
+import { rgbaToPng } from './image-codec';
 
 export class OpenRouterGenerationProvider implements GenerationProvider {
   readonly source = 'openrouter';
@@ -54,7 +47,8 @@ export class OpenRouterGenerationProvider implements GenerationProvider {
     if (!model) throw new Error('The selected OpenRouter model is unavailable. Refresh the model list.');
     if (signal.aborted) throw new DOMException('Generation cancelled.', 'AbortError');
     events.progress({ phase: request.input && model.capabilities.inputImages ? 'Encoding input' : 'Starting generation', step: 0, steps: 0 });
-    const input = request.input && model.capabilities.inputImages ? await encodePng(request.input, request.width, request.height) : null;
+    const inputBlob = request.input && model.capabilities.inputImages ? await rgbaToPng(request.input, request.width, request.height) : null;
+    const input = inputBlob ? new Uint8Array(await inputBlob.arrayBuffer()) : null;
     if (signal.aborted) throw new DOMException('Generation cancelled.', 'AbortError');
     events.progress({ phase: 'Generating with OpenRouter', step: 0, steps: 0 });
     const abort = () => { void window.desktop.cancelOpenRouterGeneration(request.id); };
