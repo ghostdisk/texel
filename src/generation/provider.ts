@@ -1,3 +1,13 @@
+import modelRatings from './model-ratings.json';
+
+export interface GenerationModelRatings {
+  affordability: number;
+  speed: number;
+  quality: number;
+  provisional?: string[];
+  qualityScope?: string;
+}
+
 export interface GenerationModelCapabilities {
   inputImages: number;
   mask: boolean;
@@ -17,8 +27,10 @@ export interface GenerationModelCapabilities {
 export interface GenerationModel {
   id: string;
   label: string;
+  displayName?: string;
   source: string;
   capabilities: GenerationModelCapabilities;
+  ratings?: GenerationModelRatings;
   task?: 'generate' | 'remove';
 }
 
@@ -71,6 +83,20 @@ export class GenerationModelRegistry {
     this.providers.set(provider.source, provider);
   }
 
+  private displayName(model: GenerationModel): string {
+    const candidate = model.label && model.label !== model.id ? model.label : model.id.split('/').at(-1)!;
+    const withoutProvider = candidate.replace(/^[^:]+:\s*/, '');
+    if (/\s/.test(withoutProvider)) return withoutProvider;
+    const words: Record<string, string> = { ai: 'AI', gpt: 'GPT', flux: 'FLUX', vae: 'VAE' };
+    return withoutProvider.replace(/([a-z])([A-Z])/g, '$1 $2').split(/[_-]+/)
+      .map((word) => words[word.toLowerCase()] ?? word.charAt(0).toUpperCase() + word.slice(1)).join(' ');
+  }
+
+  private registered(model: GenerationModel): GenerationModel {
+    const ratings = (modelRatings as Record<string, GenerationModelRatings>)[model.id];
+    return { ...model, displayName: this.displayName(model), ratings };
+  }
+
   async refresh(): Promise<readonly GenerationModel[]> {
     const results = await Promise.allSettled([...this.providers.values()].map(async (provider) => ({ provider, models: await provider.models() })));
     this.entries.clear();
@@ -79,7 +105,7 @@ export class GenerationModelRegistry {
       if (result.status === 'rejected') { failure ??= result.reason; continue; }
       for (const model of result.value.models) {
         if (model.source !== result.value.provider.source || !model.id.startsWith(model.source + '/')) continue;
-        this.entries.set(model.id, model);
+        this.entries.set(model.id, this.registered(model));
       }
     }
     if (!this.entries.size && failure) throw failure;

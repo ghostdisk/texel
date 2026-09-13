@@ -1,0 +1,443 @@
+{
+  "openrouter/openai/gpt-image-2.5-sunburst": {
+    "affordability": 3,
+    "speed": 3,
+    "quality": 5,
+    "provisional": [
+      "affordability"
+    ],
+    "qualityScope": "general_editing"
+  },
+  "openrouter/openai/gpt-image-2.5-flare": {
+    "affordability": 3,
+    "speed": 3,
+    "quality": 5,
+    "provisional": [
+      "affordability"
+    ],
+    "qualityScope": "general_editing"
+  },
+  "openrouter/openai/gpt-image-2": {
+    "affordability": 1,
+    "speed": 3,
+    "quality": 5,
+    "provisional": [],
+    "qualityScope": "general_editing"
+  },
+  "openrouter/openai/gpt-image-1": {
+    "affordability": 2,
+    "speed": 2,
+    "quality": 2,
+    "provisional": [
+      "speed"
+    ],
+    "qualityScope": "general_editing"
+  },
+  "openrouter/openai/gpt-image-1-mini": {
+    "affordability": 4,
+    "speed": 3,
+    "quality": 2,
+    "provisional": [
+      "speed",
+      "quality"
+    ],
+    "qualityScope": "general_editing"
+  },
+  "openrouter/openai/gpt-5.4-image-2": {
+    "affordability": 1,
+    "speed": 1,
+    "quality": 5,
+    "provisional": [
+      "affordability",
+      "quality"
+    ],
+    "qualityScope": "general_editing"
+  },
+  "openrouter/openai/gpt-5-image": {
+    "affordability": 2,
+    "speed": 2,
+    "quality": 2,
+    "provisional": [
+      "affordability",
+      "speed",
+      "quality"
+    ],
+    "qualityScope": "general_editing"
+  },
+  "openrouter/openai/gpt-5-image-mini": {
+    "affordability": 4,
+    "speed": 2,
+    "quality": 2,
+    "provisional": [
+      "affordability",
+      "quality"
+    ],
+    "qualityScope": "general_editing"
+  },
+  "openrouter/google/gemini-3.1-flash-image": {
+    "affordability": 3,
+    "speed": 4,
+    "quality": 4,
+    "provisional": [],
+    "qualityScope": "general_editing"
+  },
+  "openrouter/google/gemini-3.1-flash-lite-image": {
+    "affordability": 4,
+    "speed": 4,
+    "quality": 3,
+    "provisional": [],
+    "qualityScope": "general_editing"
+  },
+  "openrouter/google/gemini-3.1-flash-image-preview": {
+    "affordability": 3,
+    "speed": 3,
+    "quality": 4,
+    "provisional": [],
+    "qualityScope": "general_editing"
+  },
+  "openrouter/google/gemini-3-pro-image": {
+    "affordability": 2,
+    "speed": 3,
+    "quality": 4,
+    "provisional": [],
+    "qualityScope": "general_editing"
+  },
+  "openrouter/google/gemini-3-pro-image-preview": {
+    "affordability": 2,
+    "speed": 3,
+    "quality": 4,
+    "provisional": [],
+    "qualityScope": "general_editing"
+  },
+  "openrouter/google/gemini-2.5-flash-image": {
+    "affordability": 4,
+    "speed": 4,
+    "quality": 3,
+    "provisional": [],
+    "qualityScope": "general_editing"
+  },
+  "openrouter/black-forest-labs/flux.2-klein-4b": {
+    "affordability": 5,
+    "speed": 5,
+    "quality": 2,
+    "provisional": [],
+    "qualityScope": "general_editing"
+  },
+  "openrouter/black-forest-labs/flux.2-pro": {
+    "affordability": 4,
+    "speed": 4,
+    "quality": 3,
+    "provisional": [],
+    "qualityScope": "general_editing"
+  },
+  "openrouter/black-forest-labs/flux.2-flex": {
+    "affordability": 3,
+    "speed": 4,
+    "quality": 3,
+    "provisional": [],
+    "qualityScope": "general_editing"
+  },
+  "openrouter/black-forest-labs/flux.2-max": {
+    "affordability": 3,
+    "speed": 3,
+    "quality": 3,
+    "provisional": [],
+    "qualityScope": "general_editing"
+  },
+  "openrouter/bytedance-seed/seedream-5-0-pro": {
+    "affordability": 4,
+    "speed": 1,
+    "quality": 4,
+    "provisional": [],
+    "qualityScope": "general_editing"
+  },
+  "openrouter/bytedance-seed/seedream-5-0-lite": {
+    "affordability": 4,
+    "speed": 2,
+    "quality": 4,
+    "provisional": [],
+    "qualityScope": "general_editing"
+  },
+  "openrouter/bytedance-seed/seedream-4.5": {
+    "affordability": 4,
+    "speed": 3,
+    "quality": 3,
+    "provisional": [],
+    "qualityScope": "general_editing"
+  },
+  "openrouter/microsoft/mai-image-2.6": {
+    "affordability": 4,
+    "speed": 3,
+    "quality": 5,
+    "provisional": [],
+    "qualityScope": "general_editing"
+  },
+  "openrouter/microsoft/mai-image-2.6-flash": {
+    "affordability": 5,
+    "speed": 3,
+    "quality": 5,
+    "provisional": [],
+    "qualityScope": "general_editing"
+  },
+  "openrouter/microsoft/mai-image-2.5": {
+    "affordability": 4,
+    "speed": 2,
+    "quality": 4,
+    "provisional": [],
+    "qualityScope": "general_editing"
+  },
+  "openrouter/microsoft/mai-image-2.5-pro": {
+    "affordability": 2,
+    "speed": 2,
+    "quality": 4,
+    "provisional": [
+      "speed"
+    ],
+    "qualityScope": "general_editing"
+  },
+  "openrouter/recraft/recraft-v4-styles": {
+    "affordability": 4,
+    "speed": 3,
+    "quality": 4,
+    "provisional": [
+      "speed",
+      "quality"
+    ],
+    "qualityScope": "style_reference_generation"
+  },
+  "openrouter/recraft/recraft-v4-styles-pro": {
+    "affordability": 2,
+    "speed": 3,
+    "quality": 4,
+    "provisional": [
+      "quality"
+    ],
+    "qualityScope": "style_reference_generation"
+  },
+  "openrouter/recraft/recraft-v4-styles-vector": {
+    "affordability": 3,
+    "speed": 3,
+    "quality": 4,
+    "provisional": [
+      "speed",
+      "quality"
+    ],
+    "qualityScope": "style_reference_vector_generation"
+  },
+  "openrouter/recraft/recraft-v4-styles-pro-vector": {
+    "affordability": 2,
+    "speed": 2,
+    "quality": 4,
+    "provisional": [
+      "speed",
+      "quality"
+    ],
+    "qualityScope": "style_reference_vector_generation"
+  },
+  "openrouter/recraft/recraft-v4.1": {
+    "affordability": 4,
+    "speed": 3,
+    "quality": 3,
+    "provisional": [
+      "quality"
+    ],
+    "qualityScope": "raster_design"
+  },
+  "openrouter/recraft/recraft-v4.1-pro": {
+    "affordability": 1,
+    "speed": 3,
+    "quality": 3,
+    "provisional": [
+      "speed",
+      "quality"
+    ],
+    "qualityScope": "raster_design"
+  },
+  "openrouter/recraft/recraft-v4.1-utility": {
+    "affordability": 4,
+    "speed": 3,
+    "quality": 3,
+    "provisional": [
+      "quality"
+    ],
+    "qualityScope": "raster_design"
+  },
+  "openrouter/recraft/recraft-v4.1-utility-pro": {
+    "affordability": 1,
+    "speed": 2,
+    "quality": 3,
+    "provisional": [
+      "quality"
+    ],
+    "qualityScope": "raster_design"
+  },
+  "openrouter/recraft/recraft-v4.1-vector": {
+    "affordability": 3,
+    "speed": 3,
+    "quality": 4,
+    "provisional": [
+      "speed",
+      "quality"
+    ],
+    "qualityScope": "vector_design"
+  },
+  "openrouter/recraft/recraft-v4.1-pro-vector": {
+    "affordability": 1,
+    "speed": 2,
+    "quality": 4,
+    "provisional": [
+      "speed",
+      "quality"
+    ],
+    "qualityScope": "vector_design"
+  },
+  "openrouter/recraft/recraft-v4": {
+    "affordability": 4,
+    "speed": 4,
+    "quality": 3,
+    "provisional": [
+      "quality"
+    ],
+    "qualityScope": "raster_design"
+  },
+  "openrouter/recraft/recraft-v4-pro": {
+    "affordability": 1,
+    "speed": 2,
+    "quality": 3,
+    "provisional": [
+      "speed",
+      "quality"
+    ],
+    "qualityScope": "raster_design"
+  },
+  "openrouter/recraft/recraft-v4-vector": {
+    "affordability": 3,
+    "speed": 3,
+    "quality": 4,
+    "provisional": [
+      "speed",
+      "quality"
+    ],
+    "qualityScope": "vector_design"
+  },
+  "openrouter/recraft/recraft-v4-pro-vector": {
+    "affordability": 1,
+    "speed": 2,
+    "quality": 4,
+    "provisional": [
+      "speed",
+      "quality"
+    ],
+    "qualityScope": "vector_design"
+  },
+  "openrouter/recraft/recraft-v3": {
+    "affordability": 4,
+    "speed": 4,
+    "quality": 2,
+    "provisional": [
+      "speed",
+      "quality"
+    ],
+    "qualityScope": "raster_design"
+  },
+  "openrouter/sourceful/riverflow-v2.5-pro": {
+    "affordability": 2,
+    "speed": 1,
+    "quality": 5,
+    "provisional": [
+      "affordability",
+      "quality"
+    ],
+    "qualityScope": "general_editing"
+  },
+  "openrouter/sourceful/riverflow-v2.5-fast": {
+    "affordability": 5,
+    "speed": 2,
+    "quality": 4,
+    "provisional": [
+      "affordability",
+      "quality"
+    ],
+    "qualityScope": "general_editing"
+  },
+  "openrouter/sourceful/riverflow-v2-pro": {
+    "affordability": 2,
+    "speed": 1,
+    "quality": 4,
+    "provisional": [
+      "quality"
+    ],
+    "qualityScope": "general_editing"
+  },
+  "openrouter/sourceful/riverflow-v2-fast": {
+    "affordability": 5,
+    "speed": 1,
+    "quality": 3,
+    "provisional": [
+      "quality"
+    ],
+    "qualityScope": "general_editing"
+  },
+  "openrouter/x-ai/grok-imagine-image-2.0": {
+    "affordability": 4,
+    "speed": 3,
+    "quality": 5,
+    "provisional": [],
+    "qualityScope": "general_editing"
+  },
+  "openrouter/x-ai/grok-imagine-image-quality": {
+    "affordability": 4,
+    "speed": 4,
+    "quality": 4,
+    "provisional": [],
+    "qualityScope": "general_editing"
+  },
+  "openrouter/qwen/qwen-image-3": {
+    "affordability": 4,
+    "speed": 1,
+    "quality": 3,
+    "provisional": [],
+    "qualityScope": "general_editing"
+  },
+  "openrouter/qwen/qwen-image-3-pro": {
+    "affordability": 4,
+    "speed": 1,
+    "quality": 4,
+    "provisional": [],
+    "qualityScope": "general_editing"
+  },
+  "openrouter/krea/krea-2-large": {
+    "affordability": 3,
+    "speed": 2,
+    "quality": 3,
+    "provisional": [
+      "quality"
+    ],
+    "qualityScope": "artistic_generation"
+  },
+  "openrouter/krea/krea-2-medium": {
+    "affordability": 4,
+    "speed": 3,
+    "quality": 3,
+    "provisional": [
+      "quality"
+    ],
+    "qualityScope": "artistic_generation"
+  },
+  "openrouter/krea/krea-2-medium-turbo": {
+    "affordability": 5,
+    "speed": 4,
+    "quality": 3,
+    "provisional": [
+      "quality"
+    ],
+    "qualityScope": "artistic_generation"
+  },
+  "openrouter/meta/muse-image": {
+    "affordability": 5,
+    "speed": 3,
+    "quality": 5,
+    "provisional": [],
+    "qualityScope": "general_editing"
+  }
+}

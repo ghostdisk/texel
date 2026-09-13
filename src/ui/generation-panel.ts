@@ -1,5 +1,6 @@
 import type { Editor } from '../editor';
 import type { GenerationModelCapabilities } from '../generation/provider';
+import { GenerationModelPicker } from './generation-model-picker';
 import { SliderInput } from './slider-input';
 import { icon } from './icons';
 
@@ -7,7 +8,7 @@ export class GenerationPanel {
   private readonly window = document.createElement('section');
   private readonly settings = document.createElement('fieldset');
   private readonly provider = document.createElement('select');
-  private readonly model = document.createElement('select');
+  private readonly modelPicker: GenerationModelPicker;
   private readonly status = document.createElement('div');
   private readonly resultPreview = document.createElement('img');
   private readonly inputPreview = document.createElement('img');
@@ -33,6 +34,10 @@ export class GenerationPanel {
 
   constructor(private readonly editor: Editor, container: HTMLElement) {
     const generation = editor.generation;
+    this.modelPicker = new GenerationModelPicker((id) => {
+      generation.model = id;
+      editor.changed();
+    });
     container.classList.add('generation-options');
     const toggle = document.createElement('button');
     toggle.type = 'button';
@@ -68,11 +73,9 @@ export class GenerationPanel {
       this.modelSignature = '';
       editor.changed();
     };
-    this.model.setAttribute('aria-label', 'Generation model');
-    this.model.onchange = () => { generation.model = this.model.value; editor.changed(); };
     const selectors = document.createElement('div');
     selectors.className = 'generation-selectors';
-    selectors.append(label('Provider', this.provider), label('Model', this.model));
+    selectors.append(label('Provider', this.provider), label('Model', this.modelPicker.button));
     const prompt = document.createElement('textarea');
     prompt.rows = 5;
     prompt.value = generation.prompt;
@@ -226,17 +229,14 @@ export class GenerationPanel {
     const generation = this.editor.generation;
     const sources = generation.registry.sources();
     const signature = JSON.stringify(generation.models.map((model) => [model.id, model.capabilities]));
-    if (signature !== this.modelSignature || !this.model.options.length) {
+    if (signature !== this.modelSignature || !this.provider.options.length) {
       this.modelSignature = signature;
       this.provider.replaceChildren(...sources.map((source) => new Option(source.label, source.id)));
-      const source = generation.selectedModel?.source ?? sources[0]?.id ?? '';
-      this.provider.value = source;
-      const models = generation.registry.models(source).filter((model) => model.task !== 'remove');
-      this.model.replaceChildren(...models.map((model) => new Option(model.label, model.id)));
-      if (!this.model.options.length) this.model.add(new Option('No models available', ''));
     }
-    this.provider.value = generation.selectedModel?.source ?? '';
-    this.model.value = generation.model;
+    const source = generation.selectedModel?.source ?? sources[0]?.id ?? '';
+    this.provider.value = source;
+    const models = generation.registry.models(source).filter((model) => model.task !== 'remove');
+    this.modelPicker.update(models, generation.model);
     const capabilities = generation.selectedModel?.capabilities;
     for (const [capability, field] of this.capabilityFields) {
       field.hidden = !capabilities?.[capability] || capability === 'mask' && !this.editor.image.selectionMask;
