@@ -3,7 +3,6 @@ name: Windows release
 on:
   push:
     branches: [main]
-    paths: [package.json]
   workflow_dispatch:
 
 permissions:
@@ -26,9 +25,14 @@ jobs:
         shell: pwsh
         env:
           BEFORE_SHA: ${{ github.event.before }}
+          GH_TOKEN: ${{ github.token }}
         run: |
           $current = (Get-Content package.json -Raw | ConvertFrom-Json).version
           $changed = '${{ github.event_name }}' -eq 'workflow_dispatch'
+          if (-not $changed) {
+            gh api "repos/${{ github.repository }}/releases/tags/v$current" --silent 2>$null
+            $changed = $LASTEXITCODE -ne 0
+          }
           if (-not $changed) {
             $previousSource = git show "$($env:BEFORE_SHA):package.json" 2>$null
             if ($LASTEXITCODE -ne 0) {
@@ -40,7 +44,7 @@ jobs:
           }
           "version=$current" >> $env:GITHUB_OUTPUT
           "changed=$($changed.ToString().ToLowerInvariant())" >> $env:GITHUB_OUTPUT
-          if (-not $changed) { "package.json changed without a version change; skipping the release build." }
+          if (-not $changed) { "Version $current already has a release; skipping the release build." }
 
       - name: Set up Node.js
         if: steps.version.outputs.changed == 'true'
