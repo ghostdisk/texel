@@ -6,6 +6,5 @@ dist/
 
 models/
 packages/**/build/
-packages/**/third_party/
 release/
 .packaging/

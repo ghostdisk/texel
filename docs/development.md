@@ -31,7 +31,6 @@ npm start
 | `npm run dev` | Start Vite and Electron for development |
 | `npm run build` | Build the renderer into `dist/` |
 | `npm start` | Run Electron with the built renderer |
-| `npm run native:setup` | Fetch pinned native dependencies |
 | `npm run native:build` | Configure and build the local inference backend |
 | `npm run native:smoke` | Exercise the native generation protocol |
 | `npm run package:dir` | Create an unpacked application directory |

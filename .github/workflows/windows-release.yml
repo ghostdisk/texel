@@ -9,10 +9,6 @@ on:
 permissions:
   contents: write
 
-env:
-  VULKAN_SDK_VERSION: 1.4.357.0
-  VULKAN_SDK_SHA256: 81f474711e9042f4cd22b31b2f7a8870db2e428b21586fb43dd80150be97310d
-
 jobs:
   installer:
     name: Build Windows installer
@@ -62,24 +58,9 @@ jobs:
         uses: actions/cache@v6
         with:
           path: |
-            packages/texel-editor/local-ai-base/third_party
             packages/texel-editor/local-ai-base/build
-            packages/texel-editor/local-ai-vulkan/third_party
             packages/texel-editor/local-ai-vulkan/build
-          key: windows-local-ai-${{ hashFiles('packages/texel-editor/local-ai-base/native/**', 'packages/texel-editor/local-ai-base/setup.mjs', 'packages/texel-editor/local-ai-base/build.mjs', 'packages/texel-editor/local-ai-vulkan/native/**', 'packages/texel-editor/local-ai-vulkan/setup.mjs', 'packages/texel-editor/local-ai-vulkan/build.mjs') }}
-
-      - name: Install Vulkan shader compiler
-        if: steps.version.outputs.changed == 'true'
-        shell: pwsh
-        run: |
-          $installer = Join-Path $env:RUNNER_TEMP 'vulkan-sdk.exe'
-          $root = Join-Path $env:RUNNER_TEMP 'VulkanSDK'
-          Invoke-WebRequest "https://sdk.lunarg.com/sdk/download/$env:VULKAN_SDK_VERSION/windows/vulkan_sdk.exe" -OutFile $installer
-          $actualHash = (Get-FileHash $installer -Algorithm SHA256).Hash.ToLowerInvariant()
-          if ($actualHash -ne $env:VULKAN_SDK_SHA256) { throw "Unexpected Vulkan SDK checksum: $actualHash" }
-          $process = Start-Process $installer -Wait -PassThru -ArgumentList '--root', $root, '--accept-licenses', '--default-answer', '--confirm-command', 'install', 'copy_only=1'
-          if ($process.ExitCode -ne 0) { throw "Vulkan SDK installer exited with $($process.ExitCode)" }
-          "TEXEL_GLSLC=$(Join-Path $root 'Bin\glslc.exe')" >> $env:GITHUB_ENV
+          key: windows-local-ai-${{ hashFiles('vendor/**', 'packages/texel-editor/local-ai-base/native/**', 'packages/texel-editor/local-ai-base/build.mjs', 'packages/texel-editor/local-ai-vulkan/native/**', 'packages/texel-editor/local-ai-vulkan/build.mjs') }}
 
       - name: Build installer
         if: steps.version.outputs.changed == 'true'

@@ -22,7 +22,7 @@ The editor remains usable when the native backend or model weights are missing. 
 
 ## Building the local backend
 
-Windows development requires CMake 3.28 or newer, Ninja, LLVM/Clang with `clang-cl` and `lld-link`, Visual Studio C++ build tools, a Windows SDK, and the Vulkan SDK for the default preset. CMake, Ninja, and LLVM must be on `PATH`.
+Windows development requires CMake 3.28 or newer, Ninja, LLVM/Clang with `clang-cl` and `lld-link`, Visual Studio C++ build tools, and a Windows SDK. The Windows `glslc` binary and native source dependencies are tracked under the repository's top-level `vendor/` directory.
 
 From the project root:
 
@@ -31,41 +31,30 @@ npm run native:build
 npm run dev
 ```
 
-The setup step clones pinned revisions of stable-diffusion.cpp, vision.cpp, and IXWebSocket and initializes their submodules. Existing dependency checkouts are retained. Restart Electron after building or changing native configuration.
+The build performs no dependency downloads. Restart Electron after building or changing native configuration.
 
-To configure and build directly after `npm run native:setup`:
+To configure and build directly:
 
 ```powershell
-cd native
-cmake --preset clang-vulkan
-cmake --build --preset clang-vulkan
+node packages/texel-editor/local-ai-base/build.mjs
+node packages/texel-editor/local-ai-vulkan/build.mjs
 ```
 
 ## Backend selection
 
-Vulkan is the default development preset. A CPU preset is also included:
-
-```powershell
-npm run native:build -- clang-cpu
-$env:IMGED_NATIVE_PRESET = 'clang-cpu'
-npm run dev
-```
+The base package builds the local AI host. Backend packages provide loadable runtime DLLs; `local-ai-vulkan` is the current backend.
 
 | Setting | Purpose |
 | --- | --- |
-| `IMGED_NATIVE_PRESET` | Select the native development build directory; defaults to `clang-vulkan` |
 | `TEXEL_NATIVE_BINARY` | Override the native executable path |
-| `IMGED_NATIVE_BINARY` | Legacy development executable override |
 | `IMGED_INFERENCE_BACKEND` | Override the inference device; `CPU` forces CPU inference |
 | `IMGED_MAX_VRAM` | Set the stable-diffusion.cpp managed VRAM budget in GiB |
 | `TEXEL_MODELS_DIR` | Override the model-weights directory |
 | `TEXEL_MODELS_CONFIG` | Override the model registry JSON file |
 
-CMake also exposes `IMGED_VULKAN` and `IMGED_CUDA`. Additional combinations can be kept in a local `CMakeUserPresets.json`.
-
 ## Local models
 
-`native/models.json` describes local model bundles. Paths are relative to the selected models directory. Diffusion entries specify their diffusion model, text encoder, and VAE. A model is advertised only when all required files are present.
+`packages/texel-editor/local-ai-base/models.json` describes local model bundles. Paths are relative to the selected models directory. Diffusion entries specify their diffusion model, text encoder, and VAE. A model is advertised only when all required files are present.
 
 For a development checkout, weights normally live in `models/`. A packaged application uses `TEXEL_MODELS_DIR` when set, then a `models/` directory beside `Texel.exe`, then the application's user-data models directory. Packaged model definitions are copied to the user-data directory so they can be edited.
 

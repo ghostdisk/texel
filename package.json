@@ -10,7 +10,6 @@
     "dev": "node scripts/dev.mjs",
     "build": "vite build",
     "start": "electron .",
-    "native:setup": "node scripts/setup-native.mjs",
     "native:build": "node scripts/build-native.mjs",
     "native:smoke": "node scripts/generation-smoke.mjs",
     "dist": "node scripts/package.mjs",
