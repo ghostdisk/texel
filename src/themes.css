@@ -30,3 +30,135 @@
   --selection-gradient: linear-gradient(110deg, #443c71, #33304c);
   --primary-gradient: linear-gradient(120deg, #7953cd, #6943b9);
 }
+
+.theme-catppuccin-latte {
+  color-scheme: light;
+  --app-bg: #eff1f5;
+  --titlebar-bg: #dce0e8;
+  --panel-bg: #e6e9ef;
+  --panel-alt-bg: #eff1f5;
+  --surface-bg: #ccd0da;
+  --surface-raised-bg: #eff1f5;
+  --surface-hover-bg: #bcc0cc;
+  --field-bg: #eff1f5;
+  --canvas-surround: #9ca0b0;
+  --border: #acb0be;
+  --border-strong: #8c8fa1;
+  --text: #4c4f69;
+  --text-strong: #3b3d52;
+  --text-muted: #6c6f85;
+  --text-faint: #8c8fa1;
+  --accent: #8839ef;
+  --accent-hover: #7287fd;
+  --accent-soft: #d8c8ef;
+  --accent-surface: #e1d2f5;
+  --focus: #8839ef;
+  --danger: #d20f39;
+  --danger-surface: #f3d7dd;
+  --success: #40a02b;
+  --success-surface: #d9ead5;
+  --info: #04a5e5;
+  --shadow: #4c4f6940;
+  --panel-gradient: linear-gradient(125deg, #eff1f5, #e6e9ef 75%);
+  --selection-gradient: linear-gradient(110deg, #ddd0f1, #d4c8e8);
+  --primary-gradient: linear-gradient(120deg, #8839ef, #7287fd);
+}
+
+.theme-catppuccin-frappe {
+  color-scheme: dark;
+  --app-bg: #303446;
+  --titlebar-bg: #232634;
+  --panel-bg: #292c3c;
+  --panel-alt-bg: #303446;
+  --surface-bg: #414559;
+  --surface-raised-bg: #363a4f;
+  --surface-hover-bg: #51576d;
+  --field-bg: #232634;
+  --canvas-surround: #1f2230;
+  --border: #51576d;
+  --border-strong: #626880;
+  --text: #c6d0f5;
+  --text-strong: #f2d5cf;
+  --text-muted: #a5adce;
+  --text-faint: #737994;
+  --accent: #ca9ee6;
+  --accent-hover: #babbf1;
+  --accent-soft: #514664;
+  --accent-surface: #463d59;
+  --focus: #ca9ee6;
+  --danger: #e78284;
+  --danger-surface: #49343e;
+  --success: #a6d189;
+  --success-surface: #354b43;
+  --info: #99d1db;
+  --shadow: #11111b99;
+  --panel-gradient: linear-gradient(125deg, #363a4f, #292c3c 75%);
+  --selection-gradient: linear-gradient(110deg, #514664, #414052);
+  --primary-gradient: linear-gradient(120deg, #ca9ee6, #8caaee);
+}
+
+.theme-catppuccin-macchiato {
+  color-scheme: dark;
+  --app-bg: #24273a;
+  --titlebar-bg: #181926;
+  --panel-bg: #1e2030;
+  --panel-alt-bg: #24273a;
+  --surface-bg: #363a4f;
+  --surface-raised-bg: #2d3146;
+  --surface-hover-bg: #494d64;
+  --field-bg: #181926;
+  --canvas-surround: #151621;
+  --border: #494d64;
+  --border-strong: #5b6078;
+  --text: #cad3f5;
+  --text-strong: #f4dbd6;
+  --text-muted: #a5adcb;
+  --text-faint: #6e738d;
+  --accent: #c6a0f6;
+  --accent-hover: #b7bdf8;
+  --accent-soft: #4b4164;
+  --accent-surface: #3e3857;
+  --focus: #c6a0f6;
+  --danger: #ed8796;
+  --danger-surface: #47313f;
+  --success: #a6da95;
+  --success-surface: #30483f;
+  --info: #91d7e3;
+  --shadow: #0d0e1599;
+  --panel-gradient: linear-gradient(125deg, #2d3146, #1e2030 75%);
+  --selection-gradient: linear-gradient(110deg, #4b4164, #37364f);
+  --primary-gradient: linear-gradient(120deg, #c6a0f6, #8aadf4);
+}
+
+.theme-catppuccin-mocha {
+  color-scheme: dark;
+  --app-bg: #1e1e2e;
+  --titlebar-bg: #11111b;
+  --panel-bg: #181825;
+  --panel-alt-bg: #1e1e2e;
+  --surface-bg: #313244;
+  --surface-raised-bg: #252536;
+  --surface-hover-bg: #45475a;
+  --field-bg: #11111b;
+  --canvas-surround: #0d0d15;
+  --border: #45475a;
+  --border-strong: #585b70;
+  --text: #cdd6f4;
+  --text-strong: #f5e0dc;
+  --text-muted: #a6adc8;
+  --text-faint: #6c7086;
+  --accent: #cba6f7;
+  --accent-hover: #b4befe;
+  --accent-soft: #493e61;
+  --accent-surface: #39334f;
+  --focus: #cba6f7;
+  --danger: #f38ba8;
+  --danger-surface: #442d3d;
+  --success: #a6e3a1;
+  --success-surface: #2b473d;
+  --info: #89dceb;
+  --shadow: #00000099;
+  --panel-gradient: linear-gradient(125deg, #252536, #181825 75%);
+  --selection-gradient: linear-gradient(110deg, #493e61, #343047);
+  --primary-gradient: linear-gradient(120deg, #cba6f7, #89b4fa);
+}
