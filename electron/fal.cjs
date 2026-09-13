@@ -228,7 +228,7 @@ function registerFal({ app, ipcMain, safeStorage }, ownerOf) {
       let cursor = '';
       do {
         const url = new URL(CATALOG_API);
-        url.searchParams.set('limit', '50');
+        url.searchParams.set('limit', '10');
         url.searchParams.set('status', 'active');
         url.searchParams.set('category', 'image-to-image');
         url.searchParams.set('expand', 'openapi-3.0');
