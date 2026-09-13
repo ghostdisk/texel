@@ -4,9 +4,13 @@ import { THEMES } from '../themes';
 export class SettingsView {
   private readonly dialog = document.querySelector<HTMLDialogElement>('#settings-dialog')!;
   private readonly grid = document.querySelector<HTMLElement>('#theme-grid')!;
+  private readonly canvasBackground = document.querySelector<HTMLInputElement>('#canvas-background')!;
+  private readonly resetCanvasBackground = document.querySelector<HTMLButtonElement>('#reset-canvas-background')!;
 
   constructor(private readonly settings: SettingsStore) {
     document.querySelector<HTMLButtonElement>('#close-settings')!.onclick = () => this.dialog.close();
+    this.canvasBackground.onchange = () => settings.setCanvasBackground(this.canvasBackground.value);
+    this.resetCanvasBackground.onclick = () => settings.setCanvasBackground(null);
     this.render();
     settings.subscribe(() => this.sync());
   }
@@ -14,6 +18,11 @@ export class SettingsView {
   open(): void {
     this.sync();
     this.dialog.showModal();
+  }
+
+  openCanvasBackground(): void {
+    this.open();
+    this.canvasBackground.focus();
   }
 
   private render(): void {
@@ -36,6 +45,8 @@ export class SettingsView {
   }
 
   private sync(): void {
+    this.canvasBackground.value = this.settings.canvasBackground;
+    this.resetCanvasBackground.disabled = this.settings.customCanvasBackground === null;
     for (const card of this.grid.querySelectorAll<HTMLButtonElement>('.theme-card')) {
       const selected = card.dataset.theme === this.settings.theme;
       card.classList.toggle('selected', selected);

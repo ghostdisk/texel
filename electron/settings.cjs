@@ -2,7 +2,7 @@ const { mkdir, readFile, rename, writeFile } = require('node:fs/promises');
 const path = require('node:path');
 
 function registerSettings({ app, ipcMain, nativeTheme }, ownerOf) {
-  const defaults = { theme: 'texel' };
+  const defaults = { theme: 'texel', canvasBackground: null };
   let cached = null;
   let writes = Promise.resolve();
 
@@ -12,7 +12,10 @@ function registerSettings({ app, ipcMain, nativeTheme }, ownerOf) {
     if (cached) return cached;
     try {
       const parsed = JSON.parse(await readFile(settingsPath(), 'utf8'));
-      cached = parsed && typeof parsed === 'object' && typeof parsed.theme === 'string' ? { ...defaults, theme: parsed.theme } : defaults;
+      if (parsed && typeof parsed === 'object' && typeof parsed.theme === 'string') {
+        const canvasBackground = parsed.canvasBackground === null || /^#[0-9a-f]{6}$/i.test(parsed.canvasBackground) ? parsed.canvasBackground : null;
+        cached = { theme: parsed.theme, canvasBackground };
+      } else cached = defaults;
     } catch (error) {
       if (error?.code !== 'ENOENT') console.error('Unable to read settings:', error);
       cached = defaults;
@@ -36,7 +39,9 @@ function registerSettings({ app, ipcMain, nativeTheme }, ownerOf) {
     if (!ownerOf(event) || !update || typeof update !== 'object') return null;
     const current = await load();
     const theme = typeof update.theme === 'string' && /^[a-z0-9-]{1,80}$/.test(update.theme) ? update.theme : current.theme;
-    cached = { ...current, theme };
+    const canvasBackground = update.canvasBackground === null || /^#[0-9a-f]{6}$/i.test(update.canvasBackground) ?
+      update.canvasBackground : current.canvasBackground;
+    cached = { theme, canvasBackground };
     await persist(cached);
     return cached;
   });

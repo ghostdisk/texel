@@ -111,6 +111,7 @@ export class Editor {
   onRename?: () => void;
   onGuideSettings?: () => void;
   onOpenSettings?: () => void;
+  onCanvasBackgroundSettings?: () => void;
   onDocumentsChange?: () => void;
   commitEdits?: () => void;
   private scheduledFrame = 0;
@@ -1072,6 +1073,7 @@ export class Editor {
       if (image) await this.addImage(image.name, new Blob([image.bytes]));
     } });
     register({ id: 'settings.open', label: 'Appearance…', menu: 'Settings', execute: () => this.onOpenSettings?.() });
+    register({ id: 'settings.canvas-background', label: 'Canvas background…', menu: 'Settings', execute: () => this.onCanvasBackgroundSettings?.() });
     register({ id: 'layer.new', label: 'New pixel layer', menu: 'Layer', execute: () => this.image.createPixelLayer() });
     register({ id: 'layer.new-text', label: 'New text layer', menu: 'Layer', execute: () => (this.tools.get('text') as TextTool).createAt() });
     register({ id: 'layer.new-sized', label: 'New sized layer…', menu: 'Layer', execute: () => this.onNewSizedLayer?.() });
@@ -1423,6 +1425,13 @@ export class Editor {
     this.canvas.addEventListener('contextmenu', (event) => this.run(() => {
       event.preventDefault();
       this.finishGesture();
+      const point = pointerData(event).world;
+      const frame = this.image.frame;
+      if (point.x < frame.x || point.y < frame.y || point.x >= frame.x + frame.width || point.y >= frame.y + frame.height) {
+        const items = this.actions.menuItems(['settings.canvas-background']);
+        void window.desktop.openContextMenu(items, event.clientX, event.clientY).catch(this.report);
+        return;
+      }
       if (!this.image.selectionMask) return;
       const items = this.actions.menuItems(['selection.promote', 'selection.layer-copy', 'selection.layer-cut']);
       void window.desktop.openContextMenu(items, event.clientX, event.clientY).catch(this.report);

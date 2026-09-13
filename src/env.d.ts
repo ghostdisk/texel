@@ -24,6 +24,7 @@ interface GenerationEndpoint {
 
 interface StoredSettings {
   theme: string;
+  canvasBackground: string | null;
 }
 
 interface WindowTheme {

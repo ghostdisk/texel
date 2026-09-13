@@ -38,6 +38,7 @@ async function boot(): Promise<void> {
   applyCanvasBackground();
   const settingsView = new SettingsView(settings);
   editor.onOpenSettings = () => settingsView.open();
+  editor.onCanvasBackgroundSettings = () => settingsView.openCanvasBackground();
   new TitleBar(editor.actions);
   new EditorView(editor);
   editor.actions.attach();
