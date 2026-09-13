@@ -63,20 +63,23 @@ export class Compositor {
   private generationPreview: {
     root: GroupLayer;
     layer: ImageLayer;
+    index: number;
   } | null = null;
 
-  setGenerationPreview(root: GroupLayer, layer: ImageLayer | null): void {
+  setGenerationPreview(root: GroupLayer, layer: ImageLayer | null, index = root.children.length): void {
     const previous = this.generationPreview;
-    this.generationPreview = layer ? { root, layer } : null;
+    this.generationPreview = layer ? { root, layer, index } : null;
     previous?.root.invalidate();
     if (previous?.root !== root) root.invalidate();
   }
 
-  captureGenerationInput(root: GroupLayer, target: GenerationFrame, selection: ImageLayer | null): GenerationCapture {
+  captureGenerationInput(root: GroupLayer, target: GenerationFrame, selection: ImageLayer | null, includePreview = false): GenerationCapture {
     const frame = this.gpu.beginFrame();
     const bounds = { x: 0, y: 0, width: target.width, height: target.height };
     const input = createSurface(this.gpu.device, 'Generation input', bounds);
     let mask: Surface | null = null;
+    const preview = this.generationPreview;
+    if (!includePreview && preview) this.generationPreview = null;
     try {
       this.prepare(root);
       this.encodePaint(frame);
@@ -101,6 +104,8 @@ export class Compositor {
       mask?.texture.destroy();
       frame.release();
       throw error;
+    } finally {
+      if (!includePreview && preview) this.generationPreview = preview;
     }
   }
 
@@ -360,7 +365,8 @@ export class Compositor {
     let childrenChanged = false;
     if (layer instanceof GroupLayer) {
       const preview = this.generationPreview?.root === layer ? this.generationPreview.layer : null;
-      const childrenToRender = preview ? [...layer.children, preview] : layer.children;
+      const previewIndex = this.generationPreview?.root === layer ? this.generationPreview.index : layer.children.length;
+      const childrenToRender = preview ? [...layer.children.slice(0, previewIndex), preview, ...layer.children.slice(previewIndex)] : layer.children;
       for (const child of childrenToRender) {
         if (!child.visibleInStack || child.opacity === 0) continue;
         const evaluated = this.evaluate(frame, child, world, pixelsPerUnit);

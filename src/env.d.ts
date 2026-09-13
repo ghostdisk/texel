@@ -91,6 +91,8 @@ interface FalModelRecord {
   ratingId: string;
   label: string;
   capabilities: import('./generation/provider').GenerationModelCapabilities;
+  tags?: string[];
+  types?: import('./generation/provider').GenerationModelType[];
 }
 
 interface FalModelList {

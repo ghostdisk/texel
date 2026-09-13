@@ -1,4 +1,4 @@
-import type { GenerationEvents, GenerationModel, GenerationProgress, GenerationProvider, GenerationRequest } from './provider';
+import type { GenerationEvents, GenerationModel, GenerationModelType, GenerationProgress, GenerationProvider, GenerationRequest } from './provider';
 
 interface PendingGeneration {
   id: string;
@@ -45,11 +45,15 @@ export class LocalGenerationProvider implements GenerationProvider {
                   label: model.label.startsWith('local/') ? model.label.slice('local/'.length) : model.label,
                   platform: this.platform,
                   task: model.task,
+                  tags: model.task === 'remove' ? ['inpainting', 'object-removal', 'local'] : ['image-to-image', 'local'],
+                  types: (model.task === 'remove' ? ['object-removal-mask'] :
+                    ['general-editing', 'generate-from-image', 'fill-inpaint']) as GenerationModelType[],
+                  ratings: model.task === 'remove' ? { affordability: 5, speed: 5, quality: 2 } : undefined,
                   capabilities: model.task === 'remove' ? {
                     inputImages: 1, minimumInputImages: 1, mask: true, negativePrompt: false, steps: false, guidance: false,
                     seed: false, denoiseStrength: false, partialPreview: true, maxDimension: 2048,
                   } : {
-                    inputImages: 1, mask: true, negativePrompt: true, steps: true, guidance: true,
+                    inputImages: 1, prompt: true, mask: true, negativePrompt: true, steps: true, guidance: true,
                     seed: true, denoiseStrength: true, partialPreview: true,
                     dimensionMultiple: 16, maxDimension: 2048,
                   },

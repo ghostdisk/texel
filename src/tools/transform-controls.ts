@@ -49,6 +49,7 @@ export class TransformControls {
     private readonly target: () => TransformTarget,
     private readonly enabled: () => boolean,
     private readonly snapMove?: (target: TransformTarget, matrix: Matrix, pointer: ToolPointer, axis: 'x' | 'y' | null) => Matrix,
+    private readonly interiorHit = true,
   ) {}
 
   private contains(layer: TransformTarget, world: Point): boolean {
@@ -85,11 +86,11 @@ export class TransformControls {
     return ['ew-resize', 'nwse-resize', 'ns-resize', 'nesw-resize'][((direction % 4) + 4) % 4];
   }
 
-  pointerDown(pointer: ToolPointer): void {
-    if (!this.enabled()) return;
+  pointerDown(pointer: ToolPointer): boolean {
+    if (!this.enabled()) return false;
     const layer = this.target();
     const handle = this.hitHandle(layer, pointer.screen);
-    if (!handle && !this.contains(layer, pointer.world)) return;
+    if (!handle && !this.hitBody(layer, pointer)) return false;
     const parentInverse = inverse(layer.parent?.worldTransform() ?? IDENTITY);
     const start = transformPoint(parentInverse, pointer.world);
     const bounds = layer.localBounds();
@@ -101,6 +102,18 @@ export class TransformControls {
       handle: handle && handle !== 'rotate' ? handle : { x: 0, y: 0 }, bounds, center,
       angle: Math.atan2(start.y - center.y, start.x - center.x),
     };
+    return true;
+  }
+
+  private hitBody(layer: TransformTarget, pointer: ToolPointer): boolean {
+    if (!this.contains(layer, pointer.world)) return false;
+    if (this.interiorHit) return true;
+    const bounds = layer.localBounds();
+    const point = transformPoint(inverse(layer.worldTransform()), pointer.world);
+    const scale = Math.max(0.0001, this.editor.viewport.scale);
+    const edge = 7 / scale;
+    return Math.min(Math.abs(point.x - bounds.x), Math.abs(point.y - bounds.y),
+      Math.abs(point.x - bounds.x - bounds.width), Math.abs(point.y - bounds.y - bounds.height)) <= edge;
   }
 
   pointerMove(pointer: ToolPointer): void {
@@ -169,13 +182,21 @@ export class TransformControls {
     if (gesture) gesture.layer.setTransform(gesture.before);
   }
 
+  get active(): boolean { return !!this.gesture; }
+
+  wantsPointer(pointer: ToolPointer): boolean {
+    if (!this.enabled()) return false;
+    const layer = this.target();
+    return !!this.hitHandle(layer, pointer.screen) || this.hitBody(layer, pointer);
+  }
+
   hover(pointer: ToolPointer | null): void {
     this.editor.brushCursor.hidden = true;
     if (!pointer || this.editor.panHeld) return;
     const layer = this.target();
     const handle = this.enabled() ? this.hitHandle(layer, pointer.screen) : null;
     this.editor.canvas.style.cursor = handle === 'rotate' ? ROTATE_CURSOR : handle ? this.resizeCursor(layer, handle) :
-      this.enabled() && this.contains(layer, pointer.world) ? 'move' : 'default';
+      this.enabled() && this.hitBody(layer, pointer) ? 'move' : 'default';
   }
 
   drawOverlay(controls = true): void {

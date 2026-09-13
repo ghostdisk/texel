@@ -1,0 +1,2639 @@
+[
+  {
+    "id": "fal/fal-ai/nano-banana-2/edit",
+    "displayName": "Nano Banana 2",
+    "platform": "fal",
+    "publisher": "fal-ai",
+    "types": [
+      "general-editing"
+    ],
+    "tags": [],
+    "ratings": null
+  },
+  {
+    "id": "fal/fal-ai/fast-lightning-sdxl/inpainting",
+    "displayName": "Stable Diffusion XL Lightning",
+    "platform": "fal",
+    "publisher": "fal-ai",
+    "types": [
+      "fill-inpaint"
+    ],
+    "tags": [
+      "diffusion",
+      "lightning"
+    ],
+    "ratings": null
+  },
+  {
+    "id": "fal/rundiffusion-fal/juggernaut-flux-lora/inpainting",
+    "displayName": "Juggernaut Flux Lora",
+    "platform": "fal",
+    "publisher": "rundiffusion-fal",
+    "types": [
+      "fill-inpaint"
+    ],
+    "tags": [],
+    "ratings": null
+  },
+  {
+    "id": "fal/fal-ai/playground-v25/inpainting",
+    "displayName": "Playground v2.5",
+    "platform": "fal",
+    "publisher": "fal-ai",
+    "types": [
+      "fill-inpaint",
+      "style-transform"
+    ],
+    "tags": [
+      "inpaint",
+      "artistic",
+      "style"
+    ],
+    "ratings": null
+  },
+  {
+    "id": "fal/fal-ai/fast-lcm-diffusion/inpainting",
+    "displayName": "Latent Consistency Models (v1.5/XL)",
+    "platform": "fal",
+    "publisher": "fal-ai",
+    "types": [
+      "fill-inpaint"
+    ],
+    "tags": [
+      "lcm",
+      "diffusion",
+      "turbo",
+      "real-time",
+      "editing"
+    ],
+    "ratings": {
+      "affordability": null,
+      "speed": 5,
+      "quality": 2,
+      "provisional": [
+        "speed",
+        "quality"
+      ],
+      "unknown": [
+        "affordability"
+      ],
+      "qualityScope": "masked_inpainting",
+      "realtimeCandidate": true
+    }
+  },
+  {
+    "id": "fal/fal-ai/ideogram/v2/turbo/remix",
+    "displayName": "Ideogram V2 Turbo Remix",
+    "platform": "fal",
+    "publisher": "fal-ai",
+    "types": [
+      "general-editing"
+    ],
+    "tags": [
+      "realism",
+      "typography"
+    ],
+    "ratings": null
+  },
+  {
+    "id": "fal/rundiffusion-fal/juggernaut-flux/base/image-to-image",
+    "displayName": "Juggernaut Flux Base",
+    "platform": "fal",
+    "publisher": "rundiffusion-fal",
+    "types": [
+      "generate-from-image"
+    ],
+    "tags": [
+      "image generation"
+    ],
+    "ratings": null
+  },
+  {
+    "id": "fal/fal-ai/ideogram/v2/turbo/edit",
+    "displayName": "Ideogram V2 Turbo Edit",
+    "platform": "fal",
+    "publisher": "fal-ai",
+    "types": [
+      "general-editing"
+    ],
+    "tags": [
+      "realism",
+      "typography"
+    ],
+    "ratings": null
+  },
+  {
+    "id": "fal/fal-ai/ideogram/v2/edit",
+    "displayName": "Ideogram V2 Edit",
+    "platform": "fal",
+    "publisher": "fal-ai",
+    "types": [
+      "general-editing"
+    ],
+    "tags": [
+      "realism",
+      "typography"
+    ],
+    "ratings": null
+  },
+  {
+    "id": "fal/fal-ai/ideogram/v2a/remix",
+    "displayName": "Ideogram V2A Remix",
+    "platform": "fal",
+    "publisher": "fal-ai",
+    "types": [
+      "general-editing"
+    ],
+    "tags": [
+      "realism",
+      "typography"
+    ],
+    "ratings": null
+  },
+  {
+    "id": "openrouter/openai/gpt-image-2.5-flare",
+    "displayName": "OpenAI: GPT Image 2.5 Flare",
+    "platform": "openrouter",
+    "publisher": "openai",
+    "types": [
+      "general-editing",
+      "generate-from-image"
+    ],
+    "tags": [
+      "image-to-image"
+    ],
+    "ratings": {
+      "affordability": 3,
+      "speed": 3,
+      "quality": 5,
+      "provisional": [
+        "affordability"
+      ],
+      "qualityScope": "general_editing"
+    }
+  },
+  {
+    "id": "openrouter/microsoft/mai-image-2.6",
+    "displayName": "Microsoft AI: MAI-Image-2.6",
+    "platform": "openrouter",
+    "publisher": "microsoft",
+    "types": [
+      "general-editing",
+      "generate-from-image"
+    ],
+    "tags": [
+      "image-to-image"
+    ],
+    "ratings": {
+      "affordability": 4,
+      "speed": 3,
+      "quality": 5,
+      "provisional": [],
+      "qualityScope": "general_editing"
+    }
+  },
+  {
+    "id": "openrouter/microsoft/mai-image-2.6-flash",
+    "displayName": "Microsoft AI: MAI-Image-2.6 Flash",
+    "platform": "openrouter",
+    "publisher": "microsoft",
+    "types": [
+      "general-editing",
+      "generate-from-image"
+    ],
+    "tags": [
+      "image-to-image"
+    ],
+    "ratings": {
+      "affordability": 5,
+      "speed": 3,
+      "quality": 5,
+      "provisional": [],
+      "qualityScope": "general_editing"
+    }
+  },
+  {
+    "id": "openrouter/meta/muse-image",
+    "displayName": "Meta: Muse Image",
+    "platform": "openrouter",
+    "publisher": "meta",
+    "types": [
+      "general-editing",
+      "generate-from-image"
+    ],
+    "tags": [
+      "image-to-image"
+    ],
+    "ratings": {
+      "affordability": 5,
+      "speed": 3,
+      "quality": 5,
+      "provisional": [],
+      "qualityScope": "general_editing"
+    }
+  },
+  {
+    "id": "openrouter/recraft/recraft-v4-styles-pro",
+    "displayName": "Recraft: Recraft V4 Styles Pro",
+    "platform": "openrouter",
+    "publisher": "recraft",
+    "types": [
+      "general-editing",
+      "generate-from-image"
+    ],
+    "tags": [
+      "image-to-image"
+    ],
+    "ratings": {
+      "affordability": 2,
+      "speed": 3,
+      "quality": 4,
+      "provisional": [
+        "quality"
+      ],
+      "qualityScope": "style_reference_generation"
+    }
+  },
+  {
+    "id": "openrouter/recraft/recraft-v4-styles-vector",
+    "displayName": "Recraft: Recraft V4 Styles Vector",
+    "platform": "openrouter",
+    "publisher": "recraft",
+    "types": [
+      "general-editing",
+      "generate-from-image"
+    ],
+    "tags": [
+      "image-to-image"
+    ],
+    "ratings": {
+      "affordability": 3,
+      "speed": 3,
+      "quality": 4,
+      "provisional": [
+        "speed",
+        "quality"
+      ],
+      "qualityScope": "style_reference_vector_generation"
+    }
+  },
+  {
+    "id": "openrouter/recraft/recraft-v4-styles-pro-vector",
+    "displayName": "Recraft: Recraft V4 Styles Pro Vector",
+    "platform": "openrouter",
+    "publisher": "recraft",
+    "types": [
+      "general-editing",
+      "generate-from-image"
+    ],
+    "tags": [
+      "image-to-image"
+    ],
+    "ratings": {
+      "affordability": 2,
+      "speed": 2,
+      "quality": 4,
+      "provisional": [
+        "speed",
+        "quality"
+      ],
+      "qualityScope": "style_reference_vector_generation"
+    }
+  },
+  {
+    "id": "openrouter/openai/gpt-image-2.5-sunburst",
+    "displayName": "OpenAI: GPT Image 2.5 Sunburst",
+    "platform": "openrouter",
+    "publisher": "openai",
+    "types": [
+      "general-editing",
+      "generate-from-image"
+    ],
+    "tags": [
+      "image-to-image"
+    ],
+    "ratings": {
+      "affordability": 3,
+      "speed": 3,
+      "quality": 5,
+      "provisional": [
+        "affordability"
+      ],
+      "qualityScope": "general_editing"
+    }
+  },
+  {
+    "id": "fal/fal-ai/flowedit",
+    "displayName": "Flow-Edit",
+    "platform": "fal",
+    "publisher": "fal-ai",
+    "types": [
+      "general-editing"
+    ],
+    "tags": [
+      "editing"
+    ],
+    "ratings": null
+  },
+  {
+    "id": "fal/fal-ai/ideogram/v2a/turbo/remix",
+    "displayName": "Ideogram V2A Turbo Remix",
+    "platform": "fal",
+    "publisher": "fal-ai",
+    "types": [
+      "general-editing"
+    ],
+    "tags": [
+      "realism",
+      "typography"
+    ],
+    "ratings": null
+  },
+  {
+    "id": "fal/fal-ai/fast-sdxl-controlnet-canny/inpainting",
+    "displayName": "ControlNet SDXL",
+    "platform": "fal",
+    "publisher": "fal-ai",
+    "types": [
+      "fill-inpaint",
+      "structure-extraction"
+    ],
+    "tags": [
+      "diffusion",
+      "controlnet",
+      "editing",
+      "manipulation"
+    ],
+    "ratings": null
+  },
+  {
+    "id": "fal/fal-ai/qwen-image-edit-lora",
+    "displayName": "Qwen Image Edit Lora",
+    "platform": "fal",
+    "publisher": "fal-ai",
+    "types": [
+      "general-editing"
+    ],
+    "tags": [
+      "image-to-image",
+      "image-editing",
+      "lora"
+    ],
+    "ratings": null
+  },
+  {
+    "id": "fal/fal-ai/hidream-i1-full/image-to-image",
+    "displayName": "Hidream I1 Full",
+    "platform": "fal",
+    "publisher": "fal-ai",
+    "types": [
+      "generate-from-image"
+    ],
+    "tags": [
+      "image-to-image",
+      "hidream"
+    ],
+    "ratings": null
+  },
+  {
+    "id": "fal/fal-ai/z-image/turbo/inpaint/lora",
+    "displayName": "Z Image Turbo Inpaint Lora",
+    "platform": "fal",
+    "publisher": "fal-ai",
+    "types": [
+      "fill-inpaint"
+    ],
+    "tags": [
+      "inpainting"
+    ],
+    "ratings": null
+  },
+  {
+    "id": "fal/fal-ai/kolors/image-to-image",
+    "displayName": "Kolors Image to Image",
+    "platform": "fal",
+    "publisher": "fal-ai",
+    "types": [
+      "generate-from-image"
+    ],
+    "tags": [
+      "realism",
+      "editing",
+      "diffusion"
+    ],
+    "ratings": null
+  },
+  {
+    "id": "fal/fal-ai/luma-photon/modify",
+    "displayName": "Luma Photon",
+    "platform": "fal",
+    "publisher": "fal-ai",
+    "types": [
+      "general-editing"
+    ],
+    "tags": [
+      "image-to-image"
+    ],
+    "ratings": null
+  },
+  {
+    "id": "fal/fal-ai/emu-3.5-image/edit-image",
+    "displayName": "Emu 3.5 Image",
+    "platform": "fal",
+    "publisher": "fal-ai",
+    "types": [
+      "general-editing"
+    ],
+    "tags": [],
+    "ratings": null
+  },
+  {
+    "id": "fal/fal-ai/finegrain-eraser",
+    "displayName": "Finegrain Eraser",
+    "platform": "fal",
+    "publisher": "fal-ai",
+    "types": [
+      "fill-inpaint",
+      "lighting-color",
+      "remove-replace"
+    ],
+    "tags": [
+      "utility",
+      "editing"
+    ],
+    "ratings": null
+  },
+  {
+    "id": "fal/fal-ai/ideogram/v2/remix",
+    "displayName": "Ideogram V2 Remix",
+    "platform": "fal",
+    "publisher": "fal-ai",
+    "types": [
+      "general-editing"
+    ],
+    "tags": [
+      "realism",
+      "typography"
+    ],
+    "ratings": null
+  },
+  {
+    "id": "fal/fal-ai/uno",
+    "displayName": "Uno",
+    "platform": "fal",
+    "publisher": "fal-ai",
+    "types": [
+      "generate-from-image"
+    ],
+    "tags": [
+      "image-to-image"
+    ],
+    "ratings": null
+  },
+  {
+    "id": "fal/fal-ai/vidu/reference-to-image",
+    "displayName": "Vidu",
+    "platform": "fal",
+    "publisher": "fal-ai",
+    "types": [
+      "generate-from-image"
+    ],
+    "tags": [
+      "images-to-image"
+    ],
+    "ratings": null
+  },
+  {
+    "id": "fal/fal-ai/qwen-image-edit-2509-lora",
+    "displayName": "Qwen Image Edit 2509 Lora",
+    "platform": "fal",
+    "publisher": "fal-ai",
+    "types": [
+      "general-editing"
+    ],
+    "tags": [
+      "image-to-image",
+      "image-editing"
+    ],
+    "ratings": null
+  },
+  {
+    "id": "fal/fal-ai/chrono-edit-lora",
+    "displayName": "Chrono Edit Lora",
+    "platform": "fal",
+    "publisher": "fal-ai",
+    "types": [
+      "general-editing"
+    ],
+    "tags": [
+      "image-to-image",
+      "image-editing"
+    ],
+    "ratings": null
+  },
+  {
+    "id": "fal/bria/fibo-edit/rewrite_text",
+    "displayName": "Fibo Edit [Rewrite Text]",
+    "platform": "fal",
+    "publisher": "bria",
+    "types": [
+      "general-editing"
+    ],
+    "tags": [
+      "bria",
+      "fibo-edit",
+      "text-rewriting",
+      "image-editing"
+    ],
+    "ratings": null
+  },
+  {
+    "id": "fal/fal-ai/luma-photon/flash/modify",
+    "displayName": "Luma Photon",
+    "platform": "fal",
+    "publisher": "fal-ai",
+    "types": [
+      "general-editing"
+    ],
+    "tags": [
+      "image-to-image"
+    ],
+    "ratings": null
+  },
+  {
+    "id": "fal/fal-ai/lora/inpaint",
+    "displayName": "Stable Diffusion with LoRAs",
+    "platform": "fal",
+    "publisher": "fal-ai",
+    "types": [
+      "fill-inpaint"
+    ],
+    "tags": [
+      "diffusion",
+      "lora",
+      "customization",
+      "fine-tuning"
+    ],
+    "ratings": null
+  },
+  {
+    "id": "fal/fal-ai/sdxl-controlnet-union/inpainting",
+    "displayName": "SDXL ControlNet Union",
+    "platform": "fal",
+    "publisher": "fal-ai",
+    "types": [
+      "fill-inpaint"
+    ],
+    "tags": [
+      "diffusion",
+      "controlnet",
+      "composition"
+    ],
+    "ratings": null
+  },
+  {
+    "id": "fal/fal-ai/flux-pro/v1/fill-finetuned",
+    "displayName": "FLUX.1 [pro] Fill Fine-tuned",
+    "platform": "fal",
+    "publisher": "fal-ai",
+    "types": [
+      "fill-inpaint",
+      "style-transform"
+    ],
+    "tags": [
+      "editing"
+    ],
+    "ratings": null
+  },
+  {
+    "id": "openrouter/recraft/recraft-v4-styles",
+    "displayName": "Recraft: Recraft V4 Styles",
+    "platform": "openrouter",
+    "publisher": "recraft",
+    "types": [
+      "general-editing",
+      "generate-from-image"
+    ],
+    "tags": [
+      "image-to-image"
+    ],
+    "ratings": {
+      "affordability": 4,
+      "speed": 3,
+      "quality": 4,
+      "provisional": [
+        "speed",
+        "quality"
+      ],
+      "qualityScope": "style_reference_generation"
+    }
+  },
+  {
+    "id": "openrouter/bytedance-seed/seedream-5-0-lite",
+    "displayName": "ByteDance Seed: Seedream 5.0 Lite",
+    "platform": "openrouter",
+    "publisher": "bytedance-seed",
+    "types": [
+      "general-editing",
+      "generate-from-image"
+    ],
+    "tags": [
+      "image-to-image"
+    ],
+    "ratings": {
+      "affordability": 4,
+      "speed": 2,
+      "quality": 4,
+      "provisional": [],
+      "qualityScope": "general_editing"
+    }
+  },
+  {
+    "id": "openrouter/bytedance-seed/seedream-5-0-pro",
+    "displayName": "ByteDance Seed: Seedream 5.0 Pro",
+    "platform": "openrouter",
+    "publisher": "bytedance-seed",
+    "types": [
+      "general-editing",
+      "generate-from-image"
+    ],
+    "tags": [
+      "image-to-image"
+    ],
+    "ratings": {
+      "affordability": 4,
+      "speed": 1,
+      "quality": 4,
+      "provisional": [],
+      "qualityScope": "general_editing"
+    }
+  },
+  {
+    "id": "openrouter/x-ai/grok-imagine-image-2.0",
+    "displayName": "xAI: Grok Imagine Image 2.0",
+    "platform": "openrouter",
+    "publisher": "x-ai",
+    "types": [
+      "general-editing",
+      "generate-from-image"
+    ],
+    "tags": [
+      "image-to-image"
+    ],
+    "ratings": {
+      "affordability": 4,
+      "speed": 3,
+      "quality": 5,
+      "provisional": [],
+      "qualityScope": "general_editing"
+    }
+  },
+  {
+    "id": "openrouter/recraft/recraft-v4.1",
+    "displayName": "Recraft: Recraft V4.1",
+    "platform": "openrouter",
+    "publisher": "recraft",
+    "types": [
+      "general-editing",
+      "generate-from-image"
+    ],
+    "tags": [
+      "image-to-image"
+    ],
+    "ratings": {
+      "affordability": 4,
+      "speed": 3,
+      "quality": 3,
+      "provisional": [
+        "quality"
+      ],
+      "qualityScope": "raster_design"
+    }
+  },
+  {
+    "id": "openrouter/recraft/recraft-v4-pro-vector",
+    "displayName": "Recraft: Recraft V4 Pro Vector",
+    "platform": "openrouter",
+    "publisher": "recraft",
+    "types": [
+      "general-editing",
+      "generate-from-image"
+    ],
+    "tags": [
+      "image-to-image"
+    ],
+    "ratings": {
+      "affordability": 1,
+      "speed": 2,
+      "quality": 4,
+      "provisional": [
+        "speed",
+        "quality"
+      ],
+      "qualityScope": "vector_design"
+    }
+  },
+  {
+    "id": "openrouter/recraft/recraft-v4-vector",
+    "displayName": "Recraft: Recraft V4 Vector",
+    "platform": "openrouter",
+    "publisher": "recraft",
+    "types": [
+      "general-editing",
+      "generate-from-image"
+    ],
+    "tags": [
+      "image-to-image"
+    ],
+    "ratings": {
+      "affordability": 3,
+      "speed": 3,
+      "quality": 4,
+      "provisional": [
+        "speed",
+        "quality"
+      ],
+      "qualityScope": "vector_design"
+    }
+  },
+  {
+    "id": "openrouter/recraft/recraft-v4-pro",
+    "displayName": "Recraft: Recraft V4 Pro",
+    "platform": "openrouter",
+    "publisher": "recraft",
+    "types": [
+      "general-editing",
+      "generate-from-image"
+    ],
+    "tags": [
+      "image-to-image"
+    ],
+    "ratings": {
+      "affordability": 1,
+      "speed": 2,
+      "quality": 3,
+      "provisional": [
+        "speed",
+        "quality"
+      ],
+      "qualityScope": "raster_design"
+    }
+  },
+  {
+    "id": "openrouter/recraft/recraft-v4",
+    "displayName": "Recraft: Recraft V4",
+    "platform": "openrouter",
+    "publisher": "recraft",
+    "types": [
+      "general-editing",
+      "generate-from-image"
+    ],
+    "tags": [
+      "image-to-image"
+    ],
+    "ratings": {
+      "affordability": 4,
+      "speed": 4,
+      "quality": 3,
+      "provisional": [
+        "quality"
+      ],
+      "qualityScope": "raster_design"
+    }
+  },
+  {
+    "id": "openrouter/recraft/recraft-v3",
+    "displayName": "Recraft: Recraft V3",
+    "platform": "openrouter",
+    "publisher": "recraft",
+    "types": [
+      "general-editing",
+      "generate-from-image"
+    ],
+    "tags": [
+      "image-to-image"
+    ],
+    "ratings": {
+      "affordability": 4,
+      "speed": 4,
+      "quality": 2,
+      "provisional": [
+        "speed",
+        "quality"
+      ],
+      "qualityScope": "raster_design"
+    }
+  },
+  {
+    "id": "openrouter/openai/gpt-5.4-image-2",
+    "displayName": "OpenAI: GPT-5.4 Image 2",
+    "platform": "openrouter",
+    "publisher": "openai",
+    "types": [
+      "general-editing",
+      "generate-from-image"
+    ],
+    "tags": [
+      "image-to-image"
+    ],
+    "ratings": {
+      "affordability": 1,
+      "speed": 1,
+      "quality": 5,
+      "provisional": [
+        "affordability",
+        "quality"
+      ],
+      "qualityScope": "general_editing"
+    }
+  },
+  {
+    "id": "openrouter/google/gemini-3.1-flash-image-preview",
+    "displayName": "Google: Nano Banana 2 (Gemini 3.1 Flash Image Preview)",
+    "platform": "openrouter",
+    "publisher": "google",
+    "types": [
+      "general-editing",
+      "generate-from-image"
+    ],
+    "tags": [
+      "image-to-image"
+    ],
+    "ratings": {
+      "affordability": 3,
+      "speed": 3,
+      "quality": 4,
+      "provisional": [],
+      "qualityScope": "general_editing"
+    }
+  },
+  {
+    "id": "openrouter/sourceful/riverflow-v2-pro",
+    "displayName": "Sourceful: Riverflow V2 Pro",
+    "platform": "openrouter",
+    "publisher": "sourceful",
+    "types": [
+      "general-editing",
+      "generate-from-image"
+    ],
+    "tags": [
+      "image-to-image"
+    ],
+    "ratings": {
+      "affordability": 2,
+      "speed": 1,
+      "quality": 4,
+      "provisional": [
+        "quality"
+      ],
+      "qualityScope": "general_editing"
+    }
+  },
+  {
+    "id": "openrouter/sourceful/riverflow-v2-fast",
+    "displayName": "Sourceful: Riverflow V2 Fast",
+    "platform": "openrouter",
+    "publisher": "sourceful",
+    "types": [
+      "general-editing",
+      "generate-from-image"
+    ],
+    "tags": [
+      "image-to-image"
+    ],
+    "ratings": {
+      "affordability": 5,
+      "speed": 1,
+      "quality": 3,
+      "provisional": [
+        "quality"
+      ],
+      "qualityScope": "general_editing"
+    }
+  },
+  {
+    "id": "openrouter/black-forest-labs/flux.2-klein-4b",
+    "displayName": "Black Forest Labs: FLUX.2 Klein 4B",
+    "platform": "openrouter",
+    "publisher": "black-forest-labs",
+    "types": [
+      "general-editing",
+      "generate-from-image"
+    ],
+    "tags": [
+      "image-to-image"
+    ],
+    "ratings": {
+      "affordability": 5,
+      "speed": 5,
+      "quality": 2,
+      "provisional": [],
+      "qualityScope": "general_editing"
+    }
+  },
+  {
+    "id": "openrouter/bytedance-seed/seedream-4.5",
+    "displayName": "ByteDance Seed: Seedream 4.5",
+    "platform": "openrouter",
+    "publisher": "bytedance-seed",
+    "types": [
+      "general-editing",
+      "generate-from-image"
+    ],
+    "tags": [
+      "image-to-image"
+    ],
+    "ratings": {
+      "affordability": 4,
+      "speed": 3,
+      "quality": 3,
+      "provisional": [],
+      "qualityScope": "general_editing"
+    }
+  },
+  {
+    "id": "openrouter/black-forest-labs/flux.2-max",
+    "displayName": "Black Forest Labs: FLUX.2 Max",
+    "platform": "openrouter",
+    "publisher": "black-forest-labs",
+    "types": [
+      "general-editing",
+      "generate-from-image"
+    ],
+    "tags": [
+      "image-to-image"
+    ],
+    "ratings": {
+      "affordability": 3,
+      "speed": 3,
+      "quality": 3,
+      "provisional": [],
+      "qualityScope": "general_editing"
+    }
+  },
+  {
+    "id": "openrouter/black-forest-labs/flux.2-flex",
+    "displayName": "Black Forest Labs: FLUX.2 Flex",
+    "platform": "openrouter",
+    "publisher": "black-forest-labs",
+    "types": [
+      "general-editing",
+      "generate-from-image"
+    ],
+    "tags": [
+      "image-to-image"
+    ],
+    "ratings": {
+      "affordability": 3,
+      "speed": 4,
+      "quality": 3,
+      "provisional": [],
+      "qualityScope": "general_editing"
+    }
+  },
+  {
+    "id": "openrouter/black-forest-labs/flux.2-pro",
+    "displayName": "Black Forest Labs: FLUX.2 Pro",
+    "platform": "openrouter",
+    "publisher": "black-forest-labs",
+    "types": [
+      "general-editing",
+      "generate-from-image"
+    ],
+    "tags": [
+      "image-to-image"
+    ],
+    "ratings": {
+      "affordability": 4,
+      "speed": 4,
+      "quality": 3,
+      "provisional": [],
+      "qualityScope": "general_editing"
+    }
+  },
+  {
+    "id": "openrouter/google/gemini-3-pro-image-preview",
+    "displayName": "Google: Nano Banana Pro (Gemini 3 Pro Image Preview)",
+    "platform": "openrouter",
+    "publisher": "google",
+    "types": [
+      "general-editing",
+      "generate-from-image"
+    ],
+    "tags": [
+      "image-to-image"
+    ],
+    "ratings": {
+      "affordability": 2,
+      "speed": 3,
+      "quality": 4,
+      "provisional": [],
+      "qualityScope": "general_editing"
+    }
+  },
+  {
+    "id": "openrouter/openai/gpt-5-image-mini",
+    "displayName": "OpenAI: GPT-5 Image Mini",
+    "platform": "openrouter",
+    "publisher": "openai",
+    "types": [
+      "general-editing",
+      "generate-from-image"
+    ],
+    "tags": [
+      "image-to-image"
+    ],
+    "ratings": {
+      "affordability": 4,
+      "speed": 2,
+      "quality": 2,
+      "provisional": [
+        "affordability",
+        "quality"
+      ],
+      "qualityScope": "general_editing"
+    }
+  },
+  {
+    "id": "openrouter/recraft/recraft-v4.1-pro",
+    "displayName": "Recraft: Recraft V4.1 Pro",
+    "platform": "openrouter",
+    "publisher": "recraft",
+    "types": [
+      "general-editing",
+      "generate-from-image"
+    ],
+    "tags": [
+      "image-to-image"
+    ],
+    "ratings": {
+      "affordability": 1,
+      "speed": 3,
+      "quality": 3,
+      "provisional": [
+        "speed",
+        "quality"
+      ],
+      "qualityScope": "raster_design"
+    }
+  },
+  {
+    "id": "fal/fal-ai/wan/v2.2-a14b/image-to-image",
+    "displayName": "Wan",
+    "platform": "fal",
+    "publisher": "fal-ai",
+    "types": [
+      "generate-from-image"
+    ],
+    "tags": [
+      "image-to-image"
+    ],
+    "ratings": null
+  },
+  {
+    "id": "openrouter/recraft/recraft-v4.1-utility",
+    "displayName": "Recraft: Recraft V4.1 Utility",
+    "platform": "openrouter",
+    "publisher": "recraft",
+    "types": [
+      "general-editing",
+      "generate-from-image"
+    ],
+    "tags": [
+      "image-to-image"
+    ],
+    "ratings": {
+      "affordability": 4,
+      "speed": 3,
+      "quality": 3,
+      "provisional": [
+        "quality"
+      ],
+      "qualityScope": "raster_design"
+    }
+  },
+  {
+    "id": "openrouter/recraft/recraft-v4.1-vector",
+    "displayName": "Recraft: Recraft V4.1 Vector",
+    "platform": "openrouter",
+    "publisher": "recraft",
+    "types": [
+      "general-editing",
+      "generate-from-image"
+    ],
+    "tags": [
+      "image-to-image"
+    ],
+    "ratings": {
+      "affordability": 3,
+      "speed": 3,
+      "quality": 4,
+      "provisional": [
+        "speed",
+        "quality"
+      ],
+      "qualityScope": "vector_design"
+    }
+  },
+  {
+    "id": "openrouter/qwen/qwen-image-3-pro",
+    "displayName": "Qwen: Qwen Image 3 Pro",
+    "platform": "openrouter",
+    "publisher": "qwen",
+    "types": [
+      "general-editing",
+      "generate-from-image"
+    ],
+    "tags": [
+      "image-to-image"
+    ],
+    "ratings": {
+      "affordability": 4,
+      "speed": 1,
+      "quality": 4,
+      "provisional": [],
+      "qualityScope": "general_editing"
+    }
+  },
+  {
+    "id": "openrouter/qwen/qwen-image-3",
+    "displayName": "Qwen: Qwen Image 3",
+    "platform": "openrouter",
+    "publisher": "qwen",
+    "types": [
+      "general-editing",
+      "generate-from-image"
+    ],
+    "tags": [
+      "image-to-image"
+    ],
+    "ratings": {
+      "affordability": 4,
+      "speed": 1,
+      "quality": 3,
+      "provisional": [],
+      "qualityScope": "general_editing"
+    }
+  },
+  {
+    "id": "openrouter/microsoft/mai-image-2.5-pro",
+    "displayName": "Microsoft AI: MAI-Image-2.5 Pro",
+    "platform": "openrouter",
+    "publisher": "microsoft",
+    "types": [
+      "general-editing",
+      "generate-from-image"
+    ],
+    "tags": [
+      "image-to-image"
+    ],
+    "ratings": {
+      "affordability": 2,
+      "speed": 2,
+      "quality": 4,
+      "provisional": [
+        "speed"
+      ],
+      "qualityScope": "general_editing"
+    }
+  },
+  {
+    "id": "openrouter/krea/krea-2-large",
+    "displayName": "Krea: Krea 2 Large",
+    "platform": "openrouter",
+    "publisher": "krea",
+    "types": [
+      "general-editing",
+      "generate-from-image"
+    ],
+    "tags": [
+      "image-to-image"
+    ],
+    "ratings": {
+      "affordability": 3,
+      "speed": 2,
+      "quality": 3,
+      "provisional": [
+        "quality"
+      ],
+      "qualityScope": "artistic_generation"
+    }
+  },
+  {
+    "id": "openrouter/krea/krea-2-medium",
+    "displayName": "Krea: Krea 2 Medium",
+    "platform": "openrouter",
+    "publisher": "krea",
+    "types": [
+      "general-editing",
+      "generate-from-image"
+    ],
+    "tags": [
+      "image-to-image"
+    ],
+    "ratings": {
+      "affordability": 4,
+      "speed": 3,
+      "quality": 3,
+      "provisional": [
+        "quality"
+      ],
+      "qualityScope": "artistic_generation"
+    }
+  },
+  {
+    "id": "openrouter/krea/krea-2-medium-turbo",
+    "displayName": "Krea: Krea 2 Medium Turbo",
+    "platform": "openrouter",
+    "publisher": "krea",
+    "types": [
+      "general-editing",
+      "generate-from-image"
+    ],
+    "tags": [
+      "image-to-image"
+    ],
+    "ratings": {
+      "affordability": 5,
+      "speed": 4,
+      "quality": 3,
+      "provisional": [
+        "quality"
+      ],
+      "qualityScope": "artistic_generation"
+    }
+  },
+  {
+    "id": "openrouter/google/gemini-3.1-flash-lite-image",
+    "displayName": "Google: Nano Banana 2 Lite (Gemini 3.1 Flash Lite Image)",
+    "platform": "openrouter",
+    "publisher": "google",
+    "types": [
+      "general-editing",
+      "generate-from-image"
+    ],
+    "tags": [
+      "image-to-image"
+    ],
+    "ratings": {
+      "affordability": 4,
+      "speed": 4,
+      "quality": 3,
+      "provisional": [],
+      "qualityScope": "general_editing"
+    }
+  },
+  {
+    "id": "openrouter/openai/gpt-image-2",
+    "displayName": "OpenAI: GPT Image 2",
+    "platform": "openrouter",
+    "publisher": "openai",
+    "types": [
+      "general-editing",
+      "generate-from-image"
+    ],
+    "tags": [
+      "image-to-image"
+    ],
+    "ratings": {
+      "affordability": 1,
+      "speed": 3,
+      "quality": 5,
+      "provisional": [],
+      "qualityScope": "general_editing"
+    }
+  },
+  {
+    "id": "openrouter/openai/gpt-image-1-mini",
+    "displayName": "OpenAI: GPT Image 1 Mini",
+    "platform": "openrouter",
+    "publisher": "openai",
+    "types": [
+      "general-editing",
+      "generate-from-image"
+    ],
+    "tags": [
+      "image-to-image"
+    ],
+    "ratings": {
+      "affordability": 4,
+      "speed": 3,
+      "quality": 2,
+      "provisional": [
+        "speed",
+        "quality"
+      ],
+      "qualityScope": "general_editing"
+    }
+  },
+  {
+    "id": "openrouter/openai/gpt-image-1",
+    "displayName": "OpenAI: GPT Image 1",
+    "platform": "openrouter",
+    "publisher": "openai",
+    "types": [
+      "general-editing",
+      "generate-from-image"
+    ],
+    "tags": [
+      "image-to-image"
+    ],
+    "ratings": {
+      "affordability": 2,
+      "speed": 2,
+      "quality": 2,
+      "provisional": [
+        "speed"
+      ],
+      "qualityScope": "general_editing"
+    }
+  },
+  {
+    "id": "openrouter/google/gemini-3.1-flash-image",
+    "displayName": "Google: Nano Banana 2 (Gemini 3.1 Flash Image)",
+    "platform": "openrouter",
+    "publisher": "google",
+    "types": [
+      "general-editing",
+      "generate-from-image"
+    ],
+    "tags": [
+      "image-to-image"
+    ],
+    "ratings": {
+      "affordability": 3,
+      "speed": 4,
+      "quality": 4,
+      "provisional": [],
+      "qualityScope": "general_editing"
+    }
+  },
+  {
+    "id": "openrouter/google/gemini-3-pro-image",
+    "displayName": "Google: Nano Banana Pro (Gemini 3 Pro Image)",
+    "platform": "openrouter",
+    "publisher": "google",
+    "types": [
+      "general-editing",
+      "generate-from-image"
+    ],
+    "tags": [
+      "image-to-image"
+    ],
+    "ratings": {
+      "affordability": 2,
+      "speed": 3,
+      "quality": 4,
+      "provisional": [],
+      "qualityScope": "general_editing"
+    }
+  },
+  {
+    "id": "openrouter/sourceful/riverflow-v2.5-pro",
+    "displayName": "Sourceful: Riverflow V2.5 Pro",
+    "platform": "openrouter",
+    "publisher": "sourceful",
+    "types": [
+      "general-editing",
+      "generate-from-image"
+    ],
+    "tags": [
+      "image-to-image"
+    ],
+    "ratings": {
+      "affordability": 2,
+      "speed": 1,
+      "quality": 5,
+      "provisional": [
+        "affordability",
+        "quality"
+      ],
+      "qualityScope": "general_editing"
+    }
+  },
+  {
+    "id": "openrouter/sourceful/riverflow-v2.5-fast",
+    "displayName": "Sourceful: Riverflow V2.5 Fast",
+    "platform": "openrouter",
+    "publisher": "sourceful",
+    "types": [
+      "general-editing",
+      "generate-from-image"
+    ],
+    "tags": [
+      "image-to-image"
+    ],
+    "ratings": {
+      "affordability": 5,
+      "speed": 2,
+      "quality": 4,
+      "provisional": [
+        "affordability",
+        "quality"
+      ],
+      "qualityScope": "general_editing"
+    }
+  },
+  {
+    "id": "openrouter/microsoft/mai-image-2.5",
+    "displayName": "Microsoft AI: MAI-Image-2.5",
+    "platform": "openrouter",
+    "publisher": "microsoft",
+    "types": [
+      "general-editing",
+      "generate-from-image"
+    ],
+    "tags": [
+      "image-to-image"
+    ],
+    "ratings": {
+      "affordability": 4,
+      "speed": 2,
+      "quality": 4,
+      "provisional": [],
+      "qualityScope": "general_editing"
+    }
+  },
+  {
+    "id": "openrouter/x-ai/grok-imagine-image-quality",
+    "displayName": "SpaceXAI: Grok Imagine Image Quality",
+    "platform": "openrouter",
+    "publisher": "x-ai",
+    "types": [
+      "general-editing",
+      "generate-from-image"
+    ],
+    "tags": [
+      "image-to-image"
+    ],
+    "ratings": {
+      "affordability": 4,
+      "speed": 4,
+      "quality": 4,
+      "provisional": [],
+      "qualityScope": "general_editing"
+    }
+  },
+  {
+    "id": "openrouter/recraft/recraft-v4.1-pro-vector",
+    "displayName": "Recraft: Recraft V4.1 Pro Vector",
+    "platform": "openrouter",
+    "publisher": "recraft",
+    "types": [
+      "general-editing",
+      "generate-from-image"
+    ],
+    "tags": [
+      "image-to-image"
+    ],
+    "ratings": {
+      "affordability": 1,
+      "speed": 2,
+      "quality": 4,
+      "provisional": [
+        "speed",
+        "quality"
+      ],
+      "qualityScope": "vector_design"
+    }
+  },
+  {
+    "id": "openrouter/recraft/recraft-v4.1-utility-pro",
+    "displayName": "Recraft: Recraft V4.1 Utility Pro",
+    "platform": "openrouter",
+    "publisher": "recraft",
+    "types": [
+      "general-editing",
+      "generate-from-image"
+    ],
+    "tags": [
+      "image-to-image"
+    ],
+    "ratings": {
+      "affordability": 1,
+      "speed": 2,
+      "quality": 3,
+      "provisional": [
+        "quality"
+      ],
+      "qualityScope": "raster_design"
+    }
+  },
+  {
+    "id": "openrouter/openai/gpt-5-image",
+    "displayName": "OpenAI: GPT-5 Image",
+    "platform": "openrouter",
+    "publisher": "openai",
+    "types": [
+      "general-editing",
+      "generate-from-image"
+    ],
+    "tags": [
+      "image-to-image"
+    ],
+    "ratings": {
+      "affordability": 2,
+      "speed": 2,
+      "quality": 2,
+      "provisional": [
+        "affordability",
+        "speed",
+        "quality"
+      ],
+      "qualityScope": "general_editing"
+    }
+  },
+  {
+    "id": "fal/fal-ai/flux-1/srpo/image-to-image",
+    "displayName": "FLUX.1 SRPO [dev]",
+    "platform": "fal",
+    "publisher": "fal-ai",
+    "types": [
+      "generate-from-image"
+    ],
+    "tags": [],
+    "ratings": null
+  },
+  {
+    "id": "fal/fal-ai/sdxl-controlnet-union/image-to-image",
+    "displayName": "SDXL ControlNet Union",
+    "platform": "fal",
+    "publisher": "fal-ai",
+    "types": [
+      "generate-from-image"
+    ],
+    "tags": [
+      "diffusion",
+      "controlnet",
+      "composition"
+    ],
+    "ratings": null
+  },
+  {
+    "id": "fal/fal-ai/kling-image/o3/image-to-image",
+    "displayName": "Kling Image",
+    "platform": "fal",
+    "publisher": "fal-ai",
+    "types": [
+      "general-editing"
+    ],
+    "tags": [
+      "image-to-image"
+    ],
+    "ratings": null
+  },
+  {
+    "id": "fal/fal-ai/flux-2-flex/edit",
+    "displayName": "Flux 2 Flex",
+    "platform": "fal",
+    "publisher": "fal-ai",
+    "types": [
+      "general-editing"
+    ],
+    "tags": [],
+    "ratings": null
+  },
+  {
+    "id": "fal/fal-ai/z-image/turbo/image-to-image",
+    "displayName": "Z Image Turbo Image To Image",
+    "platform": "fal",
+    "publisher": "fal-ai",
+    "types": [
+      "generate-from-image"
+    ],
+    "tags": [
+      "turbo",
+      "z-image",
+      "fast"
+    ],
+    "ratings": null
+  },
+  {
+    "id": "fal/fal-ai/gpt-image-1/edit-image",
+    "displayName": "gpt-image-1",
+    "platform": "fal",
+    "publisher": "fal-ai",
+    "types": [
+      "general-editing"
+    ],
+    "tags": [],
+    "ratings": null
+  },
+  {
+    "id": "fal/fal-ai/wan/v2.7/edit",
+    "displayName": "Wan",
+    "platform": "fal",
+    "publisher": "fal-ai",
+    "types": [
+      "general-editing"
+    ],
+    "tags": [
+      "wan",
+      "image-to-image",
+      "image-editing"
+    ],
+    "ratings": null
+  },
+  {
+    "id": "fal/fal-ai/qwen-image-edit-plus",
+    "displayName": "Qwen Image Edit Plus",
+    "platform": "fal",
+    "publisher": "fal-ai",
+    "types": [
+      "general-editing"
+    ],
+    "tags": [
+      "image-editing",
+      "image-to-image",
+      "high-quality-text"
+    ],
+    "ratings": null
+  },
+  {
+    "id": "fal/fal-ai/qwen-image-edit",
+    "displayName": "Qwen Image Edit",
+    "platform": "fal",
+    "publisher": "fal-ai",
+    "types": [
+      "general-editing"
+    ],
+    "tags": [
+      "image-editing",
+      "image-to-image",
+      "high-quality-text"
+    ],
+    "ratings": null
+  },
+  {
+    "id": "fal/fal-ai/wan/v2.7/pro/edit",
+    "displayName": "Wan",
+    "platform": "fal",
+    "publisher": "fal-ai",
+    "types": [
+      "general-editing"
+    ],
+    "tags": [
+      "wan",
+      "image-editing",
+      "pro"
+    ],
+    "ratings": null
+  },
+  {
+    "id": "fal/fal-ai/hunyuan-image/v3/instruct/edit",
+    "displayName": "Hunyuan Image",
+    "platform": "fal",
+    "publisher": "fal-ai",
+    "types": [
+      "general-editing"
+    ],
+    "tags": [
+      "tencent",
+      "hunyuan-image",
+      "instruct",
+      "edit"
+    ],
+    "ratings": null
+  },
+  {
+    "id": "fal/fal-ai/flux-2/klein/9b/edit/lora",
+    "displayName": "FLUX.2 [klein] 9B LoRA",
+    "platform": "fal",
+    "publisher": "fal-ai",
+    "types": [
+      "general-editing"
+    ],
+    "tags": [],
+    "ratings": null
+  },
+  {
+    "id": "fal/wan/v2.6/image-to-image",
+    "displayName": "Wan v2.6 Image to Image",
+    "platform": "fal",
+    "publisher": "wan",
+    "types": [
+      "generate-from-image"
+    ],
+    "tags": [
+      "image-to-image"
+    ],
+    "ratings": null
+  },
+  {
+    "id": "fal/fal-ai/flux-2/klein/9b/base/edit",
+    "displayName": "FLUX.2 [klein] 9B Base",
+    "platform": "fal",
+    "publisher": "fal-ai",
+    "types": [
+      "general-editing"
+    ],
+    "tags": [],
+    "ratings": null
+  },
+  {
+    "id": "fal/fal-ai/kling-image/v3/image-to-image",
+    "displayName": "Kling Image",
+    "platform": "fal",
+    "publisher": "fal-ai",
+    "types": [
+      "general-editing"
+    ],
+    "tags": [
+      "image-to-image"
+    ],
+    "ratings": null
+  },
+  {
+    "id": "fal/fal-ai/qwen-image-edit/inpaint",
+    "displayName": "Qwen Image Edit",
+    "platform": "fal",
+    "publisher": "fal-ai",
+    "types": [
+      "fill-inpaint"
+    ],
+    "tags": [
+      "image-to-image",
+      "inpainting",
+      "qwen-image"
+    ],
+    "ratings": null
+  },
+  {
+    "id": "fal/fal-ai/flux-2/klein/4b/edit",
+    "displayName": "FLUX.2 [klein] 4B",
+    "platform": "fal",
+    "publisher": "fal-ai",
+    "types": [
+      "general-editing"
+    ],
+    "tags": [],
+    "ratings": {
+      "affordability": 5,
+      "speed": 5,
+      "quality": 2,
+      "provisional": [
+        "speed",
+        "quality"
+      ],
+      "unknown": [],
+      "qualityScope": "general_editing",
+      "realtimeCandidate": false
+    }
+  },
+  {
+    "id": "fal/fal-ai/flux-2/turbo/edit",
+    "displayName": "FLUX 2 Turbo Edit",
+    "platform": "fal",
+    "publisher": "fal-ai",
+    "types": [
+      "general-editing"
+    ],
+    "tags": [],
+    "ratings": null
+  },
+  {
+    "id": "fal/bytedance/seedream/v5/lite/edit",
+    "displayName": "Seedream",
+    "platform": "fal",
+    "publisher": "bytedance",
+    "types": [
+      "general-editing"
+    ],
+    "tags": [
+      "bytedance",
+      "seedream-5.0-lite",
+      "edit"
+    ],
+    "ratings": null
+  },
+  {
+    "id": "fal/fal-ai/nano-banana-pro/edit",
+    "displayName": "Nano Banana Pro",
+    "platform": "fal",
+    "publisher": "fal-ai",
+    "types": [
+      "general-editing"
+    ],
+    "tags": [
+      "realism",
+      "typography"
+    ],
+    "ratings": null
+  },
+  {
+    "id": "fal/openai/gpt-image-2/edit",
+    "displayName": "GPT Image 2 API",
+    "platform": "fal",
+    "publisher": "openai",
+    "types": [
+      "general-editing"
+    ],
+    "tags": [
+      "gpt-image-2",
+      "openai",
+      "chatgpt-images-2"
+    ],
+    "ratings": null
+  },
+  {
+    "id": "fal/fal-ai/nano-banana/edit",
+    "displayName": "Nano Banana",
+    "platform": "fal",
+    "publisher": "fal-ai",
+    "types": [
+      "general-editing"
+    ],
+    "tags": [
+      "image-editing"
+    ],
+    "ratings": null
+  },
+  {
+    "id": "fal/fal-ai/flux-2-pro/edit",
+    "displayName": "FLUX 2 Pro Edit",
+    "platform": "fal",
+    "publisher": "fal-ai",
+    "types": [
+      "general-editing"
+    ],
+    "tags": [],
+    "ratings": null
+  },
+  {
+    "id": "fal/xai/grok-imagine-image/edit",
+    "displayName": "Grok Imagine Image",
+    "platform": "fal",
+    "publisher": "xai",
+    "types": [
+      "general-editing"
+    ],
+    "tags": [
+      "grok",
+      "xai",
+      "image-editing"
+    ],
+    "ratings": null
+  },
+  {
+    "id": "fal/google/nano-banana-lite/edit",
+    "displayName": "Nano Banana Lite Edit",
+    "platform": "fal",
+    "publisher": "google",
+    "types": [
+      "general-editing"
+    ],
+    "tags": [],
+    "ratings": null
+  },
+  {
+    "id": "fal/fal-ai/gemini-3-pro-image-preview/edit",
+    "displayName": "Gemini 3 Pro Image Preview",
+    "platform": "fal",
+    "publisher": "fal-ai",
+    "types": [
+      "general-editing"
+    ],
+    "tags": [
+      "realism",
+      "typography"
+    ],
+    "ratings": null
+  },
+  {
+    "id": "fal/fal-ai/gemini-25-flash-image/edit",
+    "displayName": "Gemini 2.5 Flash Image",
+    "platform": "fal",
+    "publisher": "fal-ai",
+    "types": [
+      "general-editing"
+    ],
+    "tags": [
+      "image-editing"
+    ],
+    "ratings": null
+  },
+  {
+    "id": "fal/fal-ai/flux-2/klein/9b/edit",
+    "displayName": "FLUX.2 [klein] 9B",
+    "platform": "fal",
+    "publisher": "fal-ai",
+    "types": [
+      "general-editing"
+    ],
+    "tags": [],
+    "ratings": {
+      "affordability": 4,
+      "speed": 5,
+      "quality": 3,
+      "provisional": [
+        "speed",
+        "quality"
+      ],
+      "unknown": [],
+      "qualityScope": "general_editing",
+      "realtimeCandidate": false
+    }
+  },
+  {
+    "id": "fal/xai/grok-imagine-image/v2.0/edit",
+    "displayName": "Grok Imagine Image 2.0",
+    "platform": "fal",
+    "publisher": "xai",
+    "types": [
+      "general-editing"
+    ],
+    "tags": [
+      "xai",
+      "grok",
+      "image-editing"
+    ],
+    "ratings": null
+  },
+  {
+    "id": "fal/fal-ai/flux-2/edit",
+    "displayName": "FLUX 2 Edit",
+    "platform": "fal",
+    "publisher": "fal-ai",
+    "types": [
+      "general-editing"
+    ],
+    "tags": [],
+    "ratings": null
+  },
+  {
+    "id": "fal/fal-ai/flux-pro/v1/fill",
+    "displayName": "FLUX.1 [pro] Fill",
+    "platform": "fal",
+    "publisher": "fal-ai",
+    "types": [
+      "fill-inpaint",
+      "style-transform"
+    ],
+    "tags": [
+      "editing"
+    ],
+    "ratings": {
+      "affordability": 4,
+      "speed": 3,
+      "quality": 4,
+      "provisional": [
+        "speed",
+        "quality"
+      ],
+      "unknown": [],
+      "qualityScope": "masked_inpainting",
+      "realtimeCandidate": false
+    }
+  },
+  {
+    "id": "fal/fal-ai/flux-2-max/edit",
+    "displayName": "Flux 2 Max",
+    "platform": "fal",
+    "publisher": "fal-ai",
+    "types": [
+      "general-editing"
+    ],
+    "tags": [
+      "flux2",
+      "image-editing",
+      "high-quality"
+    ],
+    "ratings": null
+  },
+  {
+    "id": "fal/fal-ai/gemini-3.1-flash-image-preview/edit",
+    "displayName": "Gemini 3.1 Flash Image Preview",
+    "platform": "fal",
+    "publisher": "fal-ai",
+    "types": [
+      "general-editing"
+    ],
+    "tags": [],
+    "ratings": null
+  },
+  {
+    "id": "fal/fal-ai/flux-2/flash/edit",
+    "displayName": "FLUX 2 Flash Edit",
+    "platform": "fal",
+    "publisher": "fal-ai",
+    "types": [
+      "general-editing"
+    ],
+    "tags": [],
+    "ratings": null
+  },
+  {
+    "id": "fal/fal-ai/flux-kontext/dev",
+    "displayName": "FLUX.1 Kontext [dev]",
+    "platform": "fal",
+    "publisher": "fal-ai",
+    "types": [
+      "general-editing"
+    ],
+    "tags": [],
+    "ratings": null
+  },
+  {
+    "id": "fal/fal-ai/flux-lora-fill",
+    "displayName": "FLUX.1 [dev] Fill with LoRAs",
+    "platform": "fal",
+    "publisher": "fal-ai",
+    "types": [
+      "fill-inpaint",
+      "style-transform"
+    ],
+    "tags": [
+      "editing",
+      "lora"
+    ],
+    "ratings": null
+  },
+  {
+    "id": "fal/fal-ai/flux-general/inpainting",
+    "displayName": "FLUX.1 [dev] with Controlnets and Loras",
+    "platform": "fal",
+    "publisher": "fal-ai",
+    "types": [
+      "fill-inpaint"
+    ],
+    "tags": [
+      "lora",
+      "controlnet",
+      "ip-adapter"
+    ],
+    "ratings": {
+      "affordability": 3,
+      "speed": 3,
+      "quality": 3,
+      "provisional": [
+        "speed",
+        "quality"
+      ],
+      "unknown": [],
+      "qualityScope": "masked_inpainting",
+      "realtimeCandidate": false
+    }
+  },
+  {
+    "id": "fal/fal-ai/ideogram/v3/edit",
+    "displayName": "Ideogram V3 Edit",
+    "platform": "fal",
+    "publisher": "fal-ai",
+    "types": [
+      "general-editing"
+    ],
+    "tags": [
+      "realism",
+      "typography"
+    ],
+    "ratings": null
+  },
+  {
+    "id": "fal/fal-ai/gpt-image-1-mini/edit",
+    "displayName": "GPT Image 1 Mini",
+    "platform": "fal",
+    "publisher": "fal-ai",
+    "types": [
+      "general-editing"
+    ],
+    "tags": [
+      "image-to-image"
+    ],
+    "ratings": null
+  },
+  {
+    "id": "fal/fal-ai/fast-lightning-sdxl/image-to-image",
+    "displayName": "Stable Diffusion XL Lightning",
+    "platform": "fal",
+    "publisher": "fal-ai",
+    "types": [
+      "generate-from-image"
+    ],
+    "tags": [
+      "diffusion",
+      "lightning",
+      "editing"
+    ],
+    "ratings": null
+  },
+  {
+    "id": "fal/fal-ai/bria/genfill",
+    "displayName": "Bria GenFill",
+    "platform": "fal",
+    "publisher": "fal-ai",
+    "types": [
+      "fill-inpaint"
+    ],
+    "tags": [
+      "image editing"
+    ],
+    "ratings": null
+  },
+  {
+    "id": "fal/fal-ai/flux-1/dev/image-to-image",
+    "displayName": "FLUX.1 [dev]",
+    "platform": "fal",
+    "publisher": "fal-ai",
+    "types": [
+      "generate-from-image"
+    ],
+    "tags": [],
+    "ratings": null
+  },
+  {
+    "id": "fal/fal-ai/flux/srpo/image-to-image",
+    "displayName": "FLUX.1 SRPO [dev]",
+    "platform": "fal",
+    "publisher": "fal-ai",
+    "types": [
+      "generate-from-image"
+    ],
+    "tags": [],
+    "ratings": null
+  },
+  {
+    "id": "fal/fal-ai/dreamomni2/edit",
+    "displayName": "DreamOmni2",
+    "platform": "fal",
+    "publisher": "fal-ai",
+    "types": [
+      "general-editing"
+    ],
+    "tags": [],
+    "ratings": null
+  },
+  {
+    "id": "fal/fal-ai/inpaint",
+    "displayName": "Inpainting sdxl and sd",
+    "platform": "fal",
+    "publisher": "fal-ai",
+    "types": [
+      "fill-inpaint"
+    ],
+    "tags": [
+      "editing",
+      "diffusion"
+    ],
+    "ratings": null
+  },
+  {
+    "id": "fal/fal-ai/flux-krea-lora/inpainting",
+    "displayName": "FLUX.1 Krea [dev] Inpainting with LoRAs",
+    "platform": "fal",
+    "publisher": "fal-ai",
+    "types": [
+      "fill-inpaint",
+      "style-transform",
+      "subject-product"
+    ],
+    "tags": [
+      "lora",
+      "personalization"
+    ],
+    "ratings": null
+  },
+  {
+    "id": "fal/fal-ai/chrono-edit",
+    "displayName": "Chrono Edit",
+    "platform": "fal",
+    "publisher": "fal-ai",
+    "types": [
+      "general-editing"
+    ],
+    "tags": [
+      "image-editing"
+    ],
+    "ratings": null
+  },
+  {
+    "id": "fal/fal-ai/firered-image-edit",
+    "displayName": "Firered Image Edit",
+    "platform": "fal",
+    "publisher": "fal-ai",
+    "types": [
+      "general-editing"
+    ],
+    "tags": [
+      "image-editing",
+      "firered"
+    ],
+    "ratings": null
+  },
+  {
+    "id": "fal/fal-ai/longcat-image/edit",
+    "displayName": "Longcat Image",
+    "platform": "fal",
+    "publisher": "fal-ai",
+    "types": [
+      "general-editing"
+    ],
+    "tags": [],
+    "ratings": null
+  },
+  {
+    "id": "fal/fal-ai/vidu/q2/reference-to-image",
+    "displayName": "Vidu",
+    "platform": "fal",
+    "publisher": "fal-ai",
+    "types": [
+      "generate-from-image"
+    ],
+    "tags": [
+      "images-to-imag",
+      "reference-to-image"
+    ],
+    "ratings": null
+  },
+  {
+    "id": "fal/fal-ai/joyai-image-edit",
+    "displayName": "Joyai Image Edit",
+    "platform": "fal",
+    "publisher": "fal-ai",
+    "types": [
+      "general-editing"
+    ],
+    "tags": [
+      "image-to-image",
+      "image-editing"
+    ],
+    "ratings": null
+  },
+  {
+    "id": "fal/fal-ai/fast-lcm-diffusion/image-to-image",
+    "displayName": "Latent Consistency Models (v1.5/XL)",
+    "platform": "fal",
+    "publisher": "fal-ai",
+    "types": [
+      "generate-from-image"
+    ],
+    "tags": [
+      "lcm",
+      "diffusion",
+      "turbo",
+      "real-time",
+      "editing"
+    ],
+    "ratings": null
+  },
+  {
+    "id": "fal/fal-ai/fast-sdxl/inpainting",
+    "displayName": "Stable Diffusion XL",
+    "platform": "fal",
+    "publisher": "fal-ai",
+    "types": [
+      "fill-inpaint"
+    ],
+    "tags": [
+      "diffusion",
+      "high-res",
+      "lora",
+      "ip-adapter",
+      "controlnet"
+    ],
+    "ratings": null
+  },
+  {
+    "id": "fal/rundiffusion-fal/juggernaut-flux/pro/image-to-image",
+    "displayName": "Juggernaut Flux Pro",
+    "platform": "fal",
+    "publisher": "rundiffusion-fal",
+    "types": [
+      "generate-from-image"
+    ],
+    "tags": [
+      "image generation"
+    ],
+    "ratings": null
+  },
+  {
+    "id": "fal/fal-ai/bagel/edit",
+    "displayName": "Bagel",
+    "platform": "fal",
+    "publisher": "fal-ai",
+    "types": [
+      "general-editing"
+    ],
+    "tags": [
+      "image-to-image",
+      "image-editing"
+    ],
+    "ratings": null
+  },
+  {
+    "id": "fal/fal-ai/boogu-image/edit",
+    "displayName": "Boogu Image",
+    "platform": "fal",
+    "publisher": "fal-ai",
+    "types": [
+      "general-editing"
+    ],
+    "tags": [],
+    "ratings": null
+  },
+  {
+    "id": "fal/fal-ai/flux-1/krea/image-to-image",
+    "displayName": "FLUX.1 Krea [dev]",
+    "platform": "fal",
+    "publisher": "fal-ai",
+    "types": [
+      "generate-from-image"
+    ],
+    "tags": [],
+    "ratings": null
+  },
+  {
+    "id": "fal/fal-ai/qwen-image-max/edit",
+    "displayName": "Qwen Image Max",
+    "platform": "fal",
+    "publisher": "fal-ai",
+    "types": [
+      "general-editing"
+    ],
+    "tags": [
+      "qwen-image",
+      "max"
+    ],
+    "ratings": null
+  },
+  {
+    "id": "fal/fal-ai/lora/image-to-image",
+    "displayName": "Stable Diffusion with LoRAs",
+    "platform": "fal",
+    "publisher": "fal-ai",
+    "types": [
+      "generate-from-image"
+    ],
+    "tags": [
+      "diffusion",
+      "lora",
+      "customization",
+      "fine-tuning"
+    ],
+    "ratings": null
+  },
+  {
+    "id": "fal/fal-ai/phota/edit",
+    "displayName": "Phota",
+    "platform": "fal",
+    "publisher": "fal-ai",
+    "types": [
+      "general-editing"
+    ],
+    "tags": [
+      "edit",
+      "personalization",
+      "typography",
+      "phota"
+    ],
+    "ratings": null
+  },
+  {
+    "id": "fal/microsoft/mai-image-2.5-pro/edit",
+    "displayName": "MAI Image 2.5 Pro (Edit)",
+    "platform": "fal",
+    "publisher": "microsoft",
+    "types": [
+      "general-editing"
+    ],
+    "tags": [
+      "image-editing",
+      "typography",
+      "photorealism",
+      "controllable-editing",
+      "multi-image"
+    ],
+    "ratings": null
+  },
+  {
+    "id": "fal/fal-ai/flux-2/klein/4b/base/edit",
+    "displayName": "FLUX.2 [klein] 4B Base",
+    "platform": "fal",
+    "publisher": "fal-ai",
+    "types": [
+      "general-editing"
+    ],
+    "tags": [],
+    "ratings": null
+  },
+  {
+    "id": "fal/fal-ai/fast-sdxl/image-to-image",
+    "displayName": "Stable Diffusion XL",
+    "platform": "fal",
+    "publisher": "fal-ai",
+    "types": [
+      "generate-from-image"
+    ],
+    "tags": [
+      "diffusion",
+      "high-res",
+      "lora",
+      "ip-adapter",
+      "controlnet"
+    ],
+    "ratings": null
+  },
+  {
+    "id": "fal/fal-ai/firered-image-edit-v1.1",
+    "displayName": "Firered Image Edit V1.1",
+    "platform": "fal",
+    "publisher": "fal-ai",
+    "types": [
+      "general-editing"
+    ],
+    "tags": [
+      "firered-image-edit"
+    ],
+    "ratings": null
+  },
+  {
+    "id": "fal/fal-ai/flux-2/klein/realtime",
+    "displayName": "Flux 2 [klein] Realtime",
+    "platform": "fal",
+    "publisher": "fal-ai",
+    "types": [
+      "generate-from-image"
+    ],
+    "tags": [
+      "realtime",
+      "image-to-image"
+    ],
+    "ratings": {
+      "affordability": null,
+      "speed": 5,
+      "quality": 2,
+      "provisional": [
+        "speed",
+        "quality"
+      ],
+      "unknown": [
+        "affordability"
+      ],
+      "qualityScope": "general_editing",
+      "realtimeCandidate": true
+    }
+  },
+  {
+    "id": "fal/fal-ai/z-image/turbo/image-to-image/lora",
+    "displayName": "Z Image Turbo Image To Image Lora",
+    "platform": "fal",
+    "publisher": "fal-ai",
+    "types": [
+      "generate-from-image"
+    ],
+    "tags": [
+      "turbo",
+      "z-image",
+      "fast",
+      "lora"
+    ],
+    "ratings": null
+  },
+  {
+    "id": "fal/fal-ai/flux-kontext-lora/inpaint",
+    "displayName": "Flux Kontext Lora",
+    "platform": "fal",
+    "publisher": "fal-ai",
+    "types": [
+      "fill-inpaint",
+      "style-transform",
+      "subject-product"
+    ],
+    "tags": [
+      "image-editing",
+      "image-inpainting",
+      "image-to-image"
+    ],
+    "ratings": null
+  },
+  {
+    "id": "fal/fal-ai/ideogram/v3/remix",
+    "displayName": "Ideogram",
+    "platform": "fal",
+    "publisher": "fal-ai",
+    "types": [
+      "general-editing"
+    ],
+    "tags": [
+      "realism",
+      "typography"
+    ],
+    "ratings": null
+  },
+  {
+    "id": "fal/fal-ai/z-image/turbo/inpaint",
+    "displayName": "Z Image Turbo Inpaint",
+    "platform": "fal",
+    "publisher": "fal-ai",
+    "types": [
+      "fill-inpaint"
+    ],
+    "tags": [
+      "inpainting"
+    ],
+    "ratings": null
+  },
+  {
+    "id": "fal/fal-ai/wan-25-preview/image-to-image",
+    "displayName": "Wan 2.5 Image to Image",
+    "platform": "fal",
+    "publisher": "fal-ai",
+    "types": [
+      "generate-from-image"
+    ],
+    "tags": [],
+    "ratings": null
+  },
+  {
+    "id": "fal/fal-ai/qwen-image-edit-2509",
+    "displayName": "Qwen Image Edit 2509",
+    "platform": "fal",
+    "publisher": "fal-ai",
+    "types": [
+      "general-editing"
+    ],
+    "tags": [
+      "image-editing",
+      "image-to-image",
+      "high-quality-text"
+    ],
+    "ratings": null
+  },
+  {
+    "id": "fal/fal-ai/flux-2/klein/4b/edit/lora",
+    "displayName": "FLUX.2 [klein] 4B LoRA",
+    "platform": "fal",
+    "publisher": "fal-ai",
+    "types": [
+      "general-editing"
+    ],
+    "tags": [],
+    "ratings": null
+  },
+  {
+    "id": "fal/fal-ai/qwen-image-edit-plus-lora",
+    "displayName": "Qwen Image Edit Plus Lora",
+    "platform": "fal",
+    "publisher": "fal-ai",
+    "types": [
+      "general-editing"
+    ],
+    "tags": [
+      "image-to-image",
+      "image-editing"
+    ],
+    "ratings": null
+  },
+  {
+    "id": "fal/fal-ai/ideogram/v3/replace-background",
+    "displayName": "Ideogram Replace Background",
+    "platform": "fal",
+    "publisher": "fal-ai",
+    "types": [
+      "generate-from-image"
+    ],
+    "tags": [],
+    "ratings": null
+  },
+  {
+    "id": "fal/bria/genfill/v2",
+    "displayName": "Genfill",
+    "platform": "fal",
+    "publisher": "bria",
+    "types": [
+      "fill-inpaint"
+    ],
+    "tags": [],
+    "ratings": null
+  },
+  {
+    "id": "fal/fal-ai/flux/krea/image-to-image",
+    "displayName": "FLUX.1 Krea [dev]",
+    "platform": "fal",
+    "publisher": "fal-ai",
+    "types": [
+      "generate-from-image"
+    ],
+    "tags": [],
+    "ratings": null
+  },
+  {
+    "id": "openrouter/google/gemini-2.5-flash-image",
+    "displayName": "Google: Nano Banana (Gemini 2.5 Flash Image)",
+    "platform": "openrouter",
+    "publisher": "google",
+    "types": [
+      "general-editing",
+      "generate-from-image"
+    ],
+    "tags": [
+      "image-to-image"
+    ],
+    "ratings": {
+      "affordability": 4,
+      "speed": 4,
+      "quality": 3,
+      "provisional": [],
+      "qualityScope": "general_editing"
+    }
+  }
+]

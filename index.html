@@ -63,8 +63,9 @@
             <button class="tool mode-tool" data-action="selection.mode" data-icon="selection" aria-label="Edit selection (S)" aria-pressed="false" title="Toggle selection editing (S)"></button>
           </div>
           <div class="tool-modes generative-tools">
-            <button class="tool" data-action="tool.generation" data-icon="generate" aria-label="Generate image (G)" title="Generate image (G)"></button>
-            <button class="tool" id="remove-selection" data-action="selection.remove" data-icon="remove" aria-label="Remove selection" title="Remove selection"></button>
+            <button class="tool" data-action="generator.image" data-icon="generate" aria-label="Image generator (G)" title="Image generator (G)"></button>
+            <button class="tool" data-action="generator.object-removal" data-icon="remove" aria-label="Object removal generator" title="Object removal generator"></button>
+            <button class="tool" data-action="generator.inpaint" data-icon="fill" aria-label="Inpaint generator" title="Inpaint generator"></button>
           </div>
           <div class="color-palette" role="group" aria-label="Drawing colors">
             <input id="secondary-color" class="secondary-color" type="color" value="#ffffff" aria-label="Secondary color" title="Secondary color" />
@@ -77,7 +78,7 @@
           <div class="document-heading">
             <div id="document-tabs" class="document-tabs" role="tablist" aria-label="Open documents"></div>
             <div class="document-actions">
-              <button id="cancel-generation" data-action="generation.cancel" hidden>Cancel generation</button>
+              <button id="cancel-generation" data-action="generator.cancel" hidden>Cancel generation</button>
               <button class="icon-button" data-action="history.undo" data-icon="undo" title="Undo (Ctrl+Z)" aria-label="Undo"></button>
               <button class="icon-button" data-action="history.redo" data-icon="redo" title="Redo (Ctrl+Shift+Z)" aria-label="Redo"></button>
             </div>

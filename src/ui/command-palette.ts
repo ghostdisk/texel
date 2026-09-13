@@ -56,10 +56,11 @@ const EXACT_ICONS: Readonly<Record<string, IconName>> = {
   'tool.crop': 'crop',
   'tool.transform': 'transform',
   'tool.eyedropper': 'eyedropper',
-  'tool.generation': 'generate',
-  'generation.generate': 'generate',
-  'generation.cancel': 'close',
-  'selection.remove': 'remove',
+  'generator.image': 'generate',
+  'generator.object-removal': 'remove',
+  'generator.inpaint': 'fill',
+  'generator.generate': 'generate',
+  'generator.cancel': 'close',
   'settings.open': 'settings',
   'settings.canvas-background': 'settings',
 };
@@ -72,7 +73,7 @@ function actionIcon(id: string): IconName | null {
   if (id.startsWith('transform.')) return 'transform';
   if (id.startsWith('crop.')) return 'crop';
   if (id.startsWith('polygon.')) return 'polygon-lasso';
-  if (id.startsWith('generation.')) return 'generate';
+  if (id.startsWith('generator.')) return 'generate';
   return null;
 }
 

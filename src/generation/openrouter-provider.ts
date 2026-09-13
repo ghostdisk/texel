@@ -28,6 +28,8 @@ export class OpenRouterGenerationProvider implements GenerationProvider {
         id: `${this.platform}/${remote.id}`,
         label: remote.name || remote.id,
         platform: this.platform,
+        tags: remote.architecture.input_modalities?.includes('image') ? ['image-to-image'] : ['text-to-image'],
+        types: remote.architecture.input_modalities?.includes('image') ? ['general-editing', 'generate-from-image'] : ['generate-from-image'],
         capabilities: {
           inputImages: remote.architecture.input_modalities?.includes('image') ? Math.max(1, references?.max ?? 1) : 0,
           minimumInputImages: references?.min,

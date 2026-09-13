@@ -233,7 +233,7 @@ export class CropTool extends Tool {
 
   get canApply(): boolean {
     this.sync();
-    if (this.editor.generation.busy || this.rect.width <= 0 || this.rect.height <= 0) return false;
+    if (this.editor.generators.busy || this.rect.width <= 0 || this.rect.height <= 0) return false;
     const rect = this.normalized();
     return rect.x !== 0 || rect.y !== 0 || rect.width !== this.editor.image.width || rect.height !== this.editor.image.height;
   }
@@ -247,7 +247,7 @@ export class CropTool extends Tool {
         transform: [...layer.transform] as unknown as Matrix,
       })),
       selection: this.editor.image.selectionState(),
-      lens: [...this.editor.generation.lens.transform] as unknown as Matrix,
+      lens: [...this.editor.generators.lens.transform] as unknown as Matrix,
       precision: this.editor.image.precisionState(),
     };
   }
@@ -256,8 +256,8 @@ export class CropTool extends Tool {
     const precision = validatePrecision(state.precision);
     this.editor.image.setCanvasState(state.width, state.height, state.layers, state.selection);
     this.editor.image.setPrecisionState(precision);
-    this.editor.generation.resetLens(state.width, state.height);
-    this.editor.generation.lens.setTransform(state.lens);
+    this.editor.generators.resetLens(state.width, state.height);
+    this.editor.generators.lens.setTransform(state.lens);
     this.editor.viewport.fit(this.editor.image.frame);
     this.documentSignature = '';
     this.sync();

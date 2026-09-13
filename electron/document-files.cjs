@@ -3,6 +3,12 @@ const { randomUUID } = require('node:crypto');
 const path = require('node:path');
 
 const MAX_FILE_BYTES = 0x7fffffff;
+const IMAGE_EXTENSIONS = ['png', 'jpg', 'jpeg', 'webp', 'avif', 'bmp', 'gif'];
+const OPEN_EXTENSIONS = new Set(['txl', ...IMAGE_EXTENSIONS]);
+
+function isSupportedOpenPath(filePath) {
+  return OPEN_EXTENSIONS.has(path.extname(filePath).slice(1).toLowerCase());
+}
 
 function registerDocumentFiles({ ipcMain, dialog }, ownerOf) {
   const windows = new WeakMap();
@@ -37,7 +43,12 @@ function registerDocumentFiles({ ipcMain, dialog }, ownerOf) {
   ipcMain.handle('document:open', async (event) => {
     const { owner, state } = stateFor(event);
     const result = await dialog.showOpenDialog(owner, {
-      title: 'Open Texel document', properties: ['openFile'], filters: [{ name: 'Texel documents', extensions: ['txl'] }],
+      title: 'Open file', properties: ['openFile'],
+      filters: [
+        { name: 'Texel documents and images', extensions: ['txl', ...IMAGE_EXTENSIONS] },
+        { name: 'Texel documents', extensions: ['txl'] },
+        { name: 'Images', extensions: IMAGE_EXTENSIONS },
+      ],
     });
     if (result.canceled || !result.filePaths[0]) return null;
     return issue(state, result.filePaths[0]);
@@ -51,9 +62,12 @@ function registerDocumentFiles({ ipcMain, dialog }, ownerOf) {
     let bytes;
     try {
       const info = await file.stat();
-      if (!info.isFile() || info.size < 28 || info.size > MAX_FILE_BYTES) throw new Error('Invalid document size. Texel currently supports files smaller than 2 GiB.');
+      const minimumSize = path.extname(filePath).toLowerCase() === '.txl' ? 28 : 1;
+      if (!isSupportedOpenPath(filePath) || !info.isFile() || info.size < minimumSize || info.size > MAX_FILE_BYTES) {
+        throw new Error('Invalid file. Texel supports TXL documents and images smaller than 2 GiB.');
+      }
       bytes = await file.readFile();
-      if (bytes.length > MAX_FILE_BYTES) throw new Error('Document exceeds the 2 GiB size limit.');
+      if (bytes.length > MAX_FILE_BYTES) throw new Error('File exceeds the 2 GiB size limit.');
     } finally { await file.close(); }
     return new Uint8Array(bytes.buffer, bytes.byteOffset, bytes.byteLength);
   });
@@ -131,7 +145,7 @@ function registerDocumentFiles({ ipcMain, dialog }, ownerOf) {
   return {
     queueOpen(filePaths) {
       for (const filePath of filePaths) {
-        if (typeof filePath === 'string' && path.isAbsolute(filePath) && path.extname(filePath).toLowerCase() === '.txl') pendingPaths.push(filePath);
+        if (typeof filePath === 'string' && path.isAbsolute(filePath) && isSupportedOpenPath(filePath)) pendingPaths.push(filePath);
       }
       deliverPending();
     },
@@ -151,4 +165,4 @@ function registerDocumentFiles({ ipcMain, dialog }, ownerOf) {
   };
 }
 
-module.exports = { registerDocumentFiles };
+module.exports = { IMAGE_EXTENSIONS, isSupportedOpenPath, registerDocumentFiles };

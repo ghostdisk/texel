@@ -1,8 +1,7 @@
 import { ActionRegistry } from './actions';
 import { DocumentFiles } from './files/document-files';
 import type { LoadedDocument } from './files/txl';
-import { ImageGeneration } from './generation/image-generation';
-import { GenerationTool } from './tools/generation-tool';
+import { GeneratorManager } from './generators/manager';
 import { FilterRegistry } from './filters/filter';
 import type { Filter } from './filters/filter';
 import { BlurFilter } from './filters/blur-filter';
@@ -66,7 +65,7 @@ import { EditorDocument } from './editor-document';
 
 interface PointerGesture {
   id: number;
-  mode: 'tool' | 'pan';
+  mode: 'tool' | 'pan' | 'generator';
   button: number;
   last: Point;
   travel: number;
@@ -81,7 +80,7 @@ export class Editor {
   readonly paths: PathRenderer;
   readonly filters = new FilterRegistry();
   readonly actions: ActionRegistry;
-  readonly generation: ImageGeneration;
+  readonly generators: GeneratorManager;
   readonly files: DocumentFiles;
   readonly documents: EditorDocument[] = [];
   private currentDocument!: EditorDocument;
@@ -183,8 +182,7 @@ export class Editor {
     this.tools.set('crop', new CropTool(this));
     this.tools.set('transform', new TransformTool(this));
     this.tools.set('eyedropper', new EyedropperTool(this));
-    this.generation = new ImageGeneration(this);
-    this.tools.set('generation', new GenerationTool(this));
+    this.generators = new GeneratorManager(this);
     this.files = new DocumentFiles(this);
     this.attachDocument(this.currentDocument);
     this.actions.beforeExecute = (action) => {
@@ -194,7 +192,7 @@ export class Editor {
     this.actions.context = () => ({
       hasSelection: !!this.image.selectionMask,
       canSelectionLayer: !!this.layerViaSelectionTarget,
-      isGenerating: this.generation.busy,
+      isGenerating: this.generators.busy,
       isCropping: this.activeTool.id === 'crop',
       hasPolygonPath: this.activeTool.id === 'polygon-lasso' && (this.activeTool as PolygonLassoTool).hasPath,
       canApplyPolygon: this.activeTool.id === 'polygon-lasso' && (this.activeTool as PolygonLassoTool).canApply,
@@ -220,6 +218,10 @@ export class Editor {
   get maskEditLayer(): ImageLayer | null { return this.editedMask; }
   get editingPixels(): boolean { return this.reframing; }
   get panHeld(): boolean { return this.panKeyHeld || this.panMode; }
+  get generatorTarget(): Layer {
+    if (!this.image.selected.isSelection) return this.image.selected;
+    return this.image.allLayers().find((layer) => layer.id === this.selectionReturnId) ?? this.image.root;
+  }
 
   setCanvasBackground(color: string): void {
     if (!/^#[0-9a-f]{6}$/i.test(color)) return;
@@ -268,14 +270,14 @@ export class Editor {
     document.selectionMode = this.selectionMode;
     document.selectionReturnId = this.selectionReturnId;
     document.editedMaskId = this.editedMask?.id ?? null;
-    if (this.generation) document.generationLens = [...this.generation.lens.transform] as Matrix;
+    if (this.generators) document.generationLens = [...this.generators.lens.transform] as Matrix;
   }
 
   activateDocument(document: EditorDocument): void {
     if (document === this.currentDocument || !this.documents.includes(document)) return;
     this.finishGesture();
     this.storeDocumentState();
-    this.generation.cancel();
+    this.generators.documentChanging();
     this.pickGeneration++;
     this.tools.get('eyedropper')?.cancel();
     this.previews.clear();
@@ -284,8 +286,8 @@ export class Editor {
     this.selectionReturnId = document.selectionReturnId;
     this.editedMask = document.editedMaskId ?
       (document.image.allLayers().find((layer) => layer.id === document.editedMaskId && layer instanceof ImageLayer) as ImageLayer | undefined) ?? null : null;
-    this.generation.resetLens(document.image.width, document.image.height);
-    if (document.generationLens) this.generation.lens.setTransform(document.generationLens);
+    this.generators.resetLens(document.image.width, document.image.height);
+    if (document.generationLens) this.generators.lens.setTransform(document.generationLens);
     const rect = this.stage.getBoundingClientRect();
     if (document.viewport.width !== rect.width || document.viewport.height !== rect.height) {
       document.viewport.resize(Math.max(1, rect.width), Math.max(1, rect.height));
@@ -351,7 +353,7 @@ export class Editor {
   }
 
   disposeDocuments(): void {
-    this.generation.cancel();
+    this.generators.documentChanging();
     this.halted = true;
     this.finishGesture();
     for (const document of this.documents.splice(0)) document.dispose(this.compositor);
@@ -551,7 +553,8 @@ export class Editor {
     const hover = pointer && this.pointer?.mode !== 'pan' ?
       { ...pointer, world: this.viewport.screenToWorld(pointer.screen) } : null;
     this.activeTool.hover(hover);
-    const modes = this.activeTool.supportsDrawingModes && !this.panHeld && !!hover && (this.selectionMode || this.eraseMode);
+    const generatorHover = this.generators.hover(hover);
+    const modes = !generatorHover && this.activeTool.supportsDrawingModes && !this.panHeld && !!hover && (this.selectionMode || this.eraseMode);
     this.toolModeCursor.hidden = !modes;
     if (!modes || !hover) return;
     this.toolModeCursor.style.left = `${hover.screen.x + 12}px`;
@@ -589,7 +592,7 @@ export class Editor {
   }
 
   changed(): void {
-    this.generation?.validate();
+    this.generators?.validate();
     this.files?.sync();
     if (this.editedMask && (this.image.selected !== this.editedMask || !this.image.allLayers().includes(this.editedMask))) {
       this.setMaskEditLayer(null);
@@ -610,26 +613,27 @@ export class Editor {
       this.pendingStamps.clear();
       this.pendingRetouchStamps.clear();
       this.run(() => {
-        this.generation.validate();
+        this.generators.validate();
         const density = this.canvas.width / this.viewport.width;
         const stats = this.compositor.render(
           this.image.root, this.context.getCurrentTexture().createView(), this.viewport.bounds(), this.image.frame, this.viewport.scale * density,
-          this.canvasBackground, this.image.selectionMask, this.selectionMode, this.editedMask, this.generation.visual,
+          this.canvasBackground, this.image.selectionMask, this.selectionMode, this.editedMask, this.generators.visual,
         );
         this.overlay.replaceChildren();
         this.drawPrecisionOverlay();
-        if (this.activeTool.id === 'generation' || this.activeTool.id === 'crop') this.activeTool.drawOverlay();
+        if (this.activeTool.id === 'crop') this.activeTool.drawOverlay();
         else if (this.activeTool.id === 'transform') this.activeTool.drawOverlay();
         else {
           this.activeTool.drawOverlay();
           (this.tools.get('transform') as TransformTool).drawOverlay(false);
         }
+        this.generators.drawOverlay();
         if (!this.interacting) {
           if (this.previewsReady) { this.previewsReady = false; this.onPreviews?.(); }
           if (this.previewsRequested && !this.previewsRunning) void this.refreshPreviews().catch(this.report);
         }
         this.onFrame?.(stats);
-        if ((this.image.selectionMask && !this.editedMask) || this.generation.visual) this.requestRender();
+        if ((this.image.selectionMask && !this.editedMask) || this.generators.visual) this.requestRender();
       });
     });
   }
@@ -680,7 +684,7 @@ export class Editor {
   }
 
   reset(width: number, height: number): void {
-    this.generation.cancel();
+    this.generators.documentChanging();
     this.finishGesture();
     this.pickGeneration++;
     this.tools.get('eyedropper')?.cancel();
@@ -688,7 +692,7 @@ export class Editor {
     this.selectionMode = false;
     this.selectionReturnId = null;
     this.setMaskEditLayer(null);
-    this.generation.resetLens(width, height);
+    this.generators.resetLens(width, height);
     this.image.reset(width, height);
     this.queuePreviews();
     this.viewport.fit(this.image.frame);
@@ -697,7 +701,7 @@ export class Editor {
   }
 
   loadDocument(document: LoadedDocument): void {
-    this.generation.cancel();
+    this.generators.documentChanging();
     this.finishGesture();
     this.pickGeneration++;
     this.tools.get('eyedropper')?.cancel();
@@ -706,8 +710,8 @@ export class Editor {
     this.selectionReturnId = null;
     this.setMaskEditLayer(null);
     this.image.replace(document.root, document.width, document.height, document.selection, document.activeSelectionId, document.precision);
-    this.generation.resetLens(document.width, document.height);
-    this.generation.lens.setTransform(document.generationLens);
+    this.generators.resetLens(document.width, document.height);
+    this.generators.lens.setTransform(document.generationLens);
     this.selectionMode = this.image.selected.isSelection && !!this.image.selectionMask;
     this.queuePreviews();
     this.viewport.fit(this.image.frame);
@@ -733,7 +737,7 @@ export class Editor {
     if (previous.id === 'crop' && tool !== previous) previous.cancel();
     this.pickGeneration++;
     this.baseTool = tool;
-    if (tool.id === 'generation' || tool.id === 'crop' || tool.id === 'text') this.setMaskEditLayer(null);
+    if (tool.id === 'crop' || tool.id === 'text') this.setMaskEditLayer(null);
     this.panMode = false;
     this.eraseMode = false;
     this.canvas.style.cursor = this.panHeld ? 'grab' : this.activeTool.cursor;
@@ -776,7 +780,8 @@ export class Editor {
     const pointer = this.pointer;
     this.pointer = null;
     this.commitEdits?.();
-    this.activeTool.finish();
+    if (pointer?.mode === 'generator') this.generators.finish();
+    else this.activeTool.finish();
     this.flushPaint();
     if (pointer && this.canvas.hasPointerCapture(pointer.id)) this.canvas.releasePointerCapture(pointer.id);
     this.canvas.style.cursor = this.panHeld ? 'grab' : this.activeTool.cursor;
@@ -786,7 +791,8 @@ export class Editor {
   cancelGesture(): void {
     const pointer = this.pointer;
     this.pointer = null;
-    this.activeTool.cancel();
+    if (pointer?.mode === 'generator') this.generators.cancelGesture();
+    else this.activeTool.cancel();
     if (pointer && this.canvas.hasPointerCapture(pointer.id)) this.canvas.releasePointerCapture(pointer.id);
     this.changed();
   }
@@ -797,8 +803,9 @@ export class Editor {
   }
 
   private updatePanCursor(): void {
-    if (this.panHeld && this.pointer?.mode === 'tool') {
-      if (!(this.activeTool instanceof PolygonLassoTool && this.activeTool.hasPath)) this.activeTool.finish();
+    if (this.panHeld && (this.pointer?.mode === 'tool' || this.pointer?.mode === 'generator')) {
+      if (this.pointer.mode === 'generator') this.generators.finish();
+      else if (!(this.activeTool instanceof PolygonLassoTool && this.activeTool.hasPath)) this.activeTool.finish();
       this.pointer.mode = 'pan';
     }
     this.brushCursor.hidden = true;
@@ -1209,21 +1216,27 @@ export class Editor {
       id: 'colors.swap', label: 'Swap primary / secondary colors', menu: 'Tools', submenu: 'Colors',
       execute: () => this.setColors(this.secondaryColor, this.primaryColor),
     });
-    register({ id: 'tool.generation', label: 'Generate image', menu: 'Tools', execute: () => this.switchTool('generation') });
+    register({ id: 'generator.image', label: 'Image generator', menu: 'Tools', submenu: 'Generators', execute: () => this.generators.open('image') });
+    register({ id: 'generator.object-removal', label: 'Object removal', menu: 'Tools', submenu: 'Generators', execute: () => this.generators.open('object-removal') });
+    register({ id: 'generator.inpaint', label: 'Inpaint', menu: 'Tools', submenu: 'Generators', execute: () => this.generators.open('inpaint') });
     register({
-      id: 'selection.remove', label: 'Remove selection', menu: 'Edit',
-      enabled: () => this.generation.canRemove, execute: () => this.generation.remove(),
+      id: 'generator.generate', label: 'Generate', menu: 'Tools', submenu: 'Generators',
+      enabled: () => !!this.generators.active?.canGenerate, execute: () => this.generators.generate(),
     });
     register({
-      id: 'generation.generate', label: 'Generate', menu: 'Tools', submenu: 'Generation',
-      enabled: () => this.generation.canGenerate, execute: () => this.generation.generate(),
+      id: 'generator.apply', label: 'Apply generator result', menu: 'Tools', submenu: 'Generators',
+      enabled: () => !!this.generators.active?.canApply, execute: () => this.generators.apply(),
     });
     register({
-      id: 'generation.cancel', label: () => this.generation.removing ? 'Cancel removal' : 'Cancel generation', menu: 'Tools', submenu: 'Generation',
-      enabled: () => this.generation.busy, execute: () => this.generation.cancel(),
+      id: 'generator.cancel', label: 'Cancel generator request', menu: 'Tools', submenu: 'Generators',
+      enabled: () => this.generators.busy, execute: () => this.generators.cancel(),
     });
-    register({ id: 'generation.fit', label: 'Fit generation lens to canvas', menu: 'Tools', submenu: 'Generation', enabled: () => !this.generation.busy, execute: () => this.generation.fitLens() });
-    register({ id: 'generation.models', label: 'Refresh models', menu: 'Tools', submenu: 'Generation', execute: () => this.generation.refreshModels() });
+    register({
+      id: 'generator.close', label: 'Close generator', menu: 'Tools', submenu: 'Generators',
+      enabled: () => !!this.generators.active, execute: () => this.generators.close(),
+    });
+    register({ id: 'generator.fit', label: 'Fit generator lens to canvas', menu: 'Tools', submenu: 'Generators', enabled: () => !!this.generators.active && !this.generators.busy, execute: () => this.generators.fitLens() });
+    register({ id: 'generator.models', label: 'Refresh AI models', menu: 'Tools', submenu: 'Generators', execute: () => this.generators.refreshModels() });
     register({ id: 'tool.brush', label: 'Brush', menu: 'Tools', execute: () => this.switchTool('brush') });
     register({ id: 'tool.rectangle', label: 'Rectangle', menu: 'Tools', execute: () => this.switchTool('rectangle') });
     register({ id: 'tool.ellipse', label: 'Ellipse', menu: 'Tools', execute: () => this.switchTool('ellipse') });
@@ -1250,7 +1263,7 @@ export class Editor {
     });
     register({
       id: 'tool.crop', label: 'Crop', menu: 'Tools',
-      enabled: () => !this.generation.busy, execute: () => this.switchTool('crop'),
+      enabled: () => !this.generators.busy, execute: () => this.switchTool('crop'),
     });
     register({
       id: 'crop.apply', label: 'Apply crop', menu: 'Tools', submenu: 'Crop',
@@ -1302,8 +1315,8 @@ export class Editor {
     register({ id: 'view.guide-settings', label: 'Grid and guides…', menu: 'View', execute: () => this.onGuideSettings?.() });
     this.actions.bind('D', 'colors.reset');
     this.actions.bind('X', 'colors.swap');
-    this.actions.bind('G', 'tool.generation');
-    this.actions.bind('Escape', 'generation.cancel', { when: 'isGenerating' });
+    this.actions.bind('G', 'generator.image');
+    this.actions.bind('Escape', 'generator.cancel', { when: 'isGenerating' });
     this.actions.bind('B', 'tool.brush');
     this.actions.bind('R', 'tool.rectangle');
     this.actions.bind('O', 'tool.ellipse');
@@ -1387,12 +1400,14 @@ export class Editor {
       if (!(this.activeTool instanceof PolygonLassoTool && this.activeTool.hasPath)) this.finishGesture();
       this.canvas.focus({ preventScroll: true });
       this.setAltHeld(event.altKey);
-      const mode = this.panHeld || event.button === 1 || event.button === 2 ? 'pan' : 'tool';
       const data = pointerData(event);
+      const mode = this.panHeld || event.button === 1 || event.button === 2 ? 'pan' :
+        this.generators.pointerDown(data) ? 'generator' : 'tool';
       this.hoverPointer = data;
       this.pointer = { id: event.pointerId, mode, button: event.button, last: data.screen, travel: 0 };
       this.canvas.setPointerCapture(event.pointerId);
       if (mode === 'tool') this.activeTool.pointerDown(data);
+      else if (mode === 'generator') this.activeTool.hover(null);
       else { this.activeTool.hover(null); this.canvas.style.cursor = 'grabbing'; }
     }));
     this.canvas.addEventListener('pointermove', (event) => this.run(() => {
@@ -1405,6 +1420,11 @@ export class Editor {
         const dy = data.screen.y - this.pointer.last.y;
         this.pointer.travel += Math.hypot(dx, dy);
         if (this.pointer.button !== 2 || this.pointer.travel >= 3) this.viewport.pan(dx, dy);
+        this.pointer.last = data.screen;
+        return;
+      }
+      if (this.pointer?.mode === 'generator') {
+        this.generators.pointerMove(data);
         this.pointer.last = data.screen;
         return;
       }

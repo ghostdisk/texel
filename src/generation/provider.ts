@@ -9,9 +9,25 @@ export interface GenerationModelRatings {
   qualityScope?: string;
 }
 
+export type GenerationModelType =
+  | 'general-editing'
+  | 'generate-from-image'
+  | 'fill-inpaint'
+  | 'object-removal-mask'
+  | 'object-removal-prompt'
+  | 'expand-reframe'
+  | 'restore'
+  | 'upscale'
+  | 'lighting-color'
+  | 'style-transform'
+  | 'subject-product'
+  | 'selection-analysis'
+  | 'structure-extraction';
+
 export interface GenerationModelCapabilities {
   inputImages: number;
   minimumInputImages?: number;
+  prompt?: boolean;
   mask: boolean;
   maskRequired?: boolean;
   negativePrompt: boolean;
@@ -38,6 +54,8 @@ export interface GenerationModel {
   publisherName?: string;
   capabilities: GenerationModelCapabilities;
   ratings?: GenerationModelRatings;
+  tags?: string[];
+  types?: GenerationModelType[];
   task?: 'generate' | 'remove';
 }
 
@@ -106,7 +124,7 @@ export class GenerationModelRegistry {
 
   private registered(model: GenerationModel, provider: GenerationProvider): GenerationModel {
     const ratings = (modelRatings as Record<string, GenerationModelRatings>)[model.id] ??
-      (falModelRatings as Record<string, GenerationModelRatings>)[model.ratingId ?? ''];
+      (falModelRatings as Record<string, GenerationModelRatings>)[model.ratingId ?? ''] ?? model.ratings;
     const parts = model.id.split('/');
     const publisher = parts.length > 2 ? parts[1] : model.platform;
     return {
@@ -116,6 +134,8 @@ export class GenerationModelRegistry {
       publisher,
       publisherName: this.prettyIdentifier(publisher),
       ratings,
+      tags: [...new Set(model.tags ?? [])],
+      types: [...new Set(model.types ?? ['general-editing'])],
     };
   }
 

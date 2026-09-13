@@ -41,6 +41,78 @@ function field(properties, names) {
   return names.find((name) => properties[name]) ?? null;
 }
 
+function schemaFields(properties) {
+  const names = Object.keys(properties ?? {});
+  if (!names.length) return 'no fields';
+  const visible = names.slice(0, 20);
+  return visible.join(', ') + (names.length > visible.length ? `, and ${names.length - visible.length} more` : '');
+}
+
+function incompatibleModelError(record) {
+  const endpoint = record?.endpoint_id ?? 'unknown endpoint';
+  if (!record?.openapi) return `fal endpoint "${endpoint}" has no OpenAPI schema.`;
+  const request = requestSchema(record);
+  if (!request) return `fal endpoint "${endpoint}" has no JSON request schema at POST /${endpoint}.`;
+  const input = objectProperties(record.openapi, request);
+  if (!input) return `fal endpoint "${endpoint}" has a request schema Texel could not resolve to an object.`;
+  const result = resultSchema(record);
+  if (!result) return `fal endpoint "${endpoint}" has no JSON result schema at GET /${endpoint}/requests/{request_id}.`;
+  const output = objectProperties(record.openapi, result);
+  if (!output) return `fal endpoint "${endpoint}" has a result schema Texel could not resolve to an object.`;
+  const inputFields = input.properties ?? {};
+  const outputFields = output.properties ?? {};
+  const imageField = field(inputFields, ['image_urls', 'image_url', 'input_image_urls', 'input_image_url', 'source_image_url', 'input_image', 'image']);
+  if (!imageField) {
+    return `fal endpoint "${endpoint}" has no supported input image field. Request fields: ${schemaFields(inputFields)}.`;
+  }
+  const outputField = field(outputFields, ['images', 'image', 'output_images', 'output_image', 'output', 'result']);
+  if (!outputField) {
+    return `fal endpoint "${endpoint}" has no supported output image field. Result fields: ${schemaFields(outputFields)}.`;
+  }
+  return `fal endpoint "${endpoint}" uses an unsupported schema.`;
+}
+
+function classifyModel(record) {
+  const metadata = record.metadata ?? {};
+  const tags = [...new Set((Array.isArray(metadata.tags) ? metadata.tags : [])
+    .map((tag) => String(tag).trim().toLowerCase()).filter(Boolean))];
+  const group = typeof metadata.group === 'string' ? metadata.group : [metadata.group?.key, metadata.group?.label].filter(Boolean).join(' ');
+  const text = [record.endpoint_id, metadata.display_name, metadata.description, group, ...tags].filter(Boolean).join(' ').toLowerCase();
+  const has = (...words) => words.some((word) => text.includes(word));
+  const types = [];
+  const expansion = has('outpaint', 'expand', 'reframe', 'uncrop');
+  if (expansion) types.push('expand-reframe');
+  if (has('upscale', 'upscaler', 'super resolution', 'super-resolution', 'enhance resolution')) types.push('upscale');
+  if (has('restore', 'deblur', 'denoise', 'old photo', 'face enhance', 'scratch', 'restoration')) types.push('restore');
+  if (has('relight', 'lighting', 'colorize', 'colourize', 'white balance', 'color correction', 'reseason')) types.push('lighting-color');
+  if (has('style', 'stylized', 'toon', 'anime', 'sketch', 'transfer', 'perspective', 'expression change', 'multiple angles')) types.push('style-transform');
+  if (has('product', 'fashion', 'try-on', 'tryon', 'portrait', 'headshot', 'subject', 'face', 'age progression')) types.push('subject-product');
+  if (has('segment', 'detect', 'caption', 'vision', 'classif', 'background removal', 'matting')) types.push('selection-analysis');
+  if (has('depth', 'normal map', 'pose', 'edge', 'canny', 'lineart', 'structure', 'extract')) types.push('structure-extraction');
+  if (!types.length && has('/edit', 'edit-image', 'image edit', 'image-edit', '/modify', '/remix')) types.push('general-editing');
+  if (!types.length && has('image-to-image', 'img2img', 'reference-to-image', 'variation')) types.push('generate-from-image');
+  return { tags, types: [...new Set(types)] };
+}
+
+function objectRemovalCandidate(record) {
+  const metadata = record.metadata ?? {};
+  const text = [record.endpoint_id, metadata.display_name, metadata.description, ...(metadata.tags ?? [])]
+    .filter(Boolean).join(' ').toLowerCase();
+  if (text.includes('background removal') || text.includes('background remover') || text.includes('remove background') ||
+      text.includes('replace background') || text.includes('background replace') || text.includes('text removal')) return false;
+  return /(^|\/)object-removal(\/|$)/.test(record.endpoint_id) || /(^|[-_/ ])eraser([-_/ ]|$)/.test(text) ||
+    /(^|\/)erase(_by_text)?$/.test(record.endpoint_id) || /(^|[-_/ ])remove-element([-_/ ]|$)/.test(text);
+}
+
+function inpaintCandidate(record) {
+  const metadata = record.metadata ?? {};
+  const group = typeof metadata.group === 'string' ? metadata.group : [metadata.group?.key, metadata.group?.label].filter(Boolean).join(' ');
+  const text = [record.endpoint_id, metadata.display_name, metadata.description, group, ...(metadata.tags ?? [])]
+    .filter(Boolean).join(' ').toLowerCase();
+  if (['outpaint', 'expand', 'reframe', 'uncrop'].some((word) => text.includes(word))) return false;
+  return ['inpaint', 'genfill', '/fill', '-fill', ' fill '].some((word) => text.includes(word));
+}
+
 function arrayLimit(openapi, schema) {
   const variant = schemaVariants(openapi, schema).find((candidate) => candidate.type === 'array');
   return variant?.maxItems;
@@ -53,11 +125,19 @@ function discoverModel(record) {
   if (!input || !output) return null;
   const properties = input.properties ?? {};
   const outputProperties = output.properties ?? {};
-  const imageField = field(properties, ['image_urls', 'image_url', 'input_image_urls', 'input_image_url', 'source_image_url']);
-  const outputField = field(outputProperties, ['images', 'image', 'output_images', 'output_image']);
-  if (!properties.prompt || !imageField || !outputField) return null;
+  const imageField = field(properties, ['image_urls', 'image_url', 'input_image_urls', 'input_image_url', 'source_image_url', 'input_image', 'image']);
+  const outputField = field(outputProperties, ['images', 'image', 'output_images', 'output_image', 'output', 'result']);
+  if (!imageField || !outputField) return null;
+  const promptField = field(properties, ['prompt', 'object_to_remove', 'objects_to_remove']);
+  const maskField = field(properties, ['mask_url', 'mask_image_url', 'mask_urls', 'mask_image', 'mask']);
   const required = new Set(input.required ?? []);
   const maximum = arrayLimit(record.openapi, properties[imageField]);
+  const classification = classifyModel(record);
+  if (objectRemovalCandidate(record)) {
+    if (maskField) classification.types.push('object-removal-mask');
+    if (promptField) classification.types.push('object-removal-prompt');
+  }
+  if (inpaintCandidate(record) && imageField && maskField && promptField) classification.types.push('fill-inpaint');
   return {
     id: `fal/${record.endpoint_id}`,
     label: record.metadata?.display_name || record.endpoint_id,
@@ -66,31 +146,37 @@ function discoverModel(record) {
     outputField,
     inputImages: Number.isInteger(maximum) ? Math.max(1, Math.min(16, maximum)) : 1,
     minimumInputImages: 1,
+    tags: classification.tags,
+    types: classification.types,
+    promptField,
     fields: {
       negativePrompt: field(properties, ['negative_prompt']),
       steps: field(properties, ['num_inference_steps', 'steps']),
       guidance: field(properties, ['guidance_scale', 'guidance']),
       seed: field(properties, ['seed']),
       strength: field(properties, ['strength', 'denoising_strength', 'denoise_strength']),
-      mask: field(properties, ['mask_url', 'mask_image_url', 'mask_urls']),
+      mask: maskField,
       outputFormat: field(properties, ['output_format']),
       imageSize: field(properties, ['image_size']),
       numImages: field(properties, ['num_images']),
     },
     capabilities: {
-      maskRequired: required.has(field(properties, ['mask_url', 'mask_image_url', 'mask_urls'])),
+      maskRequired: required.has(maskField),
     },
   };
 }
 
 function catalogModel(record) {
   if (!record?.endpoint_id) return null;
+  const classification = classifyModel(record);
   return {
     id: `fal/${record.endpoint_id}`,
     label: record.metadata?.display_name || record.endpoint_id,
     endpoint: record.endpoint_id,
     inputImages: 1,
     minimumInputImages: 1,
+    tags: classification.tags,
+    types: classification.types,
     fields: {},
     capabilities: {},
     resolved: false,
@@ -101,6 +187,14 @@ function mappedField(value) { return typeof value === 'string' ? value : null; }
 
 function assignFile(body, name, dataUrl) {
   body[name] = name.endsWith('urls') ? [dataUrl] : dataUrl;
+}
+
+function queueUrl(value, field) {
+  let url;
+  try { url = typeof value === 'string' ? new URL(value) : null; }
+  catch { url = null; }
+  if (!url || url.origin !== QUEUE_API || url.username || url.password) throw new Error(`fal returned an invalid ${field}.`);
+  return url;
 }
 
 function registerFal({ app, ipcMain, safeStorage }, ownerOf) {
@@ -148,12 +242,13 @@ function registerFal({ app, ipcMain, safeStorage }, ownerOf) {
 
   async function errorMessage(response) {
     const text = await response.text();
+    const fallback = response.statusText || `HTTP ${response.status}`;
     try {
       const value = JSON.parse(text);
       if (typeof value?.detail === 'string') return value.detail;
       if (Array.isArray(value?.detail)) return value.detail.map((item) => item.msg || JSON.stringify(item)).join('; ');
-      return value?.error?.message || value?.error || value?.message || text || `fal request failed (${response.status}).`;
-    } catch { return text || `fal request failed (${response.status}).`; }
+      return value?.error?.message || value?.error || value?.message || text || fallback;
+    } catch { return text || fallback; }
   }
 
   async function request(url, key, options = {}) {
@@ -163,8 +258,21 @@ function registerFal({ app, ipcMain, safeStorage }, ownerOf) {
       ...options,
       headers,
     });
-    if (!response.ok) throw new Error(await errorMessage(response));
+    if (!response.ok) {
+      const operation = `${options.method ?? 'GET'} ${new URL(url).pathname}`;
+      throw new Error(`fal ${operation} failed (${response.status}): ${await errorMessage(response)}`);
+    }
     return response;
+  }
+
+  async function fetchModelRecord(endpoint, key) {
+    const url = new URL(CATALOG_API);
+    url.searchParams.set('endpoint_id', endpoint);
+    url.searchParams.set('expand', 'openapi-3.0');
+    const response = await request(url.href, key).then((value) => value.json());
+    const record = response.models?.find((candidate) => candidate.endpoint_id === endpoint);
+    if (!record?.openapi) throw new Error(`fal returned no OpenAPI schema for endpoint "${endpoint}".`);
+    return record;
   }
 
   async function discoverModels() {
@@ -195,7 +303,24 @@ function registerFal({ app, ipcMain, safeStorage }, ownerOf) {
         if (!Array.isArray(cached?.records)) throw error;
         records = cached.records;
       }
-      models = new Map(records.map(catalogModel).filter(Boolean).map((model) => [model.id, model]));
+      const cache = await schemaCache();
+      let cacheChanged = false;
+      const detailed = await Promise.all(records.map(async (record) => {
+        if (!objectRemovalCandidate(record) && !inpaintCandidate(record)) return record;
+        if (cache.models[record.endpoint_id]?.openapi) return cache.models[record.endpoint_id];
+        try {
+          const resolved = await fetchModelRecord(record.endpoint_id, key);
+          cache.models[record.endpoint_id] = resolved;
+          cacheChanged = true;
+          return resolved;
+        } catch (error) {
+          console.error(`Unable to inspect fal image-editing endpoint "${record.endpoint_id}":`, error);
+          return record;
+        }
+      }));
+      if (cacheChanged) await writeJson(schemaCachePath(), cache);
+      models = new Map(detailed.map((record) => record.openapi ? discoverModel(record) : catalogModel(record))
+        .filter(Boolean).map((model) => [model.id, model]));
       return [...models.values()];
     })().catch((error) => {
       catalogPromise = null;
@@ -219,12 +344,7 @@ function registerFal({ app, ipcMain, safeStorage }, ownerOf) {
     const cache = await schemaCache();
     let record;
     try {
-      const url = new URL(CATALOG_API);
-      url.searchParams.set('endpoint_id', current.endpoint);
-      url.searchParams.set('expand', 'openapi-3.0');
-      const response = await request(url.href, key).then((value) => value.json());
-      record = response.models?.find((candidate) => candidate.endpoint_id === current.endpoint);
-      if (!record?.openapi) throw new Error('fal returned no schema for this model.');
+      record = await fetchModelRecord(current.endpoint, key);
       cache.models[current.endpoint] = record;
       await writeJson(schemaCachePath(), cache);
     } catch (error) {
@@ -232,7 +352,7 @@ function registerFal({ app, ipcMain, safeStorage }, ownerOf) {
       if (!record?.openapi) throw error;
     }
     const resolved = discoverModel(record);
-    if (!resolved) throw new Error('This fal endpoint is not compatible with Texel’s generation tool.');
+    if (!resolved) throw new Error(incompatibleModelError(record));
     resolved.resolved = true;
     models.set(modelId, resolved);
     return resolved;
@@ -244,9 +364,12 @@ function registerFal({ app, ipcMain, safeStorage }, ownerOf) {
       id: model.id,
       ratingId: model.endpoint,
       label: model.label,
+      tags: model.tags,
+      types: model.types,
       capabilities: {
         inputImages: model.inputImages ?? 1,
         minimumInputImages: model.minimumInputImages ?? 1,
+        prompt: !!model.promptField,
         mask: !!fields.mask,
         maskRequired: !!model.capabilities.maskRequired,
         negativePrompt: !!fields.negativePrompt,
@@ -276,9 +399,9 @@ function registerFal({ app, ipcMain, safeStorage }, ownerOf) {
   }
 
   async function cancelRemote(job) {
-    if (!job.requestId) return;
+    if (!job.cancelUrl) return;
     try {
-      await request(`${QUEUE_API}/${job.endpoint}/requests/${encodeURIComponent(job.requestId)}/cancel`, job.key, { method: 'PUT' });
+      await request(job.cancelUrl, job.key, { method: 'PUT' });
     } catch (error) {
       if (!job.controller.signal.aborted) console.error('Unable to cancel fal generation:', error);
     }
@@ -316,7 +439,8 @@ function registerFal({ app, ipcMain, safeStorage }, ownerOf) {
     model = await resolveModel(modelId);
     const key = await readKey();
     if (!key) throw new Error('Add a fal API key in Settings before generating.');
-    const body = { prompt };
+    const body = {};
+    if (model.promptField) body[model.promptField] = prompt;
     const image = `data:image/png;base64,${Buffer.from(input).toString('base64')}`;
     assignFile(body, model.imageField ?? 'image_url', image);
     const negativePrompt = mappedField(model.fields.negativePrompt);
@@ -338,18 +462,25 @@ function registerFal({ app, ipcMain, safeStorage }, ownerOf) {
     if (outputFormat) body[outputFormat] = 'png';
     if (numImages) body[numImages] = 1;
     const controller = new AbortController();
-    const job = { controller, sender: event.sender, endpoint: model.endpoint, key, requestId: '' };
+    const job = { controller, sender: event.sender, key, cancelUrl: '' };
     jobs.set(id, job);
     try {
       const submitted = await request(`${QUEUE_API}/${model.endpoint}`, key, {
         method: 'POST', body: JSON.stringify(body), signal: controller.signal,
       }).then((response) => response.json());
       if (typeof submitted?.request_id !== 'string') throw new Error('fal returned no request ID.');
-      job.requestId = submitted.request_id;
-      const requestUrl = `${QUEUE_API}/${model.endpoint}/requests/${encodeURIComponent(job.requestId)}`;
+      // Queue routes can differ from the submission endpoint's model subpath.
+      job.cancelUrl = queueUrl(submitted.cancel_url, 'cancel_url').href;
+      const statusUrl = queueUrl(submitted.status_url, 'status_url');
+      statusUrl.searchParams.set('logs', '1');
+      const responseUrl = queueUrl(submitted.response_url, 'response_url').href;
+      if (controller.signal.aborted) {
+        await cancelRemote(job);
+        throw new DOMException('Generation cancelled.', 'AbortError');
+      }
       while (true) {
         if (controller.signal.aborted) throw new DOMException('Generation cancelled.', 'AbortError');
-        const status = await request(`${requestUrl}/status?logs=1`, key, { signal: controller.signal }).then((response) => response.json());
+        const status = await request(statusUrl.href, key, { signal: controller.signal }).then((response) => response.json());
         if (status.status === 'COMPLETED') break;
         if (status.status === 'FAILED') throw new Error(status.error || 'fal generation failed.');
         const log = Array.isArray(status.logs) ? status.logs.at(-1)?.message : '';
@@ -358,7 +489,7 @@ function registerFal({ app, ipcMain, safeStorage }, ownerOf) {
         send(owner, { id, type: 'progress', phase: log || (queued ? `Queued on fal${position}` : 'Generating with fal') });
         await delay(600, controller.signal);
       }
-      const result = await request(requestUrl, key, { signal: controller.signal }).then((response) => response.json());
+      const result = await request(responseUrl, key, { signal: controller.signal }).then((response) => response.json());
       const value = result[model.outputField ?? 'images'] ?? result.data?.[model.outputField ?? 'images'];
       const output = Array.isArray(value) ? value[0] : value;
       const outputUrl = typeof output === 'string' ? output : output?.url;

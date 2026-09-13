@@ -2,7 +2,7 @@ const { app, BrowserWindow, dialog, ipcMain, Menu, nativeTheme, safeStorage } = 
 const { readFile } = require('node:fs/promises');
 const path = require('node:path');
 const { NativeBackend } = require('./native-backend.cjs');
-const { registerDocumentFiles } = require('./document-files.cjs');
+const { IMAGE_EXTENSIONS, isSupportedOpenPath, registerDocumentFiles } = require('./document-files.cjs');
 const { registerImageFiles } = require('./image-files.cjs');
 const { registerSettings } = require('./settings.cjs');
 const { registerOpenRouter } = require('./openrouter.cjs');
@@ -25,7 +25,7 @@ function startApplication() {
 
   function openArguments(argv, workingDirectory) {
     return argv.slice(1)
-      .filter((argument) => typeof argument === 'string' && !argument.startsWith('-') && path.extname(argument).toLowerCase() === '.txl')
+      .filter((argument) => typeof argument === 'string' && !argument.startsWith('-') && isSupportedOpenPath(argument))
       .map((argument) => path.resolve(workingDirectory, argument));
   }
 
@@ -71,7 +71,7 @@ function startApplication() {
     if (!owner) return null;
     const { canceled, filePaths } = await dialog.showOpenDialog(owner, {
       title: 'Add image layer', properties: ['openFile'],
-      filters: [{ name: 'Images', extensions: ['png', 'jpg', 'jpeg', 'webp', 'avif', 'bmp', 'gif'] }],
+      filters: [{ name: 'Images', extensions: IMAGE_EXTENSIONS }],
     });
     if (canceled || !filePaths[0]) return null;
     return { name: path.basename(filePaths[0]), bytes: new Uint8Array(await readFile(filePaths[0])) };

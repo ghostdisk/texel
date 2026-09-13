@@ -124,7 +124,7 @@ export class EditorView {
     });
     this.bindLayerDrop(tree, (event) => event.target === tree && !event.shiftKey ?
       { kind: 'bottom', parent: this.editor.image.root, index: 0 } : null);
-    void editor.generation.refreshModels();
+    void editor.generators.refreshModels();
   }
 
   private createOpacityControl(): SliderInput {
@@ -178,12 +178,11 @@ export class EditorView {
       const glyphs: Record<string, IconName> = {
         brush: 'brush', rectangle: 'rectangle', ellipse: 'ellipse', fill: 'fill', text: 'text',
         'clone-stamp': 'clone-stamp', 'healing-brush': 'healing-brush', 'freehand-lasso': 'freehand-lasso',
-        'polygon-lasso': 'polygon-lasso', crop: 'crop', transform: 'transform', eyedropper: 'eyedropper', generation: 'generate',
+        'polygon-lasso': 'polygon-lasso', crop: 'crop', transform: 'transform', eyedropper: 'eyedropper',
       };
       element('active-tool-icon').replaceChildren(icon(glyphs[editor.activeTool.id] ?? 'brush'));
       element('tool-options').replaceChildren();
       element('tool-options').classList.remove('generation-options', 'crop-options', 'polygon-options', 'text-options', 'transform-precision-options', 'retouch-options');
-      editor.generation.onChange = undefined;
       editor.activeTool.drawUI(element('tool-options'));
     }
     editor.activeTool.syncUI();
@@ -195,6 +194,11 @@ export class EditorView {
         button.classList.toggle('active', active);
         button.setAttribute('aria-pressed', String(active));
       }
+      if (button.dataset.action!.startsWith('generator.') && ['image', 'object-removal', 'inpaint'].includes(button.dataset.action!.slice('generator.'.length))) {
+        const active = button.dataset.action === `generator.${editor.generators.active?.id}`;
+        button.classList.toggle('active', active);
+        button.setAttribute('aria-pressed', String(active));
+      }
       if (button.dataset.action === 'drawing.erase' || button.dataset.action === 'selection.mode') {
         const enabled = button.dataset.action === 'drawing.erase' ? editor.eraseMode : editor.selectionMode;
         button.classList.toggle('active', enabled);
@@ -202,11 +206,9 @@ export class EditorView {
       }
     }
     this.renderFilters();
-    element('cancel-generation').hidden = !editor.generation.busy;
-    element('cancel-generation').textContent = editor.generation.removing ? 'Cancel removal' : 'Cancel generation';
-    element('remove-selection').setAttribute('aria-busy', String(editor.generation.removing));
-    element('image-operation-status').textContent = editor.generation.removing ? editor.generation.progress.phase : '';
-    editor.generation.onChange?.();
+    element('cancel-generation').hidden = !editor.generators.busy;
+    element('cancel-generation').textContent = 'Cancel generation';
+    element('image-operation-status').textContent = editor.generators.active?.progress.phase ?? '';
   }
 
   private renderDocumentTabs(): void {

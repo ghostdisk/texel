@@ -2,7 +2,12 @@ import type { Editor } from '../editor';
 import type { EditorDocument } from '../editor-document';
 import { TxlFormat } from './txl';
 import type { LoadedDocument } from './txl';
-import { multiply } from '../model/geometry';
+import { importImage } from '../gpu/images';
+import { GroupLayer } from '../model/layers';
+import { IDENTITY, multiply } from '../model/geometry';
+import { DEFAULT_GRID_SIZE } from '../model/precision';
+
+const IMAGE_EXTENSION = /\.(?:png|jpe?g|webp|avif|bmp|gif)$/i;
 
 export class DocumentFiles {
   busy = false;
@@ -92,16 +97,26 @@ export class DocumentFiles {
     const placeholder = this.editor.documents.length === 1 && !this.editor.document.fileHandle &&
       !this.editor.document.dirty && this.editor.document.name === 'Untitled' ? this.editor.document : null;
     const bytes = await window.desktop.readDocument(file.token);
-    let loaded: LoadedDocument | null = await this.format.decode(bytes);
+    let loaded: LoadedDocument | null = IMAGE_EXTENSION.test(file.name) ? await this.decodeImage(file.name, bytes) : await this.format.decode(bytes);
     try {
       const document = this.editor.addLoadedDocument(loaded);
       loaded = null;
-      document.fileHandle = file;
+      document.fileHandle = IMAGE_EXTENSION.test(file.name) ? null : file;
       document.name = file.name;
       document.savedState = document.history.stateId;
       if (placeholder) this.editor.closeDocument(placeholder);
       this.editor.changed();
     } finally { if (loaded) this.editor.compositor.release(loaded.root); }
+  }
+
+  private async decodeImage(name: string, bytes: Uint8Array<ArrayBuffer>): Promise<LoadedDocument> {
+    const layer = await importImage(this.editor.gpu, this.editor.compositor.quads, name, new Blob([bytes]));
+    const root = new GroupLayer('Document');
+    root.add(layer);
+    return {
+      root, width: layer.width, height: layer.height, selection: { ids: [layer.id], active: layer.id },
+      activeSelectionId: null, generationLens: IDENTITY, precision: { gridSize: DEFAULT_GRID_SIZE, guides: [] },
+    };
   }
 
   async save(saveAs = false): Promise<void> { await this.exclusive(() => this.saveCurrent(saveAs)); }
@@ -137,7 +152,7 @@ export class DocumentFiles {
     if (!this.editor.halted) this.editor.finishGesture();
     this.editor.flushPaint();
     const state = this.editor.history.stateId;
-    const lens = this.editor.generation.lens;
+    const lens = this.editor.generators.lens;
     const bounds = lens.localBounds();
     const transform = multiply(lens.transform, [bounds.width / this.editor.image.width, 0, 0, bounds.height / this.editor.image.height, 0, 0]);
     const bytes = await this.format.encode(this.editor.image, transform);
@@ -172,7 +187,7 @@ export class DocumentFiles {
   private async closeWindow(): Promise<void> {
     await this.exclusive(async () => {
       for (const document of [...this.editor.documents]) if (!await this.confirmDocument(document)) return;
-      this.editor.generation.cancel();
+      this.editor.generators.close();
       this.editor.disposeDocuments();
       await window.desktop.closeDocumentWindow();
     });
