@@ -3,83 +3,6 @@ const path = require('node:path');
 
 const QUEUE_API = 'https://queue.fal.run';
 const CATALOG_API = 'https://api.fal.ai/v1/models';
-const FALLBACK_MODELS = [
-  {
-    id: 'fal/black-forest-labs/flux-2-klein-4b-edit',
-    label: 'FLUX.2 Klein 4B Edit',
-    endpoint: 'fal-ai/flux-2/klein/4b/edit',
-    imageField: 'image_urls',
-    inputImages: 4,
-    fields: { steps: true, seed: true },
-    capabilities: {},
-  },
-  {
-    id: 'fal/black-forest-labs/flux-2-klein-9b-edit',
-    label: 'FLUX.2 Klein 9B Edit',
-    endpoint: 'fal-ai/flux-2/klein/9b/edit',
-    imageField: 'image_urls',
-    inputImages: 4,
-    fields: { steps: true, seed: true },
-    capabilities: {},
-  },
-  {
-    id: 'fal/black-forest-labs/flux-1-dev-image-to-image',
-    label: 'FLUX.1 Dev Image to Image',
-    endpoint: 'fal-ai/flux/dev/image-to-image',
-    fields: { steps: true, guidance: true, seed: true, strength: true },
-    capabilities: { dimensionMultiple: 16 },
-  },
-  {
-    id: 'fal/black-forest-labs/flux-general-image-to-image',
-    label: 'FLUX General Image to Image',
-    endpoint: 'fal-ai/flux-general/image-to-image',
-    fields: { steps: true, guidance: true, seed: true, strength: true },
-    capabilities: { dimensionMultiple: 16 },
-  },
-  {
-    id: 'fal/black-forest-labs/flux-1-krea-image-to-image',
-    label: 'FLUX.1 Krea Image to Image',
-    endpoint: 'fal-ai/flux/krea/image-to-image',
-    fields: { steps: true, guidance: true, seed: true, strength: true },
-    capabilities: { dimensionMultiple: 16 },
-  },
-  {
-    id: 'fal/qwen/qwen-image-image-to-image',
-    label: 'Qwen Image Image to Image',
-    endpoint: 'fal-ai/qwen-image/image-to-image',
-    fields: { negativePrompt: true, steps: true, guidance: true, seed: true, strength: true },
-    capabilities: { dimensionMultiple: 16 },
-  },
-  {
-    id: 'fal/qwen/qwen-image-edit',
-    label: 'Qwen Image Edit',
-    endpoint: 'fal-ai/qwen-image-edit',
-    fields: { negativePrompt: true, steps: true, guidance: true, seed: true },
-    capabilities: { dimensionMultiple: 16 },
-  },
-  {
-    id: 'fal/stability-ai/stable-diffusion-3-medium-image-to-image',
-    label: 'Stable Diffusion 3 Medium Image to Image',
-    endpoint: 'fal-ai/stable-diffusion-v3-medium/image-to-image',
-    fields: { negativePrompt: true, steps: true, guidance: true, seed: true, strength: true },
-    capabilities: { dimensionMultiple: 16 },
-  },
-  {
-    id: 'fal/recraft/recraft-v3-image-to-image',
-    label: 'Recraft V3 Image to Image',
-    endpoint: 'fal-ai/recraft/v3/image-to-image',
-    fields: { strength: true },
-    capabilities: { maxDimension: 4096 },
-  },
-  {
-    id: 'fal/playground-ai/playground-v2.5-image-to-image',
-    label: 'Playground V2.5 Image to Image',
-    endpoint: 'fal-ai/playground-v25/image-to-image',
-    fields: { negativePrompt: true, steps: true, guidance: true, seed: true, strength: true },
-    capabilities: { dimensionMultiple: 32 },
-  },
-];
-
 function resolveSchema(openapi, schema) {
   const seen = new Set();
   while (schema?.$ref?.startsWith('#/')) {
@@ -134,15 +57,14 @@ function discoverModel(record) {
   const outputField = field(outputProperties, ['images', 'image', 'output_images', 'output_image']);
   if (!properties.prompt || !imageField || !outputField) return null;
   const required = new Set(input.required ?? []);
-  const override = FALLBACK_MODELS.find((model) => model.endpoint === record.endpoint_id);
   const maximum = arrayLimit(record.openapi, properties[imageField]);
   return {
-    id: override?.id ?? `fal/${record.endpoint_id}`,
-    label: record.metadata?.display_name || override?.label || record.endpoint_id,
+    id: `fal/${record.endpoint_id}`,
+    label: record.metadata?.display_name || record.endpoint_id,
     endpoint: record.endpoint_id,
     imageField,
     outputField,
-    inputImages: Number.isInteger(maximum) ? Math.max(1, Math.min(16, maximum)) : override?.inputImages ?? 1,
+    inputImages: Number.isInteger(maximum) ? Math.max(1, Math.min(16, maximum)) : 1,
     minimumInputImages: 1,
     fields: {
       negativePrompt: field(properties, ['negative_prompt']),
@@ -154,19 +76,14 @@ function discoverModel(record) {
       outputFormat: field(properties, ['output_format']),
       imageSize: field(properties, ['image_size']),
       numImages: field(properties, ['num_images']),
-      ...override?.fields,
     },
     capabilities: {
       maskRequired: required.has(field(properties, ['mask_url', 'mask_image_url', 'mask_urls'])),
-      ...override?.capabilities,
     },
   };
 }
 
-function mappedField(value, fallback) {
-  if (typeof value === 'string') return value;
-  return value ? fallback : null;
-}
+function mappedField(value) { return typeof value === 'string' ? value : null; }
 
 function assignFile(body, name, dataUrl) {
   body[name] = name.endsWith('urls') ? [dataUrl] : dataUrl;
@@ -174,7 +91,7 @@ function assignFile(body, name, dataUrl) {
 
 function registerFal({ app, ipcMain, safeStorage }, ownerOf) {
   const jobs = new Map();
-  let models = new Map(FALLBACK_MODELS.map((model) => [model.id, model]));
+  let models = new Map();
   let catalogPromise = null;
   let catalogExpires = 0;
 
@@ -242,9 +159,6 @@ function registerFal({ app, ipcMain, safeStorage }, ownerOf) {
         cursor = nextCursor && !cursors.has(nextCursor) ? nextCursor : '';
         if (cursor) cursors.add(cursor);
       } while (cursor);
-      for (const fallback of FALLBACK_MODELS) {
-        if (!discovered.has(fallback.id)) discovered.set(fallback.id, fallback);
-      }
       models = discovered;
       return [...models.values()];
     })().catch((error) => {
@@ -332,14 +246,14 @@ function registerFal({ app, ipcMain, safeStorage }, ownerOf) {
     const body = { prompt };
     const image = `data:image/png;base64,${Buffer.from(input).toString('base64')}`;
     assignFile(body, model.imageField ?? 'image_url', image);
-    const negativePrompt = mappedField(model.fields.negativePrompt, 'negative_prompt');
-    const steps = mappedField(model.fields.steps, 'num_inference_steps');
-    const guidance = mappedField(model.fields.guidance, 'guidance_scale');
-    const strength = mappedField(model.fields.strength, 'strength');
-    const seed = mappedField(model.fields.seed, 'seed');
-    const maskField = mappedField(model.fields.mask, 'mask_url');
-    const outputFormat = mappedField(model.fields.outputFormat, 'output_format');
-    const numImages = mappedField(model.fields.numImages, 'num_images');
+    const negativePrompt = mappedField(model.fields.negativePrompt);
+    const steps = mappedField(model.fields.steps);
+    const guidance = mappedField(model.fields.guidance);
+    const strength = mappedField(model.fields.strength);
+    const seed = mappedField(model.fields.seed);
+    const maskField = mappedField(model.fields.mask);
+    const outputFormat = mappedField(model.fields.outputFormat);
+    const numImages = mappedField(model.fields.numImages);
     if (negativePrompt && generation.negativePrompt) body[negativePrompt] = generation.negativePrompt;
     if (steps && Number.isInteger(generation.steps)) body[steps] = generation.steps;
     if (guidance && Number.isFinite(generation.guidance)) body[guidance] = generation.guidance;
