@@ -356,7 +356,10 @@ export class CropTool extends Tool {
     const topLeft = this.editor.viewport.worldToScreen({ x: this.rect.x, y: this.rect.y });
     const bottomRight = this.editor.viewport.worldToScreen({ x: this.rect.x + this.rect.width, y: this.rect.y + this.rect.height });
     const x = topLeft.x, y = topLeft.y, width = bottomRight.x - topLeft.x, height = bottomRight.y - topLeft.y;
-    const shadePath = `M0 0H${this.editor.viewport.width}V${this.editor.viewport.height}H0Z M${x} ${y}H${x + width}V${y + height}H${x}Z`;
+    const frameTopLeft = this.editor.viewport.worldToScreen({ x: 0, y: 0 });
+    const frameBottomRight = this.editor.viewport.worldToScreen({ x: this.editor.image.width, y: this.editor.image.height });
+    const shadePath = `M${frameTopLeft.x} ${frameTopLeft.y}H${frameBottomRight.x}V${frameBottomRight.y}H${frameTopLeft.x}Z ` +
+      `M${x} ${y}H${x + width}V${y + height}H${x}Z`;
     add('path', { d: shadePath, class: 'crop-shade', 'fill-rule': 'evenodd' });
     add('rect', { x, y, width, height, class: 'crop-outline' });
     for (const fraction of [1 / 3, 2 / 3]) {
