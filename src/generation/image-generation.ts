@@ -82,6 +82,8 @@ export class ImageGeneration {
   private notify(): void { this.onChange?.(); this.editor.changed(); }
 
   resetLens(width: number, height: number): void {
+    if (this.previewUrl) URL.revokeObjectURL(this.previewUrl);
+    this.previewUrl = '';
     this.lens = new GenerationLens(width, height, () => this.notify());
   }
 
