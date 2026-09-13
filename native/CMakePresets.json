@@ -32,6 +32,7 @@
       "inherits": "clang-vulkan",
       "binaryDir": "${sourceDir}/build/clang-vulkan-release",
       "cacheVariables": {
+        "CMAKE_BUILD_TYPE": "MinSizeRel",
         "IMGED_PACKAGE_RUNTIME": "ON",
         "CMAKE_MSVC_RUNTIME_LIBRARY": "MultiThreaded$<$<CONFIG:Debug>:Debug>",
         "BUILD_SHARED_LIBS": "OFF",
