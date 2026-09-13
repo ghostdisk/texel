@@ -63,6 +63,8 @@ export class ImageGeneration {
   private readonly masks: GenerationMask;
   private readonly reframer: LayerReframer;
   private removalModel = '';
+  private resolvingModel = '';
+  private modelError = '';
 
   constructor(private readonly editor: Editor) {
     this.registry.register(new LocalGenerationProvider());
@@ -105,13 +107,14 @@ export class ImageGeneration {
     return '';
   }
   get requirementError(): string {
+    if (this.modelError) return this.modelError;
     if (this.selectedModel?.capabilities.maskRequired && !this.editor.image.selectionMask) {
       return 'This model requires a selection mask.';
     }
     return '';
   }
   get canGenerate(): boolean {
-    return !this.busy && !!this.model && !!this.prompt.trim() && !this.sizeError && !this.requirementError;
+    return !this.busy && !this.resolvingModel && !!this.model && !!this.prompt.trim() && !this.sizeError && !this.requirementError;
   }
 
   async inputPreview(): Promise<GenerationInputPreview> {
@@ -180,13 +183,35 @@ export class ImageGeneration {
       const models = await this.registry.refresh();
       this.models = models.filter((model) => model.task !== 'remove');
       this.removalModel = models.find((model) => model.task === 'remove')?.id ?? '';
-      if (!this.models.some((model) => model.id === this.model)) this.model = this.models[0]?.id ?? '';
+      if (!this.models.some((model) => model.id === this.model)) {
+        this.model = this.models[0]?.id ?? '';
+        this.modelError = '';
+      }
       if (!this.busy) this.progress = { phase: this.models.length ? 'Ready' : 'No local models found', step: 0, steps: 0 };
     } catch (error) {
       this.error = error instanceof Error ? error.message : String(error);
       if (!this.busy) this.progress = { phase: 'Backend unavailable', step: 0, steps: 0 };
     }
     this.notify();
+  }
+
+  async selectModel(id: string): Promise<boolean> {
+    this.model = id;
+    this.modelError = '';
+    this.resolvingModel = id;
+    this.notify();
+    try {
+      const resolved = await this.registry.resolve(id);
+      if (this.model !== id) return false;
+      this.models = this.models.map((model) => model.id === id ? resolved : model);
+      return true;
+    } catch (error) {
+      if (this.model === id) this.modelError = error instanceof Error ? error.message : String(error);
+      return false;
+    } finally {
+      if (this.resolvingModel === id) this.resolvingModel = '';
+      this.notify();
+    }
   }
 
   private valid(run: RunningGeneration): boolean {
@@ -283,7 +308,12 @@ export class ImageGeneration {
   }
 
   async generate(removal = false): Promise<void> {
-    if (removal ? !this.canRemove : !this.canGenerate) return;
+    if (removal) {
+      if (!this.canRemove) return;
+    } else {
+      if (this.busy || !this.model || !this.prompt.trim()) return;
+      if (!await this.selectModel(this.model) || !this.canGenerate) return;
+    }
     this.editor.finishGesture();
     const model = removal ? this.removalModel : this.model;
     const capabilities = this.registry.model(model)?.capabilities;

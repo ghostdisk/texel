@@ -39,6 +39,7 @@ contextBridge.exposeInMainWorld('desktop', {
   falKeyStatus: () => ipcRenderer.invoke('fal:key-status'),
   setFalKey: (key) => ipcRenderer.invoke('fal:set-key', key),
   falModels: () => ipcRenderer.invoke('fal:models'),
+  falModel: (id) => ipcRenderer.invoke('fal:model', id),
   falGenerate: (request) => ipcRenderer.invoke('fal:generate', request),
   cancelFalGeneration: (id) => ipcRenderer.invoke('fal:cancel', id),
   onFalGeneration: (callback) => {

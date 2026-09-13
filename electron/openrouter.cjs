@@ -7,6 +7,7 @@ function registerOpenRouter({ app, ipcMain, safeStorage }, ownerOf) {
   const jobs = new Map();
 
   function keyPath() { return path.join(app.getPath('userData'), 'openrouter-key.bin'); }
+  function modelCachePath() { return path.join(app.getPath('userData'), 'openrouter-model-catalog.json'); }
 
   async function readKey() {
     try {
@@ -23,6 +24,21 @@ function registerOpenRouter({ app, ipcMain, safeStorage }, ownerOf) {
     if (!safeStorage.isEncryptionAvailable()) throw new Error('Secure credential storage is unavailable.');
     await mkdir(path.dirname(keyPath()), { recursive: true });
     await writeFile(keyPath(), safeStorage.encryptString(key));
+  }
+
+  async function readModelCache() {
+    try { return JSON.parse(await readFile(modelCachePath(), 'utf8')); }
+    catch (error) {
+      if (error?.code !== 'ENOENT') console.error('Unable to read OpenRouter model cache:', error);
+      return null;
+    }
+  }
+
+  async function writeModelCache(value) {
+    try {
+      await mkdir(path.dirname(modelCachePath()), { recursive: true });
+      await writeFile(modelCachePath(), JSON.stringify(value));
+    } catch (error) { console.error('Unable to write OpenRouter model cache:', error); }
   }
 
   async function errorMessage(response) {
@@ -50,7 +66,15 @@ function registerOpenRouter({ app, ipcMain, safeStorage }, ownerOf) {
   });
   ipcMain.handle('openrouter:models', async (event) => {
     if (!ownerOf(event)) return null;
-    return request('/images/models').then((response) => response.json());
+    try {
+      const models = await request('/images/models').then((response) => response.json());
+      await writeModelCache(models);
+      return models;
+    } catch (error) {
+      const cached = await readModelCache();
+      if (cached?.data) return cached;
+      throw error;
+    }
   });
   ipcMain.handle('openrouter:cancel', (event, id) => {
     const owner = ownerOf(event);

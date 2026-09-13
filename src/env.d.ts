@@ -86,13 +86,15 @@ interface FalKeyStatus {
   configured: boolean;
 }
 
+interface FalModelRecord {
+  id: string;
+  ratingId: string;
+  label: string;
+  capabilities: import('./generation/provider').GenerationModelCapabilities;
+}
+
 interface FalModelList {
-  data: Array<{
-    id: string;
-    ratingId: string;
-    label: string;
-    capabilities: import('./generation/provider').GenerationModelCapabilities;
-  }>;
+  data: FalModelRecord[];
 }
 
 interface FalGenerationRequest {
@@ -152,6 +154,7 @@ interface Window {
     falKeyStatus(): Promise<FalKeyStatus | null>;
     setFalKey(key: string): Promise<FalKeyStatus | null>;
     falModels(): Promise<FalModelList | null>;
+    falModel(id: string): Promise<FalModelRecord | null>;
     falGenerate(request: FalGenerationRequest): Promise<FalGenerationResult>;
     cancelFalGeneration(id: string): Promise<boolean>;
     onFalGeneration(callback: (event: FalGenerationEvent) => void): () => void;

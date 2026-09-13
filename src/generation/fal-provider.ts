@@ -25,6 +25,14 @@ export class FalGenerationProvider implements GenerationProvider {
     return [...this.entries.values()];
   }
 
+  async resolveModel(id: string): Promise<GenerationModel> {
+    const entry = await window.desktop.falModel(id);
+    if (!entry) throw new Error('fal returned no model schema.');
+    const model: GenerationModel = { ...entry, platform: this.platform };
+    this.entries.set(model.id, model);
+    return model;
+  }
+
   async generate(request: GenerationRequest, events: GenerationEvents, signal: AbortSignal): Promise<Blob> {
     const model = this.entries.get(request.model);
     if (!model) throw new Error('The selected fal model is unavailable. Refresh the model list.');

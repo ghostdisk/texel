@@ -73,6 +73,7 @@ export interface GenerationProvider {
   readonly platform: string;
   readonly label: string;
   models(): Promise<readonly GenerationModel[]>;
+  resolveModel?(id: string): Promise<GenerationModel>;
   generate(request: GenerationRequest, events: GenerationEvents, signal: AbortSignal): Promise<Blob>;
 }
 
@@ -138,6 +139,18 @@ export class GenerationModelRegistry {
   }
 
   model(id: string): GenerationModel | undefined { return this.entries.get(id); }
+
+  async resolve(id: string): Promise<GenerationModel> {
+    const current = this.entries.get(id);
+    const provider = current && this.providers.get(current.platform);
+    if (!current || !provider) throw new Error('Unknown image model: ' + id);
+    if (!provider.resolveModel) return current;
+    const resolved = await provider.resolveModel(id);
+    if (resolved.id !== id || resolved.platform !== provider.platform) throw new Error('Image provider returned an invalid model.');
+    const registered = this.registered(resolved, provider);
+    this.entries.set(id, registered);
+    return registered;
+  }
 
   provider(model: string): GenerationProvider {
     const entry = this.entries.get(model);

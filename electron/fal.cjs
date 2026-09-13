@@ -83,6 +83,20 @@ function discoverModel(record) {
   };
 }
 
+function catalogModel(record) {
+  if (!record?.endpoint_id) return null;
+  return {
+    id: `fal/${record.endpoint_id}`,
+    label: record.metadata?.display_name || record.endpoint_id,
+    endpoint: record.endpoint_id,
+    inputImages: 1,
+    minimumInputImages: 1,
+    fields: {},
+    capabilities: {},
+    resolved: false,
+  };
+}
+
 function mappedField(value) { return typeof value === 'string' ? value : null; }
 
 function assignFile(body, name, dataUrl) {
@@ -94,8 +108,26 @@ function registerFal({ app, ipcMain, safeStorage }, ownerOf) {
   let models = new Map();
   let catalogPromise = null;
   let catalogExpires = 0;
+  let schemaCachePromise = null;
 
   function keyPath() { return path.join(app.getPath('userData'), 'fal-key.bin'); }
+  function catalogCachePath() { return path.join(app.getPath('userData'), 'fal-model-catalog.json'); }
+  function schemaCachePath() { return path.join(app.getPath('userData'), 'fal-model-schemas.json'); }
+
+  async function readJson(filePath) {
+    try { return JSON.parse(await readFile(filePath, 'utf8')); }
+    catch (error) {
+      if (error?.code !== 'ENOENT') console.error('Unable to read model cache:', error);
+      return null;
+    }
+  }
+
+  async function writeJson(filePath, value) {
+    try {
+      await mkdir(path.dirname(filePath), { recursive: true });
+      await writeFile(filePath, JSON.stringify(value));
+    } catch (error) { console.error('Unable to write model cache:', error); }
+  }
 
   async function readKey() {
     try {
@@ -140,26 +172,30 @@ function registerFal({ app, ipcMain, safeStorage }, ownerOf) {
     catalogExpires = Date.now() + 10 * 60 * 1000;
     catalogPromise = (async () => {
       const key = await readKey();
-      const discovered = new Map();
-      const cursors = new Set();
-      let cursor = '';
-      do {
-        const url = new URL(CATALOG_API);
-        url.searchParams.set('limit', '10');
-        url.searchParams.set('status', 'active');
-        url.searchParams.set('category', 'image-to-image');
-        url.searchParams.set('expand', 'openapi-3.0');
-        if (cursor) url.searchParams.set('cursor', cursor);
-        const page = await request(url.href, key).then((response) => response.json());
-        for (const record of page.models ?? []) {
-          const model = discoverModel(record);
-          if (model) discovered.set(model.id, model);
-        }
-        const nextCursor = page.has_more && typeof page.next_cursor === 'string' ? page.next_cursor : '';
-        cursor = nextCursor && !cursors.has(nextCursor) ? nextCursor : '';
-        if (cursor) cursors.add(cursor);
-      } while (cursor);
-      models = discovered;
+      let records;
+      try {
+        records = [];
+        const cursors = new Set();
+        let cursor = '';
+        do {
+          const url = new URL(CATALOG_API);
+          url.searchParams.set('limit', '100');
+          url.searchParams.set('status', 'active');
+          url.searchParams.set('category', 'image-to-image');
+          if (cursor) url.searchParams.set('cursor', cursor);
+          const page = await request(url.href, key).then((response) => response.json());
+          records.push(...(page.models ?? []));
+          const nextCursor = page.has_more && typeof page.next_cursor === 'string' ? page.next_cursor : '';
+          cursor = nextCursor && !cursors.has(nextCursor) ? nextCursor : '';
+          if (cursor) cursors.add(cursor);
+        } while (cursor);
+        await writeJson(catalogCachePath(), { version: 1, records });
+      } catch (error) {
+        const cached = await readJson(catalogCachePath());
+        if (!Array.isArray(cached?.records)) throw error;
+        records = cached.records;
+      }
+      models = new Map(records.map(catalogModel).filter(Boolean).map((model) => [model.id, model]));
       return [...models.values()];
     })().catch((error) => {
       catalogPromise = null;
@@ -168,6 +204,38 @@ function registerFal({ app, ipcMain, safeStorage }, ownerOf) {
       throw error;
     });
     return catalogPromise;
+  }
+
+  async function schemaCache() {
+    schemaCachePromise ??= readJson(schemaCachePath()).then((cached) => cached?.version === 1 && cached.models ? cached : { version: 1, models: {} });
+    return schemaCachePromise;
+  }
+
+  async function resolveModel(modelId) {
+    const current = models.get(modelId);
+    if (!current) throw new Error('The selected fal model is unavailable. Refresh the model list.');
+    if (current.resolved) return current;
+    const key = await readKey();
+    const cache = await schemaCache();
+    let record;
+    try {
+      const url = new URL(CATALOG_API);
+      url.searchParams.set('endpoint_id', current.endpoint);
+      url.searchParams.set('expand', 'openapi-3.0');
+      const response = await request(url.href, key).then((value) => value.json());
+      record = response.models?.find((candidate) => candidate.endpoint_id === current.endpoint);
+      if (!record?.openapi) throw new Error('fal returned no schema for this model.');
+      cache.models[current.endpoint] = record;
+      await writeJson(schemaCachePath(), cache);
+    } catch (error) {
+      record = cache.models[current.endpoint];
+      if (!record?.openapi) throw error;
+    }
+    const resolved = discoverModel(record);
+    if (!resolved) throw new Error('This fal endpoint is not compatible with Texel’s generation tool.');
+    resolved.resolved = true;
+    models.set(modelId, resolved);
+    return resolved;
   }
 
   function publicModel(model) {
@@ -226,6 +294,10 @@ function registerFal({ app, ipcMain, safeStorage }, ownerOf) {
     return { configured: !!key };
   });
   ipcMain.handle('fal:models', async (event) => ownerOf(event) ? { data: (await discoverModels()).map(publicModel) } : null);
+  ipcMain.handle('fal:model', async (event, id) => {
+    if (!ownerOf(event) || typeof id !== 'string') return null;
+    return publicModel(await resolveModel(id));
+  });
   ipcMain.handle('fal:cancel', (event, id) => {
     const owner = ownerOf(event);
     const job = typeof id === 'string' ? jobs.get(id) : null;
@@ -238,9 +310,10 @@ function registerFal({ app, ipcMain, safeStorage }, ownerOf) {
     const owner = ownerOf(event);
     if (!owner || !generation || typeof generation !== 'object') throw new Error('Invalid fal generation request.');
     const { id, model: modelId, prompt, input, mask } = generation;
-    const model = models.get(modelId);
+    let model = models.get(modelId);
     if (typeof id !== 'string' || !id || jobs.has(id) || !model || typeof prompt !== 'string' ||
         !(input instanceof Uint8Array) || !input.byteLength) throw new Error('Invalid fal generation request.');
+    model = await resolveModel(modelId);
     const key = await readKey();
     if (!key) throw new Error('Add a fal API key in Settings before generating.');
     const body = { prompt };

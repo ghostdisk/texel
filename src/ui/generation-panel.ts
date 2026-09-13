@@ -33,8 +33,7 @@ export class GenerationPanel {
   constructor(private readonly editor: Editor, container: HTMLElement) {
     const generation = editor.generation;
     this.modelPicker = new GenerationModelPicker((id) => {
-      generation.model = id;
-      editor.changed();
+      void generation.selectModel(id);
     });
     container.classList.add('generation-options');
     const toggle = document.createElement('button');
