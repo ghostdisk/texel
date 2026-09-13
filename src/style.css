@@ -436,7 +436,7 @@ body.layer-pointer-drag .layer-row .select-layer { outline: none; }
 .appearance-setting input[type="color"] { width: 36px; height: 25px; padding: 2px; }
 .appearance-setting button { height: 25px; }
 .settings-subheading { margin-top: 22px !important; padding-top: 16px; border-top: 1px solid var(--border); }
-.provider-setting { display: grid; grid-template-columns: 135px minmax(180px, 1fr) auto auto; align-items: center; gap: 8px; }
+.provider-setting { display: grid; grid-template-columns: 135px minmax(180px, 1fr) auto auto; align-items: center; gap: 8px; margin-bottom: 8px; }
 .provider-setting label { font-size: 12px; }
 .provider-setting input { min-width: 0; }
 .provider-setting button { height: 27px; }

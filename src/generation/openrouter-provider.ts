@@ -30,6 +30,7 @@ export class OpenRouterGenerationProvider implements GenerationProvider {
         platform: this.platform,
         capabilities: {
           inputImages: remote.architecture.input_modalities?.includes('image') ? Math.max(1, references?.max ?? 1) : 0,
+          minimumInputImages: references?.min,
           mask: false,
           negativePrompt: false,
           steps: false,

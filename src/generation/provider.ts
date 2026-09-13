@@ -10,6 +10,7 @@ export interface GenerationModelRatings {
 
 export interface GenerationModelCapabilities {
   inputImages: number;
+  minimumInputImages?: number;
   mask: boolean;
   negativePrompt: boolean;
   steps: boolean;

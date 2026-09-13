@@ -82,6 +82,43 @@ interface OpenRouterGenerationEvent {
   mediaType: string;
 }
 
+interface FalKeyStatus {
+  configured: boolean;
+}
+
+interface FalModelList {
+  data: Array<{
+    id: string;
+    label: string;
+    capabilities: import('./generation/provider').GenerationModelCapabilities;
+  }>;
+}
+
+interface FalGenerationRequest {
+  id: string;
+  model: string;
+  prompt: string;
+  negativePrompt: string;
+  width: number;
+  height: number;
+  steps: number;
+  guidance: number;
+  strength: number;
+  seed: number;
+  input: Uint8Array<ArrayBuffer>;
+}
+
+interface FalGenerationResult {
+  bytes: Uint8Array<ArrayBuffer>;
+  mediaType: string;
+}
+
+interface FalGenerationEvent {
+  id: string;
+  type: 'progress';
+  phase: string;
+}
+
 interface Window {
   desktop: {
     openMenu(label: string, x: number, y: number): Promise<void>;
@@ -110,6 +147,12 @@ interface Window {
     openRouterGenerate(request: OpenRouterGenerationRequest): Promise<OpenRouterGenerationResult>;
     cancelOpenRouterGeneration(id: string): Promise<boolean>;
     onOpenRouterGeneration(callback: (event: OpenRouterGenerationEvent) => void): () => void;
+    falKeyStatus(): Promise<FalKeyStatus | null>;
+    setFalKey(key: string): Promise<FalKeyStatus | null>;
+    falModels(): Promise<FalModelList | null>;
+    falGenerate(request: FalGenerationRequest): Promise<FalGenerationResult>;
+    cancelFalGeneration(id: string): Promise<boolean>;
+    onFalGeneration(callback: (event: FalGenerationEvent) => void): () => void;
     getSettings(): Promise<StoredSettings | null>;
     updateSettings(settings: StoredSettings): Promise<StoredSettings | null>;
     setWindowTheme(theme: WindowTheme): Promise<void>;

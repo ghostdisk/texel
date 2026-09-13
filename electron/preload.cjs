@@ -36,6 +36,16 @@ contextBridge.exposeInMainWorld('desktop', {
     ipcRenderer.on('openrouter:generation-event', listener);
     return () => ipcRenderer.removeListener('openrouter:generation-event', listener);
   },
+  falKeyStatus: () => ipcRenderer.invoke('fal:key-status'),
+  setFalKey: (key) => ipcRenderer.invoke('fal:set-key', key),
+  falModels: () => ipcRenderer.invoke('fal:models'),
+  falGenerate: (request) => ipcRenderer.invoke('fal:generate', request),
+  cancelFalGeneration: (id) => ipcRenderer.invoke('fal:cancel', id),
+  onFalGeneration: (callback) => {
+    const listener = (_event, value) => callback(value);
+    ipcRenderer.on('fal:generation-event', listener);
+    return () => ipcRenderer.removeListener('fal:generation-event', listener);
+  },
   getSettings: () => ipcRenderer.invoke('settings:get'),
   updateSettings: (settings) => ipcRenderer.invoke('settings:update', settings),
   setWindowTheme: (theme) => ipcRenderer.invoke('window:set-theme', theme),

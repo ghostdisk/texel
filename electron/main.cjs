@@ -6,6 +6,7 @@ const { registerDocumentFiles } = require('./document-files.cjs');
 const { registerImageFiles } = require('./image-files.cjs');
 const { registerSettings } = require('./settings.cjs');
 const { registerOpenRouter } = require('./openrouter.cjs');
+const { registerFal } = require('./fal.cjs');
 app.setName('Texel');
 nativeTheme.themeSource = 'dark';
 
@@ -17,6 +18,7 @@ function startApplication() {
   registerImageFiles({ ipcMain, dialog }, ownerOf);
   registerSettings({ app, ipcMain, nativeTheme }, ownerOf);
   const openRouter = registerOpenRouter({ app, ipcMain, safeStorage }, ownerOf);
+  const fal = registerFal({ app, ipcMain, safeStorage }, ownerOf);
   let backend;
   let quitting = false;
   let editorWindow = null;
@@ -185,6 +187,7 @@ function startApplication() {
     event.preventDefault();
     quitting = true;
     openRouter.stop();
+    fal.stop();
     void (backend?.stop() ?? Promise.resolve()).finally(() => app.quit());
   });
 }

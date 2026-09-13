@@ -225,13 +225,16 @@ export class GenerationPanel {
     for (const [capability, field] of this.capabilityFields) {
       field.hidden = !capabilities?.[capability] || capability === 'mask' && !this.editor.image.selectionMask;
     }
-    this.inputToggle.checked = generation.sendInput;
+    const requiresInput = !!capabilities?.minimumInputImages;
+    const sendsInput = requiresInput || generation.sendInput;
+    this.inputToggle.checked = sendsInput;
+    this.inputToggle.disabled = requiresInput;
     this.maskToggle.checked = generation.sendMask;
-    this.maskToggle.disabled = !generation.sendInput;
-    this.inputCard.classList.toggle('excluded', !generation.sendInput);
-    this.maskCard.classList.toggle('excluded', !generation.sendInput || !generation.sendMask);
+    this.maskToggle.disabled = !sendsInput;
+    this.inputCard.classList.toggle('excluded', !sendsInput);
+    this.maskCard.classList.toggle('excluded', !sendsInput || !generation.sendMask);
     this.capabilityFields.get('denoiseStrength')!.hidden =
-      !capabilities?.denoiseStrength || !generation.sendInput;
+      !capabilities?.denoiseStrength || !sendsInput;
     this.settings.disabled = generation.busy;
     this.fit.disabled = generation.busy;
     this.generate.disabled = !generation.canGenerate;

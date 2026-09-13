@@ -46,7 +46,7 @@ export class LocalGenerationProvider implements GenerationProvider {
                   platform: this.platform,
                   task: model.task,
                   capabilities: model.task === 'remove' ? {
-                    inputImages: 1, mask: true, negativePrompt: false, steps: false, guidance: false,
+                    inputImages: 1, minimumInputImages: 1, mask: true, negativePrompt: false, steps: false, guidance: false,
                     seed: false, denoiseStrength: false, partialPreview: true, maxDimension: 2048,
                   } : {
                     inputImages: 1, mask: true, negativePrompt: true, steps: true, guidance: true,

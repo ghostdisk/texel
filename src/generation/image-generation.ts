@@ -13,6 +13,7 @@ import { GenerationModelRegistry } from './provider';
 import type { GenerationModel, GenerationProgress } from './provider';
 import { LocalGenerationProvider } from './local-provider';
 import { OpenRouterGenerationProvider } from './openrouter-provider';
+import { FalGenerationProvider } from './fal-provider';
 import { GenerationLens } from './lens';
 import type { GenerationFrame } from './lens';
 import { rgbaToPng } from './image-codec';
@@ -66,6 +67,7 @@ export class ImageGeneration {
   constructor(private readonly editor: Editor) {
     this.registry.register(new LocalGenerationProvider());
     this.registry.register(new OpenRouterGenerationProvider());
+    this.registry.register(new FalGenerationProvider());
     this.blend = new GenerationBlend(editor.gpu);
     this.masks = new GenerationMask(editor.gpu);
     this.reframer = editor.layerReframer;
@@ -314,10 +316,12 @@ export class ImageGeneration {
           inputSurface = this.reframer.normalize(run.input, bounds, [bounds.width / run.frame.width, 0, 0, bounds.height / run.frame.height, 0, 0]);
         }
         if (removal) maskSurface = this.masks.support(run.mask!, requestFrame.width, requestFrame.height);
+        const requiresInput = !!modelCapabilities?.minimumInputImages;
+        const includeInput = removal || requiresInput || this.sendInput;
         [input, mask] = await Promise.all([
-          modelCapabilities?.inputImages && (removal || this.sendInput) ?
+          modelCapabilities?.inputImages && includeInput ?
             this.editor.readback.rgba(inputSurface) : Promise.resolve(null),
-          maskSurface && (removal || this.sendInput && this.sendMask) ?
+          maskSurface && (removal || includeInput && this.sendMask) ?
             this.editor.readback.rgba(maskSurface, true) : Promise.resolve(null),
         ]);
       } finally {
