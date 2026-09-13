@@ -217,15 +217,17 @@ class Backend {
                     params.sample_params.scheduler = sd_get_default_scheduler(context_, EULER_SAMPLE_METHOD);
                     params.sample_params.guidance.txt_cfg = job->request.value("guidance", 6.0f);
                     params.vae_tiling_params.enabled = true;
-                    params.init_image = {static_cast<uint32_t>(params.width), static_cast<uint32_t>(params.height), 3, job->input.data()};
-                    if (!job->mask.empty()) params.mask_image = {params.init_image.width, params.init_image.height, 1, job->mask.data()};
+                    if (!job->input.empty()) {
+                        params.init_image = {static_cast<uint32_t>(params.width), static_cast<uint32_t>(params.height), 3, job->input.data()};
+                    }
+                    if (!job->mask.empty()) params.mask_image = {static_cast<uint32_t>(params.width), static_cast<uint32_t>(params.height), 1, job->mask.data()};
                     sd_set_progress_callback(progress, job.get());
                     sd_set_preview_callback(preview, PREVIEW_PROJ, 1, true, false, job.get());
                     {
                         std::lock_guard<std::mutex> lock(context_mutex_);
                         sd_cancel_generation(context_, job->cancelled ? SD_CANCEL_ALL : SD_CANCEL_RESET);
                     }
-                    send_json(job->session, {{"type", "progress"}, {"id", job->id}, {"phase", "Encoding input"}, {"step", 0}, {"steps", 0}, {"seed", params.seed}});
+                    send_json(job->session, {{"type", "progress"}, {"id", job->id}, {"phase", job->input.empty() ? "Starting generation" : "Encoding input"}, {"step", 0}, {"steps", 0}, {"seed", params.seed}});
                     const bool success = generate_image(context_, &params, &images, &image_count);
                     if (!job->cancelled) {
                         if (!success || image_count < 1 || !images) throw std::runtime_error("Image generation failed. See the native backend log.");
@@ -324,9 +326,11 @@ public:
             const size_t pixels = static_cast<size_t>(width) * height;
             const size_t input_bytes = request.at("inputBytes").get<size_t>();
             const size_t mask_bytes = request.value("maskBytes", size_t{0});
-            if (input_bytes != pixels * 4 || (mask_bytes != 0 && mask_bytes != pixels * 4) || data.size() - offset != input_bytes + mask_bytes) {
+            if ((input_bytes != 0 && input_bytes != pixels * 4) || (mask_bytes != 0 && mask_bytes != pixels * 4) ||
+                data.size() - offset != input_bytes + mask_bytes) {
                 throw std::runtime_error("Image data does not match the layer dimensions.");
             }
+            if (mask_bytes && !input_bytes) throw std::runtime_error("A mask requires an image input.");
             if (removal && !mask_bytes) throw std::runtime_error("Removal requires a selection.");
             const int steps = request.value("steps", 20);
             const float strength = request.value("strength", 0.75f);
@@ -343,9 +347,9 @@ public:
             const int padded_width = removal ? width : std::max(64, (width + 15) / 16 * 16);
             const int padded_height = removal ? height : std::max(64, (height + 15) / 16 * 16);
             const size_t padded_pixels = static_cast<size_t>(padded_width) * padded_height;
-            job->input.resize(padded_pixels * 3);
+            if (input_bytes) job->input.resize(padded_pixels * 3);
             if (mask_bytes) job->mask.resize(padded_pixels, 0);
-            for (int y = 0; y < padded_height; ++y) for (int x = 0; x < padded_width; ++x) {
+            if (input_bytes) for (int y = 0; y < padded_height; ++y) for (int x = 0; x < padded_width; ++x) {
                 const size_t destination = static_cast<size_t>(y) * padded_width + x;
                 const size_t source = static_cast<size_t>(std::min(y, height - 1)) * width + std::min(x, width - 1);
                 for (size_t channel = 0; channel < 3; ++channel) job->input[destination * 3 + channel] = static_cast<uint8_t>(data[offset + source * 4 + channel]);

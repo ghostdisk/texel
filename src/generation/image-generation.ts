@@ -50,6 +50,8 @@ export class ImageGeneration {
   seed = -1;
   scale = 1;
   feather = 0;
+  sendInput = true;
+  sendMask = true;
   lens: GenerationLens;
   progress: GenerationProgress = { phase: 'Connecting local backend', step: 0, steps: 0 };
   error = '';
@@ -296,8 +298,10 @@ export class ImageGeneration {
         }
         if (removal) maskSurface = this.masks.support(run.mask!, requestFrame.width, requestFrame.height);
         [input, mask] = await Promise.all([
-          modelCapabilities?.inputImages ? this.editor.readback.rgba(inputSurface) : Promise.resolve(null),
-          maskSurface ? this.editor.readback.rgba(maskSurface, true) : Promise.resolve(null),
+          modelCapabilities?.inputImages && (removal || this.sendInput) ?
+            this.editor.readback.rgba(inputSurface) : Promise.resolve(null),
+          maskSurface && (removal || this.sendInput && this.sendMask) ?
+            this.editor.readback.rgba(maskSurface, true) : Promise.resolve(null),
         ]);
       } finally {
         if (inputSurface !== run.input) inputSurface.texture.destroy();

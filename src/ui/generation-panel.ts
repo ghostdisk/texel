@@ -14,6 +14,8 @@ export class GenerationPanel {
   private readonly maskPreview = document.createElement('img');
   private readonly inputCard = document.createElement('figure');
   private readonly maskCard = document.createElement('figure');
+  private readonly inputToggle = document.createElement('input');
+  private readonly maskToggle = document.createElement('input');
   private readonly progress = document.createElement('progress');
   private readonly error = document.createElement('p');
   private readonly generate = document.createElement('button');
@@ -159,8 +161,14 @@ export class GenerationPanel {
     previews.className = 'generation-inputs';
     this.inputPreview.alt = 'Image sent to the generation model';
     this.maskPreview.alt = 'Mask sent to the generation model';
-    this.inputCard.append(this.inputPreview, this.caption('Image input'));
-    this.maskCard.append(this.maskPreview, this.caption('Mask'));
+    this.inputCard.append(this.inputPreview, this.caption('Color', this.inputToggle, (checked) => {
+      generation.sendInput = checked;
+      editor.changed();
+    }));
+    this.maskCard.append(this.maskPreview, this.caption('Mask', this.maskToggle, (checked) => {
+      generation.sendMask = checked;
+      editor.changed();
+    }));
     previews.append(this.inputCard, this.maskCard);
     const previewHeading = document.createElement('h3');
     previewHeading.textContent = 'Model inputs';
@@ -188,9 +196,13 @@ export class GenerationPanel {
     this.update();
   }
 
-  private caption(text: string): HTMLElement {
+  private caption(text: string, toggle: HTMLInputElement, change: (checked: boolean) => void): HTMLElement {
     const caption = document.createElement('figcaption');
-    caption.textContent = text;
+    const label = document.createElement('label');
+    toggle.type = 'checkbox';
+    toggle.onchange = () => change(toggle.checked);
+    label.append(toggle, document.createTextNode(text));
+    caption.append(label);
     return caption;
   }
 
@@ -229,6 +241,13 @@ export class GenerationPanel {
     for (const [capability, field] of this.capabilityFields) {
       field.hidden = !capabilities?.[capability] || capability === 'mask' && !this.editor.image.selectionMask;
     }
+    this.inputToggle.checked = generation.sendInput;
+    this.maskToggle.checked = generation.sendMask;
+    this.maskToggle.disabled = !generation.sendInput;
+    this.inputCard.classList.toggle('excluded', !generation.sendInput);
+    this.maskCard.classList.toggle('excluded', !generation.sendInput || !generation.sendMask);
+    this.capabilityFields.get('denoiseStrength')!.hidden =
+      !capabilities?.denoiseStrength || !generation.sendInput;
     this.settings.disabled = generation.busy;
     this.fit.disabled = generation.busy;
     this.generate.disabled = !generation.canGenerate;

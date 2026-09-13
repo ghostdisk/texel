@@ -94,13 +94,13 @@ export class LocalGenerationProvider implements GenerationProvider {
     const socket = this.socket;
     if (!socket || socket.readyState !== WebSocket.OPEN) throw new Error('The local generation backend is not connected.');
     const { input, mask, operation, ...settings } = request;
-    if (!input) throw new Error('The local image model requires an input image.');
-    const header = new TextEncoder().encode(JSON.stringify({ type: operation ?? 'generate', ...settings, inputBytes: input.byteLength, maskBytes: mask?.byteLength ?? 0 }));
-    const packet = new Uint8Array(4 + header.byteLength + input.byteLength + (mask?.byteLength ?? 0));
+    const inputBytes = input?.byteLength ?? 0;
+    const header = new TextEncoder().encode(JSON.stringify({ type: operation ?? 'generate', ...settings, inputBytes, maskBytes: mask?.byteLength ?? 0 }));
+    const packet = new Uint8Array(4 + header.byteLength + inputBytes + (mask?.byteLength ?? 0));
     new DataView(packet.buffer).setUint32(0, header.byteLength, true);
     packet.set(header, 4);
-    packet.set(input, 4 + header.byteLength);
-    if (mask) packet.set(mask, 4 + header.byteLength + input.byteLength);
+    if (input) packet.set(input, 4 + header.byteLength);
+    if (mask) packet.set(mask, 4 + header.byteLength + inputBytes);
     return new Promise<Blob>((resolve, reject) => {
       let cancelTimer = 0;
       const finish = (error: Error | null, image?: Blob) => {
