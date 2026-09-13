@@ -24,6 +24,7 @@ module.exports = {
   win: { icon: 'icon.ico', target: [{ target: 'nsis', arch: ['x64'] }] },
   nsis: {
     artifactName: 'Texel-${version}-Setup.${ext}',
+    differentialPackage: false,
     oneClick: false,
     include: 'build/installer.nsh',
     perMachine: false,
