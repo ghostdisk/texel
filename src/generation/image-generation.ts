@@ -77,16 +77,30 @@ export class ImageGeneration {
   get selectedModel(): GenerationModel | undefined { return this.registry.model(this.model); }
   get canRemove(): boolean { return !this.busy && !!this.editor.image.selectionMask; }
   get displayLens(): GenerationLens { return this.running?.lens ?? this.lens; }
-  get frame(): GenerationFrame { return this.running?.frame ?? this.lens.frame(this.scale); }
+  get frame(): GenerationFrame {
+    return this.running?.frame ?? this.lens.frame(this.scale, this.selectedModel?.capabilities.dimensionMultiple);
+  }
   get visual(): GenerationVisual | null {
     const run = this.running;
     return run?.input && !run.controller.signal.aborted ? { frame: run.frame, mask: run.mask, reference: run.input } : null;
   }
   get sizeError(): string {
     const { width, height } = this.frame;
-    const limit = this.selectedModel?.capabilities.maxDimension ?? this.editor.gpu.device.limits.maxTextureDimension2D;
-    return !Number.isFinite(width) || !Number.isFinite(height) || width > limit || height > limit ?
-      'Generation is limited to ' + limit + ' px per side. Reduce Scale or resize the lens.' : '';
+    const capabilities = this.selectedModel?.capabilities;
+    const limit = capabilities?.maxDimension ?? this.editor.gpu.device.limits.maxTextureDimension2D;
+    if (!Number.isFinite(width) || !Number.isFinite(height) || width > limit || height > limit) {
+      return 'Generation is limited to ' + limit + ' px per side. Reduce Scale or resize the lens.';
+    }
+    const shortLimit = capabilities?.maxShortDimension;
+    if (shortLimit && Math.min(width, height) > shortLimit) {
+      return 'The shorter image side is limited to ' + shortLimit + ' px. Reduce Scale or resize the lens.';
+    }
+    const ratio = width / height;
+    if (capabilities?.minAspectRatio && ratio < capabilities.minAspectRatio ||
+        capabilities?.maxAspectRatio && ratio > capabilities.maxAspectRatio) {
+      return 'This model supports aspect ratios between 1:3 and 3:1. Resize the lens.';
+    }
+    return '';
   }
   get canGenerate(): boolean { return !this.busy && !!this.model && !!this.prompt.trim() && !this.sizeError; }
 
@@ -262,10 +276,13 @@ export class ImageGeneration {
     if (removal ? !this.canRemove : !this.canGenerate) return;
     this.editor.finishGesture();
     const model = removal ? this.removalModel : this.model;
+    const capabilities = this.registry.model(model)?.capabilities;
     const run: RunningGeneration = {
       removal,
       id: crypto.randomUUID(), documentId: this.editor.image.id, root: this.editor.image.root,
-      lens: this.lens.snapshot(), frame: this.lens.frame(this.scale), input: null, mask: null, preview: null,
+      lens: this.lens.snapshot(),
+      frame: this.lens.frame(this.scale, capabilities?.dimensionMultiple),
+      input: null, mask: null, preview: null,
       controller: new AbortController(), finishing: false, pendingPreview: null, previewReading: false,
     };
     this.running = run;

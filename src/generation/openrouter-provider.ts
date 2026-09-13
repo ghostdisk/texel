@@ -22,6 +22,8 @@ export class OpenRouterGenerationProvider implements GenerationProvider {
       if (!remote.id || !remote.architecture?.output_modalities?.includes('image')) continue;
       const parameters = remote.supported_parameters ?? {};
       const references = parameters.input_references;
+      const arbitraryOpenAiSize = remote.id === 'openai/gpt-image-2' ||
+        remote.id.startsWith('openai/gpt-image-2-') || remote.id.startsWith('openai/gpt-image-2.5-');
       const model: GenerationModel = {
         id: `${this.source}/${remote.id}`,
         label: remote.name || remote.id,
@@ -35,6 +37,11 @@ export class OpenRouterGenerationProvider implements GenerationProvider {
           seed: !!parameters.seed,
           denoiseStrength: false,
           partialPreview: !!remote.supports_streaming,
+          dimensionMultiple: arbitraryOpenAiSize ? 16 : undefined,
+          maxDimension: arbitraryOpenAiSize ? 3840 : undefined,
+          maxShortDimension: arbitraryOpenAiSize ? 2160 : undefined,
+          minAspectRatio: arbitraryOpenAiSize ? 1 / 3 : undefined,
+          maxAspectRatio: arbitraryOpenAiSize ? 3 : undefined,
         },
       };
       this.entries.set(model.id, model);

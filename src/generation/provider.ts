@@ -7,7 +7,11 @@ export interface GenerationModelCapabilities {
   seed: boolean;
   denoiseStrength: boolean;
   partialPreview: boolean;
+  dimensionMultiple?: number;
   maxDimension?: number;
+  maxShortDimension?: number;
+  minAspectRatio?: number;
+  maxAspectRatio?: number;
 }
 
 export interface GenerationModel {

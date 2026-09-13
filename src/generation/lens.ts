@@ -49,8 +49,10 @@ export class GenerationLens implements TransformTarget {
     return lens;
   }
 
-  frame(scale: number): GenerationFrame {
-    const width = Math.max(1, Math.round(this.width * scale)), height = Math.max(1, Math.round(this.height * scale));
+  frame(scale: number, dimensionMultiple = 1): GenerationFrame {
+    const multiple = Math.max(1, Math.round(dimensionMultiple));
+    const width = Math.max(multiple, Math.round(this.width * scale / multiple) * multiple);
+    const height = Math.max(multiple, Math.round(this.height * scale / multiple) * multiple);
     return {
       width, height, canonicalWidth: this.width, canonicalHeight: this.height,
       transform: multiply(this.matrix, [this.baseWidth / width, 0, 0, this.baseHeight / height, 0, 0]),

@@ -48,7 +48,8 @@ export class LocalGenerationProvider implements GenerationProvider {
                     seed: false, denoiseStrength: false, partialPreview: true, maxDimension: 2048,
                   } : {
                     inputImages: 1, mask: true, negativePrompt: true, steps: true, guidance: true,
-                    seed: true, denoiseStrength: true, partialPreview: true, maxDimension: 2048,
+                    seed: true, denoiseStrength: true, partialPreview: true,
+                    dimensionMultiple: 16, maxDimension: 2048,
                   },
                 })));
                 return;
