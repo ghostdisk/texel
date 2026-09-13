@@ -1,10 +1,11 @@
-const { app, BrowserWindow, dialog, ipcMain, Menu, nativeTheme } = require('electron');
+const { app, BrowserWindow, dialog, ipcMain, Menu, nativeTheme, safeStorage } = require('electron');
 const { readFile } = require('node:fs/promises');
 const path = require('node:path');
 const { NativeBackend } = require('./native-backend.cjs');
 const { registerDocumentFiles } = require('./document-files.cjs');
 const { registerImageFiles } = require('./image-files.cjs');
 const { registerSettings } = require('./settings.cjs');
+const { registerOpenRouter } = require('./openrouter.cjs');
 app.setName('Texel');
 nativeTheme.themeSource = 'dark';
 
@@ -15,6 +16,7 @@ function startApplication() {
   const documentFiles = registerDocumentFiles({ ipcMain, dialog }, ownerOf);
   registerImageFiles({ ipcMain, dialog }, ownerOf);
   registerSettings({ app, ipcMain, nativeTheme }, ownerOf);
+  const openRouter = registerOpenRouter({ app, ipcMain, safeStorage }, ownerOf);
   let backend;
   let quitting = false;
   let editorWindow = null;
@@ -182,6 +184,7 @@ function startApplication() {
     if (quitting) return;
     event.preventDefault();
     quitting = true;
+    openRouter.stop();
     void (backend?.stop() ?? Promise.resolve()).finally(() => app.quit());
   });
 }

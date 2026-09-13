@@ -32,6 +32,56 @@ interface WindowTheme {
   background: string;
 }
 
+interface OpenRouterCapabilityDescriptor {
+  type: 'enum' | 'range' | 'boolean';
+  values?: string[];
+  min?: number;
+  max?: number;
+}
+
+interface OpenRouterKeyStatus {
+  configured: boolean;
+}
+
+interface OpenRouterModelList {
+  data: OpenRouterModelRecord[];
+}
+
+interface OpenRouterModelRecord {
+  id: string;
+  name: string;
+  architecture?: {
+    input_modalities?: string[];
+    output_modalities?: string[];
+  };
+  supported_parameters?: Record<string, OpenRouterCapabilityDescriptor>;
+  supports_streaming?: boolean;
+}
+
+interface OpenRouterGenerationRequest {
+  id: string;
+  model: string;
+  prompt: string;
+  width: number;
+  height: number;
+  input: Uint8Array<ArrayBuffer> | null;
+  seed?: number;
+  stream: boolean;
+}
+
+interface OpenRouterGenerationResult {
+  bytes: Uint8Array<ArrayBuffer>;
+  mediaType: string;
+  cost?: number;
+}
+
+interface OpenRouterGenerationEvent {
+  id: string;
+  type: 'preview';
+  bytes: Uint8Array<ArrayBuffer>;
+  mediaType: string;
+}
+
 interface Window {
   desktop: {
     openMenu(label: string, x: number, y: number): Promise<void>;
@@ -54,6 +104,12 @@ interface Window {
     onCloseRequest(callback: () => void): () => void;
     generationBackend(): Promise<GenerationEndpoint>;
     restartGenerationBackend(): Promise<GenerationEndpoint>;
+    openRouterKeyStatus(): Promise<OpenRouterKeyStatus | null>;
+    setOpenRouterKey(key: string): Promise<OpenRouterKeyStatus | null>;
+    openRouterModels(): Promise<OpenRouterModelList | null>;
+    openRouterGenerate(request: OpenRouterGenerationRequest): Promise<OpenRouterGenerationResult>;
+    cancelOpenRouterGeneration(id: string): Promise<boolean>;
+    onOpenRouterGeneration(callback: (event: OpenRouterGenerationEvent) => void): () => void;
     getSettings(): Promise<StoredSettings | null>;
     updateSettings(settings: StoredSettings): Promise<StoredSettings | null>;
     setWindowTheme(theme: WindowTheme): Promise<void>;

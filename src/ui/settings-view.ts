@@ -6,17 +6,23 @@ export class SettingsView {
   private readonly grid = document.querySelector<HTMLElement>('#theme-grid')!;
   private readonly canvasBackground = document.querySelector<HTMLInputElement>('#canvas-background')!;
   private readonly resetCanvasBackground = document.querySelector<HTMLButtonElement>('#reset-canvas-background')!;
+  private readonly openRouterKey = document.querySelector<HTMLInputElement>('#openrouter-key')!;
+  private readonly openRouterStatus = document.querySelector<HTMLElement>('#openrouter-key-status')!;
+  private readonly removeOpenRouterKey = document.querySelector<HTMLButtonElement>('#remove-openrouter-key')!;
 
   constructor(private readonly settings: SettingsStore) {
     document.querySelector<HTMLButtonElement>('#close-settings')!.onclick = () => this.dialog.close();
     this.canvasBackground.onchange = () => settings.setCanvasBackground(this.canvasBackground.value);
     this.resetCanvasBackground.onclick = () => settings.setCanvasBackground(null);
+    document.querySelector<HTMLButtonElement>('#save-openrouter-key')!.onclick = () => void this.saveOpenRouterKey();
+    this.removeOpenRouterKey.onclick = () => void this.saveOpenRouterKey(true);
     this.render();
     settings.subscribe(() => this.sync());
   }
 
   open(): void {
     this.sync();
+    void this.syncOpenRouter();
     this.dialog.showModal();
   }
 
@@ -52,5 +58,25 @@ export class SettingsView {
       card.classList.toggle('selected', selected);
       card.setAttribute('aria-pressed', String(selected));
     }
+  }
+
+  private async syncOpenRouter(): Promise<void> {
+    try {
+      const status = await window.desktop.openRouterKeyStatus();
+      const configured = !!status?.configured;
+      this.openRouterStatus.textContent = configured ? 'Connected' : 'Not configured';
+      this.removeOpenRouterKey.disabled = !configured;
+      this.openRouterKey.placeholder = configured ? 'Key stored securely' : 'sk-or-…';
+    } catch (error) { this.openRouterStatus.textContent = error instanceof Error ? error.message : String(error); }
+  }
+
+  private async saveOpenRouterKey(remove = false): Promise<void> {
+    try {
+      const status = await window.desktop.setOpenRouterKey(remove ? '' : this.openRouterKey.value);
+      this.openRouterKey.value = '';
+      this.openRouterStatus.textContent = status?.configured ? 'Connected' : 'Not configured';
+      this.removeOpenRouterKey.disabled = !status?.configured;
+      this.openRouterKey.placeholder = status?.configured ? 'Key stored securely' : 'sk-or-…';
+    } catch (error) { this.openRouterStatus.textContent = error instanceof Error ? error.message : String(error); }
   }
 }

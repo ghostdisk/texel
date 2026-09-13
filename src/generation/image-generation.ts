@@ -12,6 +12,7 @@ import { UndoOperation } from '../history/undo';
 import { GenerationModelRegistry } from './provider';
 import type { GenerationModel, GenerationProgress } from './provider';
 import { LocalGenerationProvider } from './local-provider';
+import { OpenRouterGenerationProvider } from './openrouter-provider';
 import { GenerationLens } from './lens';
 import type { GenerationFrame } from './lens';
 
@@ -56,6 +57,7 @@ export class ImageGeneration {
 
   constructor(private readonly editor: Editor) {
     this.registry.register(new LocalGenerationProvider());
+    this.registry.register(new OpenRouterGenerationProvider());
     this.blend = new GenerationBlend(editor.gpu);
     this.masks = new GenerationMask(editor.gpu);
     this.reframer = editor.layerReframer;
