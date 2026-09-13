@@ -122,6 +122,7 @@ export class Editor {
   private lastMenus = '';
   private reframing = false;
   private selectionCheck = 0;
+  private canvasBackground: GPUColor = { r: 0.067, g: 0.082, b: 0.118, a: 1 };
 
   constructor(
     readonly gpu: Gpu,
@@ -214,6 +215,13 @@ export class Editor {
   get maskEditLayer(): ImageLayer | null { return this.editedMask; }
   get editingPixels(): boolean { return this.reframing; }
   get panHeld(): boolean { return this.panKeyHeld || this.panMode; }
+
+  setCanvasBackground(color: string): void {
+    if (!/^#[0-9a-f]{6}$/i.test(color)) return;
+    const channel = (offset: number) => Number.parseInt(color.slice(offset, offset + 2), 16) / 255;
+    this.canvasBackground = { r: channel(1), g: channel(3), b: channel(5), a: 1 };
+    this.requestRender();
+  }
 
   private createDocumentSession(): EditorDocument {
     const document = new EditorDocument(
@@ -591,7 +599,7 @@ export class Editor {
         const density = this.canvas.width / this.viewport.width;
         const stats = this.compositor.render(
           this.image.root, this.context.getCurrentTexture().createView(), this.viewport.bounds(), this.image.frame, this.viewport.scale * density,
-          this.image.selectionMask, this.selectionMode, this.editedMask, this.generation.visual,
+          this.canvasBackground, this.image.selectionMask, this.selectionMode, this.editedMask, this.generation.visual,
         );
         this.overlay.replaceChildren();
         this.drawPrecisionOverlay();

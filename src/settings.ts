@@ -13,6 +13,9 @@ export class SettingsStore {
 
   get settings(): Readonly<AppSettings> { return this.value; }
   get theme(): string { return this.value.theme; }
+  get canvasBackground(): string {
+    return getComputedStyle(document.documentElement).getPropertyValue('--canvas-background-default').trim();
+  }
 
   setTheme(themeId: string): void {
     const theme = themeById(themeId);

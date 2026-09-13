@@ -99,7 +99,7 @@ export class QuadRenderer {
 
   present(
     frame: GpuFrame, source: Surface, view: GPUTextureView, bounds: Rect, opacity: number,
-    framing: Rect, pointSampling = false, world: Matrix = IDENTITY,
+    framing: Rect, background: GPUColor, pointSampling = false, world: Matrix = IDENTITY,
   ): void {
     const src = source.bounds;
     const [a, b, c, d, e, f] = inverse(world);
@@ -108,7 +108,7 @@ export class QuadRenderer {
       src.x, src.y, src.width, src.height, framing.x, framing.y, framing.width, framing.height,
       opacity, Number(isMaskSurface(source)), 0, 0, a, c, e, 0, b, d, f, 0,
     ]);
-    const pass = frame.encoder.beginRenderPass({ colorAttachments: [{ view, loadOp: 'clear', storeOp: 'store' }] });
+    const pass = frame.encoder.beginRenderPass({ colorAttachments: [{ view, loadOp: 'clear', storeOp: 'store', clearValue: background }] });
     pass.setPipeline(this.presentation);
     pass.setBindGroup(0, this.bind(source, params, pointSampling));
     pass.draw(3);

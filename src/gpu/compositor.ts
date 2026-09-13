@@ -248,6 +248,7 @@ export class Compositor {
 
   render(
     root: GroupLayer, view: GPUTextureView, viewport: Rect, framing: Rect, pixelsPerUnit: number,
+    background: GPUColor,
     selection: ImageLayer | null = null, editingSelection = false, maskEdit: ImageLayer | null = null, generation: GenerationVisual | null = null,
   ): RenderStats {
     const start = performance.now();
@@ -260,10 +261,10 @@ export class Compositor {
         const output = this.evaluate(frame, maskEdit, maskEdit.parent?.worldTransform() ?? IDENTITY, pixelsPerUnit);
         const world = maskEdit.worldTransform();
         const magnified = maxScale(world) * pixelsPerUnit > output.surface.scale;
-        this.quads.present(frame, output.surface, view, viewport, 1, framing, magnified, world);
+        this.quads.present(frame, output.surface, view, viewport, 1, framing, background, magnified, world);
       } else {
         const output = this.evaluate(frame, root, IDENTITY, pixelsPerUnit);
-        this.quads.present(frame, output.surface, view, viewport, root.visible ? root.opacity : 0, framing, pixelsPerUnit > 1);
+        this.quads.present(frame, output.surface, view, viewport, root.visible ? root.opacity : 0, framing, background, pixelsPerUnit > 1);
         if (selection) {
           const mask = this.evaluate(frame, selection, selection.parent?.worldTransform() ?? IDENTITY, pixelsPerUnit);
           this.outline.encode(frame, mask.surface, inverse(selection.worldTransform()), view, viewport, framing, pixelsPerUnit, editingSelection);
