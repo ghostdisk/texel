@@ -5,6 +5,7 @@ module.exports = {
   appId: 'app.texel.editor',
   productName: 'Texel',
   executableName: 'Texel',
+  compression: 'maximum',
   directories: { output: 'release', buildResources: 'assets/branding' },
   asar: true,
   npmRebuild: false,
