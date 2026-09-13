@@ -89,6 +89,7 @@ interface FalKeyStatus {
 interface FalModelList {
   data: Array<{
     id: string;
+    ratingId: string;
     label: string;
     capabilities: import('./generation/provider').GenerationModelCapabilities;
   }>;

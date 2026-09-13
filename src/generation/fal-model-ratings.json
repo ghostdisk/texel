@@ -1,0 +1,338 @@
+{
+  "fal-ai/flux/schnell": {
+    "affordability": 5,
+    "speed": 5,
+    "quality": 2,
+    "provisional": [
+      "speed",
+      "quality"
+    ],
+    "unknown": [],
+    "qualityScope": "general_generation",
+    "realtimeCandidate": false
+  },
+  "fal-ai/z-image/turbo": {
+    "affordability": 5,
+    "speed": 5,
+    "quality": 3,
+    "provisional": [
+      "speed",
+      "quality"
+    ],
+    "unknown": [],
+    "qualityScope": "general_generation",
+    "realtimeCandidate": false
+  },
+  "fal-ai/flux-2/klein/4b/edit": {
+    "affordability": 5,
+    "speed": 5,
+    "quality": 2,
+    "provisional": [
+      "speed",
+      "quality"
+    ],
+    "unknown": [],
+    "qualityScope": "general_editing",
+    "realtimeCandidate": false
+  },
+  "fal-ai/flux-2/klein/9b/edit": {
+    "affordability": 4,
+    "speed": 5,
+    "quality": 3,
+    "provisional": [
+      "speed",
+      "quality"
+    ],
+    "unknown": [],
+    "qualityScope": "general_editing",
+    "realtimeCandidate": false
+  },
+  "fal-ai/flux-2/klein/realtime": {
+    "affordability": null,
+    "speed": 5,
+    "quality": 2,
+    "provisional": [
+      "speed",
+      "quality"
+    ],
+    "unknown": [
+      "affordability"
+    ],
+    "qualityScope": "general_editing",
+    "realtimeCandidate": true
+  },
+  "fal-ai/fast-lcm-diffusion/inpainting": {
+    "affordability": null,
+    "speed": 5,
+    "quality": 2,
+    "provisional": [
+      "speed",
+      "quality"
+    ],
+    "unknown": [
+      "affordability"
+    ],
+    "qualityScope": "masked_inpainting",
+    "realtimeCandidate": true
+  },
+  "fal-ai/flux-general/inpainting": {
+    "affordability": 3,
+    "speed": 3,
+    "quality": 3,
+    "provisional": [
+      "speed",
+      "quality"
+    ],
+    "unknown": [],
+    "qualityScope": "masked_inpainting",
+    "realtimeCandidate": false
+  },
+  "fal-ai/flux-pro/v1/fill": {
+    "affordability": 4,
+    "speed": 3,
+    "quality": 4,
+    "provisional": [
+      "speed",
+      "quality"
+    ],
+    "unknown": [],
+    "qualityScope": "masked_inpainting",
+    "realtimeCandidate": false
+  },
+  "fal-ai/bria/eraser": {
+    "affordability": 4,
+    "speed": 4,
+    "quality": 4,
+    "provisional": [
+      "speed",
+      "quality"
+    ],
+    "unknown": [],
+    "qualityScope": "object_removal",
+    "realtimeCandidate": false
+  },
+  "fal-ai/bria/expand": {
+    "affordability": 4,
+    "speed": 4,
+    "quality": 3,
+    "provisional": [
+      "speed",
+      "quality"
+    ],
+    "unknown": [],
+    "qualityScope": "outpainting",
+    "realtimeCandidate": false
+  },
+  "fal-ai/sam-3-1/image": {
+    "affordability": 5,
+    "speed": 4,
+    "quality": 5,
+    "provisional": [
+      "speed",
+      "quality"
+    ],
+    "unknown": [],
+    "qualityScope": "interactive_segmentation",
+    "realtimeCandidate": false
+  },
+  "fal-ai/birefnet": {
+    "affordability": null,
+    "speed": 5,
+    "quality": 4,
+    "provisional": [
+      "speed",
+      "quality"
+    ],
+    "unknown": [
+      "affordability"
+    ],
+    "qualityScope": "background_removal",
+    "realtimeCandidate": false
+  },
+  "fal-ai/birefnet/v2": {
+    "affordability": null,
+    "speed": 5,
+    "quality": 4,
+    "provisional": [
+      "speed",
+      "quality"
+    ],
+    "unknown": [
+      "affordability"
+    ],
+    "qualityScope": "background_removal",
+    "realtimeCandidate": false
+  },
+  "fal-ai/bria/background/remove": {
+    "affordability": 5,
+    "speed": 5,
+    "quality": 4,
+    "provisional": [
+      "speed",
+      "quality"
+    ],
+    "unknown": [],
+    "qualityScope": "background_removal",
+    "realtimeCandidate": false
+  },
+  "fal-ai/nafnet/denoise": {
+    "affordability": 4,
+    "speed": 5,
+    "quality": 3,
+    "provisional": [
+      "speed",
+      "quality"
+    ],
+    "unknown": [],
+    "qualityScope": "photo_denoising",
+    "realtimeCandidate": false
+  },
+  "topaz/denoise/image": {
+    "affordability": null,
+    "speed": 3,
+    "quality": 5,
+    "provisional": [
+      "speed",
+      "quality"
+    ],
+    "unknown": [
+      "affordability"
+    ],
+    "qualityScope": "photo_denoising",
+    "realtimeCandidate": false
+  },
+  "fal-ai/esrgan": {
+    "affordability": 5,
+    "speed": 5,
+    "quality": 3,
+    "provisional": [
+      "affordability",
+      "speed",
+      "quality"
+    ],
+    "unknown": [],
+    "qualityScope": "upscaling",
+    "realtimeCandidate": false
+  },
+  "fal-ai/clarity-upscaler": {
+    "affordability": 2,
+    "speed": 2,
+    "quality": 4,
+    "provisional": [
+      "affordability",
+      "speed",
+      "quality"
+    ],
+    "unknown": [],
+    "qualityScope": "creative_upscaling",
+    "realtimeCandidate": false
+  },
+  "fal-ai/florence-2-large/more-detailed-caption": {
+    "affordability": null,
+    "speed": 5,
+    "quality": 3,
+    "provisional": [
+      "speed",
+      "quality"
+    ],
+    "unknown": [
+      "affordability"
+    ],
+    "qualityScope": "image_captioning",
+    "realtimeCandidate": false
+  },
+  "fal-ai/florence-2-large/ocr": {
+    "affordability": null,
+    "speed": 5,
+    "quality": 3,
+    "provisional": [
+      "speed",
+      "quality"
+    ],
+    "unknown": [
+      "affordability"
+    ],
+    "qualityScope": "ocr",
+    "realtimeCandidate": false
+  },
+  "fal-ai/image-preprocessors/depth-anything/v2": {
+    "affordability": null,
+    "speed": 5,
+    "quality": 4,
+    "provisional": [
+      "speed",
+      "quality"
+    ],
+    "unknown": [
+      "affordability"
+    ],
+    "qualityScope": "relative_depth_estimation",
+    "realtimeCandidate": false
+  },
+  "fal-ai/iclight-v2": {
+    "affordability": 3,
+    "speed": 3,
+    "quality": 4,
+    "provisional": [
+      "speed",
+      "quality"
+    ],
+    "unknown": [],
+    "qualityScope": "relighting",
+    "realtimeCandidate": false
+  },
+  "fal-ai/recraft/vectorize": {
+    "affordability": 5,
+    "speed": 4,
+    "quality": 4,
+    "provisional": [
+      "speed",
+      "quality"
+    ],
+    "unknown": [],
+    "qualityScope": "raster_vectorization",
+    "realtimeCandidate": false
+  },
+  "fal-ai/qwen-image-layered": {
+    "affordability": null,
+    "speed": 2,
+    "quality": 4,
+    "provisional": [
+      "speed",
+      "quality"
+    ],
+    "unknown": [
+      "affordability"
+    ],
+    "qualityScope": "rgba_layer_decomposition",
+    "realtimeCandidate": false,
+    "affordabilityRange": [
+      2,
+      4
+    ]
+  },
+  "bytedance/seedream/v5/pro/layerize": {
+    "affordability": 2,
+    "speed": 1,
+    "quality": 4,
+    "provisional": [
+      "speed",
+      "quality"
+    ],
+    "unknown": [],
+    "qualityScope": "rgba_layer_decomposition",
+    "realtimeCandidate": false
+  },
+  "bria/ad-delayer": {
+    "affordability": 1,
+    "speed": 1,
+    "quality": 4,
+    "provisional": [
+      "speed",
+      "quality"
+    ],
+    "unknown": [],
+    "qualityScope": "structured_ad_decomposition",
+    "realtimeCandidate": false
+  }
+}

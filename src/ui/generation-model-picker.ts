@@ -126,11 +126,13 @@ export class GenerationModelPicker {
     } else {
       const leftRating = left.ratings?.[this.sortKey];
       const rightRating = right.ratings?.[this.sortKey];
-      if (leftRating === undefined || rightRating === undefined) {
-        if (leftRating === rightRating) {
+      const leftKnown = typeof leftRating === 'number';
+      const rightKnown = typeof rightRating === 'number';
+      if (!leftKnown || !rightKnown) {
+        if (leftKnown === rightKnown) {
           return (left.displayName ?? left.label).localeCompare(right.displayName ?? right.label);
         }
-        return leftRating === undefined ? 1 : -1;
+        return leftKnown ? -1 : 1;
       }
       result = leftRating - rightRating;
     }

@@ -4,6 +4,24 @@ const path = require('node:path');
 const QUEUE_API = 'https://queue.fal.run';
 const MODELS = [
   {
+    id: 'fal/black-forest-labs/flux-2-klein-4b-edit',
+    label: 'FLUX.2 Klein 4B Edit',
+    endpoint: 'fal-ai/flux-2/klein/4b/edit',
+    imageField: 'image_urls',
+    inputImages: 4,
+    fields: { steps: true, seed: true },
+    capabilities: {},
+  },
+  {
+    id: 'fal/black-forest-labs/flux-2-klein-9b-edit',
+    label: 'FLUX.2 Klein 9B Edit',
+    endpoint: 'fal-ai/flux-2/klein/9b/edit',
+    imageField: 'image_urls',
+    inputImages: 4,
+    fields: { steps: true, seed: true },
+    capabilities: {},
+  },
+  {
     id: 'fal/black-forest-labs/flux-1-dev-image-to-image',
     label: 'FLUX.1 Dev Image to Image',
     endpoint: 'fal-ai/flux/dev/image-to-image',
@@ -106,9 +124,10 @@ function registerFal({ app, ipcMain, safeStorage }, ownerOf) {
     const fields = model.fields;
     return {
       id: model.id,
+      ratingId: model.endpoint,
       label: model.label,
       capabilities: {
-        inputImages: 1,
+        inputImages: model.inputImages ?? 1,
         minimumInputImages: 1,
         mask: false,
         negativePrompt: !!fields.negativePrompt,
@@ -171,7 +190,9 @@ function registerFal({ app, ipcMain, safeStorage }, ownerOf) {
         !(input instanceof Uint8Array) || !input.byteLength) throw new Error('Invalid fal generation request.');
     const key = await readKey();
     if (!key) throw new Error('Add a fal API key in Settings before generating.');
-    const body = { prompt, image_url: `data:image/png;base64,${Buffer.from(input).toString('base64')}` };
+    const body = { prompt };
+    const image = `data:image/png;base64,${Buffer.from(input).toString('base64')}`;
+    body[model.imageField ?? 'image_url'] = model.imageField === 'image_urls' ? [image] : image;
     if (model.fields.negativePrompt && generation.negativePrompt) body.negative_prompt = generation.negativePrompt;
     if (model.fields.steps && Number.isInteger(generation.steps)) body.num_inference_steps = generation.steps;
     if (model.fields.guidance && Number.isFinite(generation.guidance)) body.guidance_scale = generation.guidance;
