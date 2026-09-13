@@ -33,6 +33,10 @@
       "binaryDir": "${sourceDir}/build/clang-vulkan-release",
       "cacheVariables": {
         "CMAKE_BUILD_TYPE": "MinSizeRel",
+        "CMAKE_C_FLAGS_MINSIZEREL": "/O1 /Ob1 /DNDEBUG /Gy /Gw",
+        "CMAKE_CXX_FLAGS_MINSIZEREL": "/O1 /Ob1 /DNDEBUG /Gy /Gw",
+        "CMAKE_EXE_LINKER_FLAGS_MINSIZEREL": "/INCREMENTAL:NO /OPT:REF /OPT:ICF",
+        "CMAKE_SHARED_LINKER_FLAGS_MINSIZEREL": "/INCREMENTAL:NO /OPT:REF /OPT:ICF",
         "IMGED_PACKAGE_RUNTIME": "ON",
         "CMAKE_MSVC_RUNTIME_LIBRARY": "MultiThreaded$<$<CONFIG:Debug>:Debug>",
         "BUILD_SHARED_LIBS": "OFF",
