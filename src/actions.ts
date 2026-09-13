@@ -3,7 +3,7 @@ export type ActionMenuName = 'File' | 'Edit' | 'Select' | 'Layer' | 'Filter' | '
 export interface Action {
   id: string;
   label: string | (() => string);
-  menu: ActionMenuName;
+  menu?: ActionMenuName;
   submenu?: string;
   separatorBefore?: boolean;
   enabled?: () => boolean;
