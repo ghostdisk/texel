@@ -299,6 +299,16 @@ export class Editor {
     this.activateDocument(this.documents[(index + offset + this.documents.length) % this.documents.length]);
   }
 
+  reorderDocument(document: EditorDocument, index: number): void {
+    const previous = this.documents.indexOf(document);
+    if (previous < 0) return;
+    const target = Math.max(0, Math.min(index, this.documents.length - 1));
+    if (target === previous) return;
+    this.documents.splice(previous, 1);
+    this.documents.splice(target, 0, document);
+    this.onDocumentsChange?.();
+  }
+
   createDocument(width: number, height: number): EditorDocument {
     const document = this.createDocumentSession();
     document.image.reset(width, height);

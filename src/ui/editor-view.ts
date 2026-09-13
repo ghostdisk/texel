@@ -229,11 +229,55 @@ export class EditorView {
       const image = document.createElement('img');
       image.src = '/assets/branding/txl.svg';
       image.alt = '';
+      image.draggable = false;
       const label = document.createElement('span');
       label.className = 'document-tab-label';
       label.textContent = session.name + (session.dirty ? ' *' : '');
       select.append(image, label);
-      select.onclick = () => this.editor.run(() => this.editor.activateDocument(session));
+      let drag: {
+        pointerId: number;
+        startX: number;
+        dragging: boolean;
+      } | null = null;
+      let suppressClick = false;
+      select.onpointerdown = (event) => {
+        if (event.button !== 0) return;
+        drag = { pointerId: event.pointerId, startX: event.clientX, dragging: false };
+        select.setPointerCapture(event.pointerId);
+      };
+      select.onpointermove = (event) => {
+        if (!drag || drag.pointerId !== event.pointerId) return;
+        if (!drag.dragging && Math.abs(event.clientX - drag.startX) < 4) return;
+        if (!drag.dragging) {
+          drag.dragging = true;
+          tab.classList.add('document-tab-dragging');
+          document.body.classList.add('document-tab-drag');
+        }
+        event.preventDefault();
+        const siblings = [...tabs.children].filter((node) => node !== tab) as HTMLElement[];
+        const before = siblings.find((node) => event.clientX < node.getBoundingClientRect().left + node.clientWidth / 2);
+        tabs.insertBefore(tab, before ?? null);
+      };
+      const finishDrag = (event: PointerEvent, commit: boolean) => {
+        if (!drag || drag.pointerId !== event.pointerId) return;
+        const dragging = drag.dragging;
+        drag = null;
+        if (select.hasPointerCapture(event.pointerId)) select.releasePointerCapture(event.pointerId);
+        tab.classList.remove('document-tab-dragging');
+        document.body.classList.remove('document-tab-drag');
+        if (!dragging) return;
+        suppressClick = true;
+        window.setTimeout(() => { suppressClick = false; }, 0);
+        if (commit) this.editor.reorderDocument(session, [...tabs.children].indexOf(tab));
+        else { this.documentSignature = ''; this.renderDocumentTabs(); }
+      };
+      select.onpointerup = (event) => finishDrag(event, true);
+      select.onpointercancel = (event) => finishDrag(event, false);
+      select.onlostpointercapture = (event) => finishDrag(event, false);
+      select.onclick = () => {
+        if (suppressClick) return;
+        this.editor.run(() => this.editor.activateDocument(session));
+      };
       select.onkeydown = (event) => {
         if (event.key !== 'ArrowLeft' && event.key !== 'ArrowRight') return;
         event.preventDefault();
