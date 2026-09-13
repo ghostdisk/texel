@@ -12,7 +12,7 @@ export class BrushTool extends BrushLikeTool {
   readonly hint = 'Paint on a pixel layer · Hold Space to pan · Scroll to zoom';
   private last: Point = { x: 0, y: 0 };
 
-  constructor(editor: Editor) { super(editor, { size: 36, hardness: 0.8, flow: 1 }); }
+  constructor(editor: Editor) { super(editor, { size: 36, hardness: 1, flow: 1 }); }
 
   pointerDown(pointer: ToolPointer): void {
     const layer = this.beginDrawing();
