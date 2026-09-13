@@ -686,7 +686,7 @@ export class EditorView {
     this.sizedLayerDialog = sizedLayer;
     element('dialog-title').textContent = sizedLayer ? 'New sized layer' : 'New document';
     element('dialog-description').textContent = sizedLayer ? 'Choose the new layer’s pixel dimensions.' :
-      'Replace the current document and its history. These dimensions set the canonical canvas size and initial layer pixels.';
+      'Create a new document tab. These dimensions set the canonical canvas size and initial layer pixels.';
     element('confirm-size').textContent = sizedLayer ? 'Create layer' : 'Create document';
     input('new-width').value = String(sizedLayer ? 512 : this.editor.image.frame.width);
     input('new-height').value = String(sizedLayer ? 512 : this.editor.image.frame.height);
