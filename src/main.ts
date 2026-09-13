@@ -7,6 +7,7 @@ import { SettingsStore } from './settings';
 import { SettingsView } from './ui/settings-view';
 import { CommandPalette } from './ui/command-palette';
 import { RendererPackageLoader } from './package-runtime';
+import { AboutView } from './ui/about-view';
 
 function reportError(error: unknown): void {
   const banner = element('error');
@@ -47,6 +48,8 @@ async function boot(): Promise<void> {
   const settingsView = new SettingsView(settings);
   editor.onOpenSettings = () => settingsView.open();
   editor.onCanvasBackgroundSettings = () => settingsView.openCanvasBackground();
+  const aboutView = new AboutView();
+  editor.onOpenAbout = () => { void aboutView.open().catch(reportError); };
   const commandPalette = new CommandPalette(editor);
   editor.onCommandPalette = () => commandPalette.open();
   new TitleBar(editor.actions);

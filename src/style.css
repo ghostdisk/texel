@@ -436,6 +436,11 @@ body.layer-pointer-drag .layer-row .select-layer { outline: none; }
 .filter[data-drop="before"]::after { top: -4px; }
 .filter[data-drop="after"]::after { bottom: -4px; }
 .settings-dialog { width: min(760px, calc(100vw - 48px)); max-height: min(720px, calc(100vh - 48px)); padding: 0; overflow: hidden; }
+.about-dialog { width: min(330px, calc(100vw - 48px)); }
+.about-heading { display: flex; align-items: center; gap: 12px; }
+.about-heading h2 { margin: 0 0 3px; }
+.about-heading p, .about-license { margin: 0; color: var(--text-muted); }
+.about-license { margin-top: 14px; padding-top: 12px; border-top: 1px solid var(--border); }
 .settings-dialog[open] { display: flex; flex-direction: column; }
 .settings-heading { display: flex; align-items: center; justify-content: space-between; gap: 20px; padding: 18px 20px 14px; border-bottom: 1px solid var(--border); background: var(--surface-raised-bg); }
 .settings-heading h2 { margin: 0 0 3px; }

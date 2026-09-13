@@ -19,11 +19,11 @@
             <button data-menu="File" data-mnemonic="f" aria-haspopup="menu" aria-expanded="false">File</button>
             <button data-menu="Edit" data-mnemonic="e" aria-haspopup="menu" aria-expanded="false">Edit</button>
             <button data-menu="Layer" data-mnemonic="l" aria-haspopup="menu" aria-expanded="false">Layer</button>
+            <button data-menu="View" data-mnemonic="v" aria-haspopup="menu" aria-expanded="false">View</button>
             <button data-menu="Select" data-mnemonic="s" aria-haspopup="menu" aria-expanded="false">Select</button>
             <button data-menu="Filter" data-mnemonic="i" aria-haspopup="menu" aria-expanded="false">Filter</button>
             <button data-menu="Tools" data-mnemonic="t" aria-haspopup="menu" aria-expanded="false">Tools</button>
-            <button data-menu="Settings" data-mnemonic="g" aria-haspopup="menu" aria-expanded="false">Settings</button>
-            <button data-menu="View" data-mnemonic="v" aria-haspopup="menu" aria-expanded="false">View</button>
+            <button data-menu="Help" data-mnemonic="h" aria-haspopup="menu" aria-expanded="false">Help</button>
           </nav>
         </div>
       </header>
@@ -227,6 +227,14 @@
           </section>
         </div>
       </div>
+    </dialog>
+    <dialog id="about-dialog" class="about-dialog">
+      <div class="about-heading">
+        <img src="/assets/branding/icon.svg" width="44" height="44" alt="" />
+        <div><h2 id="about-name">Texel</h2><p id="about-version"></p></div>
+      </div>
+      <p id="about-license" class="about-license"></p>
+      <div class="dialog-actions"><button id="close-about" type="button">Close</button></div>
     </dialog>
     <script type="module" src="/src/main.ts"></script>
   </body>

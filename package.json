@@ -4,6 +4,7 @@
   "version": "0.2.0",
   "private": true,
   "description": "A GPU-native image editor",
+  "license": "MIT",
   "type": "module",
   "main": "electron/main.cjs",
   "scripts": {

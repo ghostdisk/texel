@@ -25,12 +25,20 @@ interface WindowTheme {
   background: string;
 }
 
+interface ApplicationInfo {
+  name: string;
+  version: string;
+  license: string;
+}
+
 interface Window {
   texel: import('./package-runtime').TexelRendererGlobal;
   desktop: {
     openMenu(label: string, x: number, y: number): Promise<void>;
     openContextMenu(items: import('./actions').MenuAction[], x: number, y: number): Promise<void>;
     isWindowMaximized(): Promise<boolean>;
+    appInfo(): Promise<ApplicationInfo | null>;
+    openRepository(): Promise<boolean>;
     onWindowMaximizedChanged(callback: (maximized: boolean) => void): () => void;
     openImage(): Promise<ImportedImage | null>;
     writeClipboard(value: {

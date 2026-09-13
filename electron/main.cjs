@@ -1,4 +1,4 @@
-const { app, BrowserWindow, ClipboardItem, clipboard, dialog, ipcMain, Menu, nativeTheme, protocol, safeStorage } = require('electron');
+const { app, BrowserWindow, ClipboardItem, clipboard, dialog, ipcMain, Menu, nativeTheme, protocol, safeStorage, shell } = require('electron');
 const { readFile } = require('node:fs/promises');
 const path = require('node:path');
 const { IMAGE_EXTENSIONS, isSupportedOpenPath, registerDocumentFiles } = require('./document-files.cjs');
@@ -64,6 +64,12 @@ function startApplication() {
   }
 
   ipcMain.handle('window:is-maximized', (event) => ownerOf(event)?.isMaximized() ?? false);
+  ipcMain.handle('app:info', (event) => ownerOf(event) ? { name: app.getName(), version: app.getVersion(), license: 'MIT' } : null);
+  ipcMain.handle('app:open-repository', async (event) => {
+    if (!ownerOf(event)) return false;
+    await shell.openExternal('https://github.com/ghostdisk/texel');
+    return true;
+  });
 
   ipcMain.handle('clipboard:write', async (event, value) => {
     if (!ownerOf(event) || !value || typeof value !== 'object' || typeof value.metadata !== 'string' || value.metadata.length > 4096) return false;
@@ -152,7 +158,7 @@ function startApplication() {
     const dispatch = (id) => { if (!owner.isDestroyed()) owner.webContents.send('action:execute', id); };
     const template = [];
     for (const group of menus) {
-      if (!['File', 'Edit', 'Select', 'Layer', 'Filter', 'Tools', 'Settings', 'View'].includes(group.label) || !Array.isArray(group.items)) continue;
+      if (!['File', 'Edit', 'Layer', 'View', 'Select', 'Filter', 'Tools', 'Help'].includes(group.label) || !Array.isArray(group.items)) continue;
       const submenu = [];
       for (const item of group.items) {
         if (!item || typeof item.id !== 'string' || typeof item.label !== 'string') continue;
@@ -203,12 +209,12 @@ function startApplication() {
     Menu.setApplicationMenu(Menu.buildFromTemplate([
       { label: 'File', submenu: [{ role: 'quit' }] },
       { label: 'Edit', submenu: [{ role: 'cut' }, { role: 'copy' }, { role: 'paste' }] },
-      { label: 'Select', submenu: [{ label: 'Starting editor…', enabled: false }] },
       { label: 'Layer', submenu: [{ label: 'Starting editor…', enabled: false }] },
+      { label: 'View', submenu: [{ role: 'reload' }, { role: 'toggleDevTools' }, { role: 'togglefullscreen' }] },
+      { label: 'Select', submenu: [{ label: 'Starting editor…', enabled: false }] },
       { label: 'Filter', submenu: [{ label: 'Starting editor…', enabled: false }] },
       { label: 'Tools', submenu: [{ label: 'Starting editor…', enabled: false }] },
-      { label: 'Settings', submenu: [{ label: 'Starting editor…', enabled: false }] },
-      { label: 'View', submenu: [{ role: 'reload' }, { role: 'toggleDevTools' }, { role: 'togglefullscreen' }] },
+      { label: 'Help', submenu: [{ label: 'Starting editor…', enabled: false }] },
     ]));
     await createWindow();
     app.on('activate', () => { if (BrowserWindow.getAllWindows().length === 0) void createWindow(); });

@@ -114,6 +114,7 @@ export class Editor {
   onRename?: () => void;
   onGuideSettings?: () => void;
   onOpenSettings?: () => void;
+  onOpenAbout?: () => void;
   onCanvasBackgroundSettings?: () => void;
   onCommandPalette?: () => void;
   onDocumentsChange?: () => void;
@@ -1143,8 +1144,10 @@ export class Editor {
       if (image) await this.addImage(image.name, new Blob([image.bytes]));
     } });
     register({ id: 'command.palette', label: 'Command palette…', menu: 'Edit', execute: () => this.onCommandPalette?.() });
-    register({ id: 'settings.open', label: 'Settings…', menu: 'Settings', execute: () => this.onOpenSettings?.() });
+    register({ id: 'settings.open', label: 'Settings…', menu: 'File', separatorBefore: true, execute: () => this.onOpenSettings?.() });
     register({ id: 'settings.canvas-background', label: 'Canvas background…', execute: () => this.onCanvasBackgroundSettings?.() });
+    register({ id: 'help.repository', label: 'GitHub repository', menu: 'Help', execute: async () => { await window.desktop.openRepository(); } });
+    register({ id: 'help.about', label: 'About Texel', menu: 'Help', separatorBefore: true, execute: () => this.onOpenAbout?.() });
     register({ id: 'layer.new', label: 'New pixel layer', menu: 'Layer', execute: () => this.image.createPixelLayer() });
     register({ id: 'layer.new-text', label: 'New text layer', menu: 'Layer', execute: () => (this.tools.get('text') as TextTool).createAt() });
     register({ id: 'layer.new-sized', label: 'New sized layer…', menu: 'Layer', execute: () => this.onNewSizedLayer?.() });

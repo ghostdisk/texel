@@ -4,6 +4,8 @@ contextBridge.exposeInMainWorld('desktop', {
   openMenu: (label, x, y) => ipcRenderer.invoke('window:open-menu', label, x, y),
   openContextMenu: (items, x, y) => ipcRenderer.invoke('window:open-context-menu', items, x, y),
   isWindowMaximized: () => ipcRenderer.invoke('window:is-maximized'),
+  appInfo: () => ipcRenderer.invoke('app:info'),
+  openRepository: () => ipcRenderer.invoke('app:open-repository'),
   onWindowMaximizedChanged: (callback) => {
     const listener = (_event, maximized) => callback(maximized === true);
     ipcRenderer.on('window:maximized-changed', listener);
