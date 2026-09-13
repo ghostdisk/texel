@@ -13,6 +13,7 @@ export interface GenerationModelCapabilities {
   inputImages: number;
   minimumInputImages?: number;
   mask: boolean;
+  maskRequired?: boolean;
   negativePrompt: boolean;
   steps: boolean;
   guidance: boolean;

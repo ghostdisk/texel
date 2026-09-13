@@ -107,6 +107,7 @@ interface FalGenerationRequest {
   strength: number;
   seed: number;
   input: Uint8Array<ArrayBuffer>;
+  mask: Uint8Array<ArrayBuffer> | null;
 }
 
 interface FalGenerationResult {

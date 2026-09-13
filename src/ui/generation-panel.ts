@@ -226,13 +226,15 @@ export class GenerationPanel {
       field.hidden = !capabilities?.[capability] || capability === 'mask' && !this.editor.image.selectionMask;
     }
     const requiresInput = !!capabilities?.minimumInputImages;
+    const requiresMask = !!capabilities?.maskRequired;
     const sendsInput = requiresInput || generation.sendInput;
+    const sendsMask = requiresMask || generation.sendMask;
     this.inputToggle.checked = sendsInput;
     this.inputToggle.disabled = requiresInput;
-    this.maskToggle.checked = generation.sendMask;
-    this.maskToggle.disabled = !sendsInput;
+    this.maskToggle.checked = sendsMask;
+    this.maskToggle.disabled = !sendsInput || requiresMask;
     this.inputCard.classList.toggle('excluded', !sendsInput);
-    this.maskCard.classList.toggle('excluded', !sendsInput || !generation.sendMask);
+    this.maskCard.classList.toggle('excluded', !sendsInput || !sendsMask);
     this.capabilityFields.get('denoiseStrength')!.hidden =
       !capabilities?.denoiseStrength || !sendsInput;
     this.settings.disabled = generation.busy;
@@ -257,7 +259,7 @@ export class GenerationPanel {
     else this.progress.removeAttribute('value');
     this.resultPreview.hidden = !generation.previewUrl;
     if (generation.previewUrl && this.resultPreview.getAttribute('src') !== generation.previewUrl) this.resultPreview.src = generation.previewUrl;
-    this.error.textContent = generation.error || generation.sizeError;
+    this.error.textContent = generation.error || generation.sizeError || generation.requirementError;
     this.error.hidden = !this.error.textContent;
     this.scheduleInputPreview();
   }

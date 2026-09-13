@@ -2,7 +2,8 @@ const { mkdir, readFile, rm, writeFile } = require('node:fs/promises');
 const path = require('node:path');
 
 const QUEUE_API = 'https://queue.fal.run';
-const MODELS = [
+const CATALOG_API = 'https://api.fal.ai/v1/models';
+const FALLBACK_MODELS = [
   {
     id: 'fal/black-forest-labs/flux-2-klein-4b-edit',
     label: 'FLUX.2 Klein 4B Edit',
@@ -79,8 +80,103 @@ const MODELS = [
   },
 ];
 
+function resolveSchema(openapi, schema) {
+  const seen = new Set();
+  while (schema?.$ref?.startsWith('#/')) {
+    if (seen.has(schema.$ref)) return null;
+    seen.add(schema.$ref);
+    schema = schema.$ref.slice(2).split('/').reduce((value, key) => value?.[key.replace(/~1/g, '/').replace(/~0/g, '~')], openapi);
+  }
+  return schema ?? null;
+}
+
+function schemaVariants(openapi, schema) {
+  const resolved = resolveSchema(openapi, schema);
+  if (!resolved) return [];
+  const branches = resolved.anyOf ?? resolved.oneOf ?? [];
+  return [resolved, ...branches.map((branch) => resolveSchema(openapi, branch)).filter(Boolean)];
+}
+
+function objectProperties(openapi, schema) {
+  for (const candidate of schemaVariants(openapi, schema)) {
+    if (candidate.type === 'object' || candidate.properties) return candidate;
+  }
+  return null;
+}
+
+function requestSchema(record) {
+  const pathItem = record.openapi?.paths?.[`/${record.endpoint_id}`];
+  return pathItem?.post?.requestBody?.content?.['application/json']?.schema ?? null;
+}
+
+function resultSchema(record) {
+  const pathItem = record.openapi?.paths?.[`/${record.endpoint_id}/requests/{request_id}`];
+  return pathItem?.get?.responses?.['200']?.content?.['application/json']?.schema ?? null;
+}
+
+function field(properties, names) {
+  return names.find((name) => properties[name]) ?? null;
+}
+
+function arrayLimit(openapi, schema) {
+  const variant = schemaVariants(openapi, schema).find((candidate) => candidate.type === 'array');
+  return variant?.maxItems;
+}
+
+function discoverModel(record) {
+  if (!record?.endpoint_id || !record.openapi) return null;
+  const input = objectProperties(record.openapi, requestSchema(record));
+  const output = objectProperties(record.openapi, resultSchema(record));
+  if (!input || !output) return null;
+  const properties = input.properties ?? {};
+  const outputProperties = output.properties ?? {};
+  const imageField = field(properties, ['image_urls', 'image_url', 'input_image_urls', 'input_image_url', 'source_image_url']);
+  const outputField = field(outputProperties, ['images', 'image', 'output_images', 'output_image']);
+  if (!properties.prompt || !imageField || !outputField) return null;
+  const required = new Set(input.required ?? []);
+  const override = FALLBACK_MODELS.find((model) => model.endpoint === record.endpoint_id);
+  const maximum = arrayLimit(record.openapi, properties[imageField]);
+  return {
+    id: override?.id ?? `fal/${record.endpoint_id}`,
+    label: record.metadata?.display_name || override?.label || record.endpoint_id,
+    endpoint: record.endpoint_id,
+    imageField,
+    outputField,
+    inputImages: Number.isInteger(maximum) ? Math.max(1, Math.min(16, maximum)) : override?.inputImages ?? 1,
+    minimumInputImages: 1,
+    fields: {
+      negativePrompt: field(properties, ['negative_prompt']),
+      steps: field(properties, ['num_inference_steps', 'steps']),
+      guidance: field(properties, ['guidance_scale', 'guidance']),
+      seed: field(properties, ['seed']),
+      strength: field(properties, ['strength', 'denoising_strength', 'denoise_strength']),
+      mask: field(properties, ['mask_url', 'mask_image_url', 'mask_urls']),
+      outputFormat: field(properties, ['output_format']),
+      imageSize: field(properties, ['image_size']),
+      numImages: field(properties, ['num_images']),
+      ...override?.fields,
+    },
+    capabilities: {
+      maskRequired: required.has(field(properties, ['mask_url', 'mask_image_url', 'mask_urls'])),
+      ...override?.capabilities,
+    },
+  };
+}
+
+function mappedField(value, fallback) {
+  if (typeof value === 'string') return value;
+  return value ? fallback : null;
+}
+
+function assignFile(body, name, dataUrl) {
+  body[name] = name.endsWith('urls') ? [dataUrl] : dataUrl;
+}
+
 function registerFal({ app, ipcMain, safeStorage }, ownerOf) {
   const jobs = new Map();
+  let models = new Map(FALLBACK_MODELS.map((model) => [model.id, model]));
+  let catalogPromise = null;
+  let catalogExpires = 0;
 
   function keyPath() { return path.join(app.getPath('userData'), 'fal-key.bin'); }
 
@@ -112,12 +208,52 @@ function registerFal({ app, ipcMain, safeStorage }, ownerOf) {
   }
 
   async function request(url, key, options = {}) {
+    const headers = { 'Content-Type': 'application/json', ...options.headers };
+    if (key) headers.Authorization = `Key ${key}`;
     const response = await fetch(url, {
       ...options,
-      headers: { 'Content-Type': 'application/json', Authorization: `Key ${key}`, ...options.headers },
+      headers,
     });
     if (!response.ok) throw new Error(await errorMessage(response));
     return response;
+  }
+
+  async function discoverModels() {
+    if (catalogPromise && Date.now() < catalogExpires) return catalogPromise;
+    catalogExpires = Date.now() + 10 * 60 * 1000;
+    catalogPromise = (async () => {
+      const key = await readKey();
+      const discovered = new Map();
+      const cursors = new Set();
+      let cursor = '';
+      do {
+        const url = new URL(CATALOG_API);
+        url.searchParams.set('limit', '50');
+        url.searchParams.set('status', 'active');
+        url.searchParams.set('category', 'image-to-image');
+        url.searchParams.set('expand', 'openapi-3.0');
+        if (cursor) url.searchParams.set('cursor', cursor);
+        const page = await request(url.href, key).then((response) => response.json());
+        for (const record of page.models ?? []) {
+          const model = discoverModel(record);
+          if (model) discovered.set(model.id, model);
+        }
+        const nextCursor = page.has_more && typeof page.next_cursor === 'string' ? page.next_cursor : '';
+        cursor = nextCursor && !cursors.has(nextCursor) ? nextCursor : '';
+        if (cursor) cursors.add(cursor);
+      } while (cursor);
+      for (const fallback of FALLBACK_MODELS) {
+        if (!discovered.has(fallback.id)) discovered.set(fallback.id, fallback);
+      }
+      models = discovered;
+      return [...models.values()];
+    })().catch((error) => {
+      catalogPromise = null;
+      catalogExpires = 0;
+      if (models.size) return [...models.values()];
+      throw error;
+    });
+    return catalogPromise;
   }
 
   function publicModel(model) {
@@ -128,8 +264,9 @@ function registerFal({ app, ipcMain, safeStorage }, ownerOf) {
       label: model.label,
       capabilities: {
         inputImages: model.inputImages ?? 1,
-        minimumInputImages: 1,
-        mask: false,
+        minimumInputImages: model.minimumInputImages ?? 1,
+        mask: !!fields.mask,
+        maskRequired: !!model.capabilities.maskRequired,
         negativePrompt: !!fields.negativePrompt,
         steps: !!fields.steps,
         guidance: !!fields.guidance,
@@ -170,9 +307,11 @@ function registerFal({ app, ipcMain, safeStorage }, ownerOf) {
     if (!ownerOf(event) || typeof value !== 'string' || value.length > 1024) return null;
     const key = value.trim();
     await writeKey(key);
+    catalogPromise = null;
+    catalogExpires = 0;
     return { configured: !!key };
   });
-  ipcMain.handle('fal:models', (event) => ownerOf(event) ? { data: MODELS.map(publicModel) } : null);
+  ipcMain.handle('fal:models', async (event) => ownerOf(event) ? { data: (await discoverModels()).map(publicModel) } : null);
   ipcMain.handle('fal:cancel', (event, id) => {
     const owner = ownerOf(event);
     const job = typeof id === 'string' ? jobs.get(id) : null;
@@ -184,20 +323,33 @@ function registerFal({ app, ipcMain, safeStorage }, ownerOf) {
   ipcMain.handle('fal:generate', async (event, generation) => {
     const owner = ownerOf(event);
     if (!owner || !generation || typeof generation !== 'object') throw new Error('Invalid fal generation request.');
-    const { id, model: modelId, prompt, input } = generation;
-    const model = MODELS.find((entry) => entry.id === modelId);
+    const { id, model: modelId, prompt, input, mask } = generation;
+    const model = models.get(modelId);
     if (typeof id !== 'string' || !id || jobs.has(id) || !model || typeof prompt !== 'string' ||
         !(input instanceof Uint8Array) || !input.byteLength) throw new Error('Invalid fal generation request.');
     const key = await readKey();
     if (!key) throw new Error('Add a fal API key in Settings before generating.');
     const body = { prompt };
     const image = `data:image/png;base64,${Buffer.from(input).toString('base64')}`;
-    body[model.imageField ?? 'image_url'] = model.imageField === 'image_urls' ? [image] : image;
-    if (model.fields.negativePrompt && generation.negativePrompt) body.negative_prompt = generation.negativePrompt;
-    if (model.fields.steps && Number.isInteger(generation.steps)) body.num_inference_steps = generation.steps;
-    if (model.fields.guidance && Number.isFinite(generation.guidance)) body.guidance_scale = generation.guidance;
-    if (model.fields.strength && Number.isFinite(generation.strength)) body.strength = generation.strength;
-    if (model.fields.seed && Number.isInteger(generation.seed) && generation.seed >= 0) body.seed = generation.seed;
+    assignFile(body, model.imageField ?? 'image_url', image);
+    const negativePrompt = mappedField(model.fields.negativePrompt, 'negative_prompt');
+    const steps = mappedField(model.fields.steps, 'num_inference_steps');
+    const guidance = mappedField(model.fields.guidance, 'guidance_scale');
+    const strength = mappedField(model.fields.strength, 'strength');
+    const seed = mappedField(model.fields.seed, 'seed');
+    const maskField = mappedField(model.fields.mask, 'mask_url');
+    const outputFormat = mappedField(model.fields.outputFormat, 'output_format');
+    const numImages = mappedField(model.fields.numImages, 'num_images');
+    if (negativePrompt && generation.negativePrompt) body[negativePrompt] = generation.negativePrompt;
+    if (steps && Number.isInteger(generation.steps)) body[steps] = generation.steps;
+    if (guidance && Number.isFinite(generation.guidance)) body[guidance] = generation.guidance;
+    if (strength && Number.isFinite(generation.strength)) body[strength] = generation.strength;
+    if (seed && Number.isInteger(generation.seed) && generation.seed >= 0) body[seed] = generation.seed;
+    if (maskField && mask instanceof Uint8Array && mask.byteLength) {
+      assignFile(body, maskField, `data:image/png;base64,${Buffer.from(mask).toString('base64')}`);
+    }
+    if (outputFormat) body[outputFormat] = 'png';
+    if (numImages) body[numImages] = 1;
     const controller = new AbortController();
     const job = { controller, sender: event.sender, endpoint: model.endpoint, key, requestId: '' };
     jobs.set(id, job);
@@ -220,13 +372,15 @@ function registerFal({ app, ipcMain, safeStorage }, ownerOf) {
         await delay(600, controller.signal);
       }
       const result = await request(requestUrl, key, { signal: controller.signal }).then((response) => response.json());
-      const output = result.images?.[0] ?? result.data?.images?.[0] ?? result.image ?? result.data?.image;
-      if (typeof output?.url !== 'string') throw new Error('fal returned no image.');
-      const image = await fetch(output.url, { signal: controller.signal });
-      if (!image.ok) throw new Error(await errorMessage(image));
+      const value = result[model.outputField ?? 'images'] ?? result.data?.[model.outputField ?? 'images'];
+      const output = Array.isArray(value) ? value[0] : value;
+      const outputUrl = typeof output === 'string' ? output : output?.url;
+      if (typeof outputUrl !== 'string') throw new Error('fal returned no image.');
+      const imageResponse = await fetch(outputUrl, { signal: controller.signal });
+      if (!imageResponse.ok) throw new Error(await errorMessage(imageResponse));
       return {
-        bytes: new Uint8Array(await image.arrayBuffer()),
-        mediaType: image.headers.get('content-type') || output.content_type || 'image/png',
+        bytes: new Uint8Array(await imageResponse.arrayBuffer()),
+        mediaType: imageResponse.headers.get('content-type') || output?.content_type || 'image/png',
       };
     } finally { jobs.delete(id); }
   });

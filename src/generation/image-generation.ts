@@ -104,7 +104,15 @@ export class ImageGeneration {
     }
     return '';
   }
-  get canGenerate(): boolean { return !this.busy && !!this.model && !!this.prompt.trim() && !this.sizeError; }
+  get requirementError(): string {
+    if (this.selectedModel?.capabilities.maskRequired && !this.editor.image.selectionMask) {
+      return 'This model requires a selection mask.';
+    }
+    return '';
+  }
+  get canGenerate(): boolean {
+    return !this.busy && !!this.model && !!this.prompt.trim() && !this.sizeError && !this.requirementError;
+  }
 
   async inputPreview(): Promise<GenerationInputPreview> {
     const model = this.selectedModel;
@@ -317,11 +325,12 @@ export class ImageGeneration {
         }
         if (removal) maskSurface = this.masks.support(run.mask!, requestFrame.width, requestFrame.height);
         const requiresInput = !!modelCapabilities?.minimumInputImages;
+        const requiresMask = !!modelCapabilities?.maskRequired;
         const includeInput = removal || requiresInput || this.sendInput;
         [input, mask] = await Promise.all([
           modelCapabilities?.inputImages && includeInput ?
             this.editor.readback.rgba(inputSurface) : Promise.resolve(null),
-          maskSurface && (removal || includeInput && this.sendMask) ?
+          maskSurface && (removal || includeInput && (requiresMask || this.sendMask)) ?
             this.editor.readback.rgba(maskSurface, true) : Promise.resolve(null),
         ]);
       } finally {

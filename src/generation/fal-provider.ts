@@ -30,9 +30,15 @@ export class FalGenerationProvider implements GenerationProvider {
     if (!model) throw new Error('The selected fal model is unavailable. Refresh the model list.');
     if (!request.input) throw new Error('This fal model requires a color image.');
     if (signal.aborted) throw new DOMException('Generation cancelled.', 'AbortError');
-    events.progress({ phase: 'Encoding input', step: 0, steps: 0 });
-    const inputBlob = await rgbaToPng(request.input, request.width, request.height);
-    const input = new Uint8Array(await inputBlob.arrayBuffer());
+    events.progress({ phase: request.mask && model.capabilities.mask ? 'Encoding inputs' : 'Encoding input', step: 0, steps: 0 });
+    const [inputBlob, maskBlob] = await Promise.all([
+      rgbaToPng(request.input, request.width, request.height),
+      request.mask && model.capabilities.mask ? rgbaToPng(request.mask, request.width, request.height) : Promise.resolve(null),
+    ]);
+    const [input, mask] = await Promise.all([
+      inputBlob.arrayBuffer().then((buffer) => new Uint8Array(buffer)),
+      maskBlob?.arrayBuffer().then((buffer) => new Uint8Array(buffer)) ?? Promise.resolve(null),
+    ]);
     if (signal.aborted) throw new DOMException('Generation cancelled.', 'AbortError');
     events.progress({ phase: 'Submitting to fal', step: 0, steps: 0 });
     const abort = () => { void window.desktop.cancelFalGeneration(request.id); };
@@ -51,6 +57,7 @@ export class FalGenerationProvider implements GenerationProvider {
         strength: request.strength,
         seed: request.seed,
         input,
+        mask,
       });
       if (signal.aborted) throw new DOMException('Generation cancelled.', 'AbortError');
       return new Blob([result.bytes], { type: result.mediaType });
