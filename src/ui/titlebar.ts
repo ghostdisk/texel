@@ -22,7 +22,6 @@ export class TitleBar {
   private readonly buttons: HTMLButtonElement[];
   private readonly popup = document.createElement('div');
   private activeButton: HTMLButtonElement | null = null;
-  private switchTimer = 0;
   private submenuTimer = 0;
 
   constructor(private readonly actions: ActionRegistry) {
@@ -35,10 +34,8 @@ export class TitleBar {
       button.onclick = () => this.toggle(button);
       button.onpointerenter = () => {
         if (!this.activeButton || this.activeButton === button) return;
-        window.clearTimeout(this.switchTimer);
-        this.switchTimer = window.setTimeout(() => this.open(button), 120);
+        this.open(button);
       };
-      button.onpointerleave = () => window.clearTimeout(this.switchTimer);
       button.onkeydown = (event) => {
         if (event.key === 'ArrowLeft' || event.key === 'ArrowRight') {
           event.preventDefault();
