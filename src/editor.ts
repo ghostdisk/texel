@@ -67,7 +67,9 @@ import { EditorDocument } from './editor-document';
 interface PointerGesture {
   id: number;
   mode: 'tool' | 'pan';
+  button: number;
   last: Point;
+  travel: number;
 }
 
 export class Editor {
@@ -124,6 +126,7 @@ export class Editor {
   private lastMenus = '';
   private reframing = false;
   private selectionCheck = 0;
+  private suppressContextMenu = false;
   private canvasBackground: GPUColorDict = { r: 0.067, g: 0.082, b: 0.118, a: 1 };
 
   constructor(
@@ -1377,16 +1380,17 @@ export class Editor {
       this.refreshHover();
     }));
     this.canvas.addEventListener('pointerdown', (event) => this.run(() => {
-      if (this.pointer || !event.isPrimary || (event.button !== 0 && event.button !== 1)) return;
+      if (this.pointer || !event.isPrimary || ![0, 1, 2].includes(event.button)) return;
       event.preventDefault();
+      if (event.button === 2) this.suppressContextMenu = false;
       this.pickGeneration++;
       if (!(this.activeTool instanceof PolygonLassoTool && this.activeTool.hasPath)) this.finishGesture();
       this.canvas.focus({ preventScroll: true });
       this.setAltHeld(event.altKey);
-      const mode = this.panHeld || event.button === 1 ? 'pan' : 'tool';
+      const mode = this.panHeld || event.button === 1 || event.button === 2 ? 'pan' : 'tool';
       const data = pointerData(event);
       this.hoverPointer = data;
-      this.pointer = { id: event.pointerId, mode, last: data.screen };
+      this.pointer = { id: event.pointerId, mode, button: event.button, last: data.screen, travel: 0 };
       this.canvas.setPointerCapture(event.pointerId);
       if (mode === 'tool') this.activeTool.pointerDown(data);
       else { this.activeTool.hover(null); this.canvas.style.cursor = 'grabbing'; }
@@ -1397,7 +1401,10 @@ export class Editor {
       this.hoverPointer = data;
       this.refreshHover();
       if (this.pointer?.mode === 'pan') {
-        this.viewport.pan(data.screen.x - this.pointer.last.x, data.screen.y - this.pointer.last.y);
+        const dx = data.screen.x - this.pointer.last.x;
+        const dy = data.screen.y - this.pointer.last.y;
+        this.pointer.travel += Math.hypot(dx, dy);
+        if (this.pointer.button !== 2 || this.pointer.travel >= 3) this.viewport.pan(dx, dy);
         this.pointer.last = data.screen;
         return;
       }
@@ -1409,6 +1416,7 @@ export class Editor {
     this.canvas.addEventListener('pointerup', (event) => this.run(() => {
       if (this.pointer?.id !== event.pointerId) return;
       this.hoverPointer = pointerData(event);
+      if (this.pointer.mode === 'pan' && this.pointer.button === 2 && this.pointer.travel >= 3) this.suppressContextMenu = true;
       if (this.pointer.mode === 'tool' && ['transform', 'rectangle', 'ellipse', 'freehand-lasso', 'crop', 'eyedropper', 'clone-stamp', 'healing-brush'].includes(this.activeTool.id)) {
         this.activeTool.pointerMove(this.hoverPointer);
       }
@@ -1437,6 +1445,7 @@ export class Editor {
     });
     this.canvas.addEventListener('contextmenu', (event) => this.run(() => {
       event.preventDefault();
+      if (this.suppressContextMenu) { this.suppressContextMenu = false; return; }
       this.finishGesture();
       const point = pointerData(event).world;
       const frame = this.image.frame;
