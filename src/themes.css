@@ -28,7 +28,9 @@
   --shadow: #00000080;
   --panel-gradient: linear-gradient(125deg, #242a38, #1c212d 75%);
   --selection-gradient: linear-gradient(110deg, #443c71, #33304c);
-  --primary-gradient: linear-gradient(120deg, #7953cd, #6943b9);
+  --primary-button-bg: var(--accent);
+  --primary-button-hover-bg: var(--accent-hover);
+  --primary-button-text: var(--app-bg);
 }
 
 .theme-catppuccin-latte {
@@ -61,7 +63,9 @@
   --shadow: #4c4f6940;
   --panel-gradient: linear-gradient(125deg, #eff1f5, #e6e9ef 75%);
   --selection-gradient: linear-gradient(110deg, #ddd0f1, #d4c8e8);
-  --primary-gradient: linear-gradient(120deg, #8839ef, #7287fd);
+  --primary-button-bg: var(--accent);
+  --primary-button-hover-bg: var(--accent-hover);
+  --primary-button-text: var(--app-bg);
 }
 
 .theme-catppuccin-frappe {
@@ -94,7 +98,9 @@
   --shadow: #11111b99;
   --panel-gradient: linear-gradient(125deg, #363a4f, #292c3c 75%);
   --selection-gradient: linear-gradient(110deg, #514664, #414052);
-  --primary-gradient: linear-gradient(120deg, #ca9ee6, #8caaee);
+  --primary-button-bg: var(--accent);
+  --primary-button-hover-bg: var(--accent-hover);
+  --primary-button-text: var(--app-bg);
 }
 
 .theme-catppuccin-macchiato {
@@ -127,7 +133,9 @@
   --shadow: #0d0e1599;
   --panel-gradient: linear-gradient(125deg, #2d3146, #1e2030 75%);
   --selection-gradient: linear-gradient(110deg, #4b4164, #37364f);
-  --primary-gradient: linear-gradient(120deg, #c6a0f6, #8aadf4);
+  --primary-button-bg: var(--accent);
+  --primary-button-hover-bg: var(--accent-hover);
+  --primary-button-text: var(--app-bg);
 }
 
 .theme-catppuccin-mocha {
@@ -160,7 +168,9 @@
   --shadow: #00000099;
   --panel-gradient: linear-gradient(125deg, #252536, #181825 75%);
   --selection-gradient: linear-gradient(110deg, #493e61, #343047);
-  --primary-gradient: linear-gradient(120deg, #cba6f7, #89b4fa);
+  --primary-button-bg: var(--accent);
+  --primary-button-hover-bg: var(--accent-hover);
+  --primary-button-text: var(--app-bg);
 }
 
 .theme-dracula {
@@ -193,7 +203,9 @@
   --shadow: #0000008f;
   --panel-gradient: linear-gradient(125deg, #30323f, #21222c 75%);
   --selection-gradient: linear-gradient(110deg, #554568, #40394f);
-  --primary-gradient: linear-gradient(120deg, #bd93f9, #ff79c6);
+  --primary-button-bg: var(--accent);
+  --primary-button-hover-bg: var(--accent-hover);
+  --primary-button-text: var(--app-bg);
 }
 
 .theme-nord {
@@ -226,7 +238,9 @@
   --shadow: #10131999;
   --panel-gradient: linear-gradient(125deg, #434c5e, #3b4252 75%);
   --selection-gradient: linear-gradient(110deg, #3d5965, #3d4d5c);
-  --primary-gradient: linear-gradient(120deg, #5e81ac, #88c0d0);
+  --primary-button-bg: var(--accent);
+  --primary-button-hover-bg: var(--accent-hover);
+  --primary-button-text: var(--app-bg);
 }
 
 .theme-gruvbox-dark {
@@ -259,7 +273,9 @@
   --shadow: #0000008f;
   --panel-gradient: linear-gradient(125deg, #3c3836, #32302f 75%);
   --selection-gradient: linear-gradient(110deg, #604852, #493c3e);
-  --primary-gradient: linear-gradient(120deg, #d3869b, #b16286);
+  --primary-button-bg: var(--accent);
+  --primary-button-hover-bg: var(--accent-hover);
+  --primary-button-text: var(--app-bg);
 }
 
 .theme-tokyo-night {
@@ -292,7 +308,9 @@
   --shadow: #00000099;
   --panel-gradient: linear-gradient(125deg, #24283b, #1f2335 75%);
   --selection-gradient: linear-gradient(110deg, #36466d, #303753);
-  --primary-gradient: linear-gradient(120deg, #7aa2f7, #bb9af7);
+  --primary-button-bg: var(--accent);
+  --primary-button-hover-bg: var(--accent-hover);
+  --primary-button-text: var(--app-bg);
 }
 
 .theme-rose-pine {
@@ -325,7 +343,9 @@
   --shadow: #00000099;
   --panel-gradient: linear-gradient(125deg, #26233a, #1f1d2e 75%);
   --selection-gradient: linear-gradient(110deg, #4c405f, #383149);
-  --primary-gradient: linear-gradient(120deg, #c4a7e7, #eb6f92);
+  --primary-button-bg: var(--accent);
+  --primary-button-hover-bg: var(--accent-hover);
+  --primary-button-text: var(--app-bg);
 }
 
 .theme-solarized-dark {
@@ -358,7 +378,9 @@
   --shadow: #00101499;
   --panel-gradient: linear-gradient(125deg, #0c3c48, #073642 75%);
   --selection-gradient: linear-gradient(110deg, #15526a, #124655);
-  --primary-gradient: linear-gradient(120deg, #268bd2, #6c71c4);
+  --primary-button-bg: var(--accent);
+  --primary-button-hover-bg: var(--accent-hover);
+  --primary-button-text: var(--app-bg);
 }
 
 .theme-solarized-light {
@@ -391,7 +413,9 @@
   --shadow: #586e7540;
   --panel-gradient: linear-gradient(125deg, #fffaf0, #eee8d5 75%);
   --selection-gradient: linear-gradient(110deg, #c8dce5, #d4dfdf);
-  --primary-gradient: linear-gradient(120deg, #268bd2, #6c71c4);
+  --primary-button-bg: var(--accent);
+  --primary-button-hover-bg: var(--accent-hover);
+  --primary-button-text: var(--app-bg);
 }
 
 .theme-one-dark {
@@ -424,7 +448,9 @@
   --shadow: #0000008f;
   --panel-gradient: linear-gradient(125deg, #2c323c, #21252b 75%);
   --selection-gradient: linear-gradient(110deg, #374c62, #333e4d);
-  --primary-gradient: linear-gradient(120deg, #61afef, #c678dd);
+  --primary-button-bg: var(--accent);
+  --primary-button-hover-bg: var(--accent-hover);
+  --primary-button-text: var(--app-bg);
 }
 
 .theme-github-dark {
@@ -457,7 +483,9 @@
   --shadow: #000000a6;
   --panel-gradient: linear-gradient(125deg, #1b2027, #161b22 75%);
   --selection-gradient: linear-gradient(110deg, #263e57, #253445);
-  --primary-gradient: linear-gradient(120deg, #238636, #2ea043);
+  --primary-button-bg: var(--accent);
+  --primary-button-hover-bg: var(--accent-hover);
+  --primary-button-text: var(--app-bg);
 }
 
 .theme-github-light {
@@ -490,5 +518,7 @@
   --shadow: #1f232840;
   --panel-gradient: linear-gradient(125deg, #ffffff, #f6f8fa 75%);
   --selection-gradient: linear-gradient(110deg, #cfe2f6, #dce6f0);
-  --primary-gradient: linear-gradient(120deg, #0969da, #8250df);
+  --primary-button-bg: var(--accent);
+  --primary-button-hover-bg: var(--accent-hover);
+  --primary-button-text: var(--app-bg);
 }

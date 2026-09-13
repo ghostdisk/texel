@@ -153,7 +153,7 @@ h2 { display: flex; align-items: center; gap: 7px; font-weight: 600; font-size: 
 .tab-strip { display: flex; align-items: stretch; height: 34px; flex-shrink: 0; border-bottom: 1px solid var(--border); }
 .tab { position: relative; border: 0; border-radius: 0; padding: 0 15px; background: transparent; color: var(--text-muted); font-size: 12px; }
 .tab[aria-selected="true"] { background: color-mix(in srgb, var(--text) 3%, transparent); color: var(--text-strong); font-weight: 600; }
-.tab[aria-selected="true"]::after { content: ''; position: absolute; bottom: -1px; left: 0; right: 0; height: 3px; background: var(--primary-gradient); }
+.tab[aria-selected="true"]::after { content: ''; position: absolute; bottom: -1px; left: 0; right: 0; height: 3px; background: var(--accent); }
 .tab-panel { display: flex; flex: 1; min-height: 0; flex-direction: column; }
 .layer-compositing { display: flex; gap: 9px; align-items: center; padding: 8px 7px; flex-shrink: 0; }
 #layer-blend { flex: 1; min-width: 95px; height: 28px; font-size: 11px; }
@@ -305,8 +305,8 @@ input[type="range"]::-webkit-slider-thumb { appearance: none; width: 11px; heigh
 .generation-status { color: var(--text-muted); font-size: 10px; margin-top: 8px; }
 .generation-error { color: var(--danger); font-size: 11px; line-height: 1.4; margin: 8px 0 0; }
 .has-error { border-color: var(--danger); color: var(--danger); }
-button.primary { background: var(--primary-gradient); color: var(--text-strong); border-color: var(--accent); }
-button.primary:hover:not(:disabled) { filter: brightness(1.12); }
+button.primary { background: var(--primary-button-bg); color: var(--primary-button-text); border-color: var(--primary-button-bg); }
+button.primary:hover:not(:disabled) { background: var(--primary-button-hover-bg); border-color: var(--primary-button-hover-bg); color: var(--primary-button-text); }
 #error { position: fixed; z-index: 20; bottom: 38px; left: 66px; max-width: min(660px, calc(100vw - 90px)); padding: 11px 14px; background: var(--danger-surface); color: var(--danger); border: 1px solid var(--danger); border-radius: 5px; box-shadow: 0 6px 20px var(--shadow); }
 dialog { width: 360px; border: 1px solid var(--border-strong); border-radius: 7px; padding: 20px; background: var(--panel-gradient); color: var(--text); box-shadow: 0 20px 80px var(--shadow); }
 dialog::backdrop { background: color-mix(in srgb, var(--canvas-surround) 70%, transparent); }
