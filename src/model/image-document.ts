@@ -2,7 +2,8 @@ import type { Gpu } from '../gpu/device';
 import type { Compositor } from '../gpu/compositor';
 import { createImageLayer } from '../gpu/images';
 import { createSurface, rasterBounds, MASK_FORMAT, WORKING_FORMAT } from '../gpu/surface';
-import { LayerReframer } from '../gpu/reframe';
+import type { LayerReframer } from '../gpu/reframe';
+import type { MaskRenderer } from '../gpu/mask';
 import type { Surface } from '../gpu/surface';
 import type { FilterRegistry, SerializedFilter } from '../filters/filter';
 import { UndoOperation } from '../history/undo';
@@ -59,13 +60,13 @@ export class ImageDocument implements UndoTarget {
   constructor(
     readonly gpu: Gpu,
     private readonly compositor: Compositor,
-    readonly filters: FilterRegistry,
+    readonly filters: FilterRegistry, reframer: LayerReframer, masks: MaskRenderer,
     private readonly history: UndoStack,
     private readonly flush: () => void,
   ) {
     this.root.onInvalidated = () => this.onInvalidated?.();
-    this.reframer = new LayerReframer(gpu, compositor.quads);
-    this.commands = new LayerCommands(this, gpu, compositor, history);
+    this.reframer = reframer;
+    this.commands = new LayerCommands(this, gpu, compositor, history, masks, reframer);
   }
 
   /** Canonical pixel dimensions used for presentation and export. */

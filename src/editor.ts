@@ -23,12 +23,14 @@ import { MaskFilter } from './filters/mask-filter';
 import { createSurface } from './gpu/surface';
 import type { Surface } from './gpu/surface';
 import type { MaskInput } from './gpu/mask';
+import { MaskRenderer } from './gpu/mask';
 import { Brush } from './gpu/brush';
 import type { BrushStamp } from './gpu/brush';
 import { RetouchBrush } from './gpu/retouch';
 import type { RetouchInput, RetouchStamp } from './gpu/retouch';
 import { PathRenderer } from './gpu/path';
 import { Compositor } from './gpu/compositor';
+import { LayerReframer } from './gpu/reframe';
 import type { RenderStats } from './gpu/compositor';
 import type { Gpu } from './gpu/device';
 import { importImage } from './gpu/images';
@@ -43,7 +45,7 @@ import type { ReframeMode } from './model/image-document';
 import { GroupLayer, ImageLayer, Layer, canReferenceLayer } from './model/layers';
 import type { LayerProperties } from './model/layers';
 import { inverse, multiply, unionBounds } from './model/geometry';
-import type { Point } from './model/geometry';
+import type { Matrix, Point } from './model/geometry';
 import { applyWorldTransform, around, translation, worldBounds } from './model/precision';
 import type { Guide, PrecisionState } from './model/precision';
 import { BrushTool } from './tools/brush-tool';
@@ -60,6 +62,7 @@ import { TransformTool } from './tools/transform-tool';
 import { EyedropperTool } from './tools/eyedropper-tool';
 import type { Tool, ToolPointer } from './tools/tool';
 import { Viewport } from './viewport';
+import { EditorDocument } from './editor-document';
 
 interface PointerGesture {
   id: number;
@@ -69,16 +72,17 @@ interface PointerGesture {
 
 export class Editor {
   readonly compositor: Compositor;
+  readonly layerReframer: LayerReframer;
+  readonly layerMasks: MaskRenderer;
   readonly brush: Brush;
   readonly retouch: RetouchBrush;
   readonly paths: PathRenderer;
   readonly filters = new FilterRegistry();
   readonly actions: ActionRegistry;
-  readonly history: UndoStack;
   readonly generation: ImageGeneration;
-  readonly image: ImageDocument;
   readonly files: DocumentFiles;
-  readonly viewport = new Viewport();
+  readonly documents: EditorDocument[] = [];
+  private currentDocument!: EditorDocument;
   readonly tools = new Map<string, Tool>();
   private baseTool: Tool;
   private altHeld = false;
@@ -107,6 +111,7 @@ export class Editor {
   onRename?: () => void;
   onGuideSettings?: () => void;
   onOpenSettings?: () => void;
+  onDocumentsChange?: () => void;
   commitEdits?: () => void;
   private scheduledFrame = 0;
   private pendingStamps = new Map<ImageLayer, BrushStamp[]>();
@@ -117,9 +122,6 @@ export class Editor {
   private lastMenus = '';
   private reframing = false;
   private selectionCheck = 0;
-  showGrid = false;
-  showGuides = true;
-  snapping = true;
 
   constructor(
     readonly gpu: Gpu,
@@ -136,6 +138,8 @@ export class Editor {
     const format = navigator.gpu.getPreferredCanvasFormat();
     context.configure({ device: gpu.device, format, alphaMode: 'opaque', colorSpace: 'srgb' });
     this.compositor = new Compositor(gpu, format);
+    this.layerReframer = new LayerReframer(gpu, this.compositor.quads);
+    this.layerMasks = new MaskRenderer(gpu);
     this.brush = new Brush(gpu);
     this.retouch = new RetouchBrush(gpu);
     this.paths = new PathRenderer(gpu);
@@ -157,8 +161,8 @@ export class Editor {
     this.filters.register({ kind: 'drop-shadow', label: 'Drop shadow', group: 'Effects', create: (id) => new DropShadowFilter(id) });
     this.filters.register({ kind: 'invert', label: 'Invert', group: 'Adjustments', create: (id) => new InvertFilter(id) });
     this.filters.register({ kind: 'mask', label: 'Mask', create: (id) => new MaskFilter(id) });
-    this.history = new UndoStack((operation, direction) => this.applyUndo(operation, direction));
-    this.image = new ImageDocument(gpu, this.compositor, this.filters, this.history, () => this.flushPaint());
+    this.currentDocument = this.createDocumentSession();
+    this.documents.push(this.currentDocument);
     this.actions = new ActionRegistry(report);
     this.baseTool = new BrushTool(this);
     this.tools.set(this.activeTool.id, this.activeTool);
@@ -176,19 +180,7 @@ export class Editor {
     this.generation = new ImageGeneration(this);
     this.tools.set('generation', new GenerationTool(this));
     this.files = new DocumentFiles(this);
-    this.image.onInvalidated = () => this.requestRender();
-    this.image.onChange = () => this.changed();
-    this.history.onChange = (operation, direction) => {
-      this.pickGeneration++;
-      this.queuePreviews();
-      this.changed();
-      const selection = this.image.selectionLayer;
-      const payload = operation?.payload(direction ?? 'redo');
-      if (selection && payload && (payload.targetId === selection.id || payload.data.layerId === selection.id)) {
-        void this.checkSelectionEmpty(selection).catch(this.report);
-      }
-    };
-    this.viewport.onChange = () => { this.refreshHover(); this.requestRender(); };
+    this.attachDocument(this.currentDocument);
     this.actions.beforeExecute = (action) => {
       if (!action.id.startsWith('polygon.')) this.finishGesture();
     };
@@ -209,9 +201,132 @@ export class Editor {
   }
 
   get activeTool(): Tool { return this.altHeld && this.baseTool.id === 'brush' ? this.tools.get('eyedropper')! : this.baseTool; }
+  get document(): EditorDocument { return this.currentDocument; }
+  get image(): ImageDocument { return this.currentDocument.image; }
+  get history(): UndoStack { return this.currentDocument.history; }
+  get viewport(): Viewport { return this.currentDocument.viewport; }
+  get showGrid(): boolean { return this.currentDocument.showGrid; }
+  set showGrid(value: boolean) { this.currentDocument.showGrid = value; }
+  get showGuides(): boolean { return this.currentDocument.showGuides; }
+  set showGuides(value: boolean) { this.currentDocument.showGuides = value; }
+  get snapping(): boolean { return this.currentDocument.snapping; }
+  set snapping(value: boolean) { this.currentDocument.snapping = value; }
   get maskEditLayer(): ImageLayer | null { return this.editedMask; }
   get editingPixels(): boolean { return this.reframing; }
   get panHeld(): boolean { return this.panKeyHeld || this.panMode; }
+
+  private createDocumentSession(): EditorDocument {
+    const document = new EditorDocument(
+      this.gpu, this.compositor, this.filters, this.layerReframer, this.layerMasks, () => this.flushPaint(),
+      (owner, operation, direction) => this.applyUndo(owner, operation, direction),
+    );
+    const rect = this.stage.getBoundingClientRect();
+    document.viewport.width = Math.max(1, rect.width);
+    document.viewport.height = Math.max(1, rect.height);
+    return document;
+  }
+
+  private attachDocument(document: EditorDocument): void {
+    document.image.onInvalidated = () => { if (document === this.currentDocument) this.requestRender(); };
+    document.image.onChange = () => {
+      if (document === this.currentDocument) this.changed();
+      else this.onDocumentsChange?.();
+    };
+    document.history.onChange = (operation, direction) => {
+      if (document !== this.currentDocument) { this.onDocumentsChange?.(); return; }
+      this.pickGeneration++;
+      this.queuePreviews();
+      this.changed();
+      const selection = document.image.selectionLayer;
+      const payload = operation && direction ? operation.payload(direction) : null;
+      if (selection && payload && (payload.targetId === selection.id || payload.data.layerId === selection.id)) {
+        void this.checkSelectionEmpty(selection).catch(this.report);
+      }
+    };
+    document.viewport.onChange = () => {
+      if (document !== this.currentDocument) return;
+      this.refreshHover();
+      this.requestRender();
+    };
+  }
+
+  private storeDocumentState(): void {
+    const document = this.currentDocument;
+    document.selectionMode = this.selectionMode;
+    document.selectionReturnId = this.selectionReturnId;
+    document.editedMaskId = this.editedMask?.id ?? null;
+    if (this.generation) document.generationLens = [...this.generation.lens.transform] as Matrix;
+  }
+
+  activateDocument(document: EditorDocument): void {
+    if (document === this.currentDocument || !this.documents.includes(document)) return;
+    this.finishGesture();
+    this.storeDocumentState();
+    this.generation.cancel();
+    this.pickGeneration++;
+    this.tools.get('eyedropper')?.cancel();
+    this.previews.clear();
+    this.currentDocument = document;
+    this.selectionMode = document.selectionMode && !!document.image.selectionMask;
+    this.selectionReturnId = document.selectionReturnId;
+    this.editedMask = document.editedMaskId ?
+      (document.image.allLayers().find((layer) => layer.id === document.editedMaskId && layer instanceof ImageLayer) as ImageLayer | undefined) ?? null : null;
+    this.generation.resetLens(document.image.width, document.image.height);
+    if (document.generationLens) this.generation.lens.setTransform(document.generationLens);
+    const rect = this.stage.getBoundingClientRect();
+    if (document.viewport.width !== rect.width || document.viewport.height !== rect.height) {
+      document.viewport.resize(Math.max(1, rect.width), Math.max(1, rect.height));
+    }
+    this.canvas.style.cursor = this.panHeld ? 'grab' : this.activeTool.cursor;
+    this.queuePreviews();
+    this.changed();
+    this.onDocumentsChange?.();
+  }
+
+  createDocument(width: number, height: number): EditorDocument {
+    const document = this.createDocumentSession();
+    document.image.reset(width, height);
+    document.viewport.fit(document.image.frame);
+    document.savedState = document.history.stateId;
+    this.attachDocument(document);
+    this.documents.push(document);
+    this.activateDocument(document);
+    return document;
+  }
+
+  addLoadedDocument(loaded: LoadedDocument): EditorDocument {
+    const document = this.createDocumentSession();
+    document.image.replace(loaded.root, loaded.width, loaded.height, loaded.selection, loaded.activeSelectionId, loaded.precision);
+    document.generationLens = [...loaded.generationLens] as Matrix;
+    document.selectionMode = document.image.selected.isSelection && !!document.image.selectionMask;
+    document.viewport.fit(document.image.frame);
+    document.savedState = document.history.stateId;
+    this.attachDocument(document);
+    this.documents.push(document);
+    this.activateDocument(document);
+    return document;
+  }
+
+  closeDocument(document: EditorDocument): void {
+    const index = this.documents.indexOf(document);
+    if (index < 0) return;
+    if (this.documents.length === 1) this.createDocument(1000, 750);
+    if (document === this.currentDocument) {
+      const next = this.documents[index + 1] ?? this.documents[index - 1];
+      if (next) this.activateDocument(next);
+    }
+    this.documents.splice(this.documents.indexOf(document), 1);
+    document.dispose(this.compositor);
+    this.onDocumentsChange?.();
+    this.changed();
+  }
+
+  disposeDocuments(): void {
+    this.generation.cancel();
+    this.halted = true;
+    this.finishGesture();
+    for (const document of this.documents.splice(0)) document.dispose(this.compositor);
+  }
 
   private setMaskEditLayer(layer: ImageLayer | null): void {
     if (layer === this.editedMask) return;
@@ -869,27 +984,29 @@ export class Editor {
     ));
   }
 
-  private applyUndo(operation: UndoOperation, direction: UndoDirection): void {
+  private applyUndo(document: EditorDocument, operation: UndoOperation, direction: UndoDirection): void {
+    if (document !== this.currentDocument) throw new Error('Cannot edit the history of an inactive document.');
     this.flushPaint();
+    const image = document.image;
     const payload = operation.payload(direction);
-    if (payload.type === 'image') this.image.applyUndo(operation, direction);
+    if (payload.type === 'image') image.applyUndo(operation, direction);
     else if (payload.type === 'layer') {
-      const layer = this.image.find(payload.targetId);
+      const layer = image.find(payload.targetId);
       layer.applyUndo(operation, direction, { gpu: this.gpu, filters: this.filters });
-      this.image.selected = layer;
+      image.selected = layer;
     } else if (payload.type === 'filter') {
-      const layer = this.image.find(String(payload.data.layerId));
+      const layer = image.find(String(payload.data.layerId));
       const filter = layer.filters.find((item) => item.id === payload.targetId);
       if (!filter) throw new Error('Undo filter no longer exists.');
       filter.applyUndo(operation, direction);
       layer.invalidate();
-      this.image.selected = layer;
+      image.selected = layer;
     } else {
       const tool = this.tools.get(payload.targetId);
       if (!tool) throw new Error(`Unknown undo tool: ${payload.targetId}`);
       tool.applyUndo(operation, direction);
     }
-    this.selectionMode = this.image.selected.isSelection;
+    this.selectionMode = image.selected.isSelection;
   }
 
   async addImage(name: string, blob: Blob): Promise<void> {
@@ -933,6 +1050,7 @@ export class Editor {
     register({ id: 'file.open', label: 'Open…', menu: 'File', execute: () => this.files.open() });
     register({ id: 'file.save', label: 'Save', menu: 'File', execute: () => this.files.save() });
     register({ id: 'file.save-as', label: 'Save as…', menu: 'File', execute: () => this.files.save(true) });
+    register({ id: 'file.close', label: 'Close document', menu: 'File', separatorBefore: true, execute: () => this.files.closeDocument() });
     register({ id: 'file.export-png', label: 'PNG image…', menu: 'File', submenu: 'Export', execute: () => this.files.exportImage('png') });
     register({ id: 'file.export-webp', label: 'WebP image…', menu: 'File', submenu: 'Export', execute: () => this.files.exportImage('webp') });
     register({ id: 'file.import', label: 'Add image…', menu: 'File', execute: async () => {
@@ -1195,6 +1313,7 @@ export class Editor {
     this.actions.bind('Ctrl+O', 'file.open');
     this.actions.bind('Ctrl+S', 'file.save');
     this.actions.bind('Ctrl+Shift+S', 'file.save-as');
+    this.actions.bind('Ctrl+W', 'file.close');
     this.actions.bind('Ctrl+Shift+O', 'file.import');
   }
 

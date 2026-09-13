@@ -58,7 +58,7 @@ export class ImageGeneration {
     this.providers.register(new LocalGenerationProvider());
     this.blend = new GenerationBlend(editor.gpu);
     this.masks = new GenerationMask(editor.gpu);
-    this.reframer = new LayerReframer(editor.gpu, editor.compositor.quads);
+    this.reframer = editor.layerReframer;
     this.lens = new GenerationLens(editor.image.width, editor.image.height, () => this.notify());
   }
 

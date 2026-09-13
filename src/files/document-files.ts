@@ -1,13 +1,11 @@
 import type { Editor } from '../editor';
+import type { EditorDocument } from '../editor-document';
 import { TxlFormat } from './txl';
 import type { LoadedDocument } from './txl';
 import { multiply } from '../model/geometry';
 
 export class DocumentFiles {
-  name = 'Untitled';
   busy = false;
-  private handle: DocumentFileHandle | null = null;
-  private savedState: string;
   private lastWindowState = '';
   private readonly requestedFiles: DocumentFileHandle[] = [];
   private idle = Promise.resolve();
@@ -15,9 +13,8 @@ export class DocumentFiles {
   private readonly format: TxlFormat;
 
   constructor(private readonly editor: Editor) {
-    this.savedState = editor.history.stateId;
     this.format = new TxlFormat(editor.gpu, editor.compositor, editor.filters);
-    window.desktop.onCloseRequest(() => { void this.close().catch(editor.report); });
+    window.desktop.onCloseRequest(() => { void this.closeWindow().catch(editor.report); });
   }
 
   listenForOpenRequests(): void {
@@ -38,12 +35,13 @@ export class DocumentFiles {
 
   whenIdle(): Promise<void> { return this.idle; }
 
-  get dirty(): boolean { return this.editor.history.stateId !== this.savedState; }
+  get name(): string { return this.editor.document.name; }
+  get dirty(): boolean { return this.editor.document.dirty; }
 
   reset(): void {
-    this.handle = null;
-    this.name = 'Untitled';
-    this.savedState = this.editor.history.stateId;
+    this.editor.document.fileHandle = null;
+    this.editor.document.name = 'Untitled';
+    this.editor.document.savedState = this.editor.history.stateId;
     this.sync();
   }
 
@@ -56,6 +54,7 @@ export class DocumentFiles {
     document.title = this.name + (this.dirty ? ' *' : '') + ' — Texel';
     if (signature === this.lastWindowState) return;
     this.lastWindowState = signature;
+    this.editor.onDocumentsChange?.();
     void window.desktop.setDocumentState(state).catch(this.editor.report);
   }
 
@@ -79,9 +78,7 @@ export class DocumentFiles {
   }
 
   async newDocument(width: number, height: number): Promise<void> {
-    await this.exclusive(async () => {
-      if (await this.confirmReplacement()) this.editor.reset(width, height);
-    });
+    await this.exclusive(async () => { this.editor.createDocument(width, height); });
   }
 
   async open(): Promise<void> {
@@ -92,23 +89,19 @@ export class DocumentFiles {
   }
 
   private async loadFile(file: DocumentFileHandle): Promise<void> {
-    while (true) {
-      if (!await this.confirmReplacement()) return;
-      const state = this.editor.history.stateId;
-      // Read after a possible Save/Save As, which might have written this same path.
-      const bytes = await window.desktop.readDocument(file.token);
-      let loaded: LoadedDocument | null = await this.format.decode(bytes);
-      try {
-        if (state !== this.editor.history.stateId) continue;
-        this.editor.loadDocument(loaded);
-        loaded = null; // The image now owns these GPU resources.
-        this.handle = file;
-        this.name = file.name;
-        this.savedState = this.editor.history.stateId;
-        this.editor.changed();
-        return;
-      } finally { if (loaded && this.editor.image.root !== loaded.root) this.editor.compositor.release(loaded.root); }
-    }
+    const placeholder = this.editor.documents.length === 1 && !this.editor.document.fileHandle &&
+      !this.editor.document.dirty && this.editor.document.name === 'Untitled' ? this.editor.document : null;
+    const bytes = await window.desktop.readDocument(file.token);
+    let loaded: LoadedDocument | null = await this.format.decode(bytes);
+    try {
+      const document = this.editor.addLoadedDocument(loaded);
+      loaded = null;
+      document.fileHandle = file;
+      document.name = file.name;
+      document.savedState = document.history.stateId;
+      if (placeholder) this.editor.closeDocument(placeholder);
+      this.editor.changed();
+    } finally { if (loaded) this.editor.compositor.release(loaded.root); }
   }
 
   async save(saveAs = false): Promise<void> { await this.exclusive(() => this.saveCurrent(saveAs)); }
@@ -137,8 +130,9 @@ export class DocumentFiles {
     });
   }
 
-  private async saveCurrent(saveAs: boolean): Promise<boolean> {
-    const handle = await window.desktop.chooseDocumentSave(this.handle?.token ?? null, saveAs);
+  private async saveCurrent(saveAs: boolean, document = this.editor.document): Promise<boolean> {
+    if (document !== this.editor.document) this.editor.activateDocument(document);
+    const handle = await window.desktop.chooseDocumentSave(document.fileHandle?.token ?? null, saveAs);
     if (!handle) return false;
     if (!this.editor.halted) this.editor.finishGesture();
     this.editor.flushPaint();
@@ -148,29 +142,38 @@ export class DocumentFiles {
     const transform = multiply(lens.transform, [bounds.width / this.editor.image.width, 0, 0, bounds.height / this.editor.image.height, 0, 0]);
     const bytes = await this.format.encode(this.editor.image, transform);
     await window.desktop.writeDocument(handle.token, bytes);
-    this.handle = handle;
-    this.name = handle.name;
+    document.fileHandle = handle;
+    document.name = handle.name;
     // Track the captured state so later asynchronous edits remain unsaved.
-    this.savedState = state;
+    document.savedState = state;
     this.editor.changed();
     return true;
   }
 
-  private async confirmReplacement(): Promise<boolean> {
+  private async confirmDocument(document: EditorDocument): Promise<boolean> {
+    if (document !== this.editor.document) this.editor.activateDocument(document);
     if (!this.editor.halted) this.editor.finishGesture();
-    while (this.dirty) {
-      const choice = await window.desktop.confirmDocumentSave(this.name);
+    while (document.dirty) {
+      const choice = await window.desktop.confirmDocumentSave(document.name);
       if (choice === 'cancel') return false;
       if (choice === 'discard') return true;
-      if (!await this.saveCurrent(false)) return false;
+      if (!await this.saveCurrent(false, document)) return false;
     }
     return true;
   }
 
-  private async close(): Promise<void> {
+  async closeDocument(document = this.editor.document): Promise<void> {
     await this.exclusive(async () => {
-      if (!await this.confirmReplacement()) return;
+      if (!this.editor.documents.includes(document) || !await this.confirmDocument(document)) return;
+      this.editor.closeDocument(document);
+    });
+  }
+
+  private async closeWindow(): Promise<void> {
+    await this.exclusive(async () => {
+      for (const document of [...this.editor.documents]) if (!await this.confirmDocument(document)) return;
       this.editor.generation.cancel();
+      this.editor.disposeDocuments();
       await window.desktop.closeDocumentWindow();
     });
   }

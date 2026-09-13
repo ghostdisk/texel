@@ -3,8 +3,8 @@ import { UndoOperation } from '../history/undo';
 import type { JsonObject, UndoDirection, UndoStack } from '../history/undo';
 import type { Gpu } from '../gpu/device';
 import type { Compositor } from '../gpu/compositor';
-import { MaskRenderer } from '../gpu/mask';
-import { LayerReframer } from '../gpu/reframe';
+import type { MaskRenderer } from '../gpu/mask';
+import type { LayerReframer } from '../gpu/reframe';
 import { createSurface } from '../gpu/surface';
 import type { Surface } from '../gpu/surface';
 import { GroupLayer, ImageLayer, Layer, validateLayerDependencies } from './layers';
@@ -41,9 +41,12 @@ export class LayerCommands {
   private readonly masks: MaskRenderer;
   private readonly reframer: LayerReframer;
 
-  constructor(private readonly image: ImageDocument, private readonly gpu: Gpu, private readonly compositor: Compositor, private readonly history: UndoStack) {
-    this.masks = new MaskRenderer(gpu);
-    this.reframer = new LayerReframer(gpu, compositor.quads);
+  constructor(
+    private readonly image: ImageDocument, private readonly gpu: Gpu, private readonly compositor: Compositor,
+    private readonly history: UndoStack, masks: MaskRenderer, reframer: LayerReframer,
+  ) {
+    this.masks = masks;
+    this.reframer = reframer;
   }
 
   private state(layers: readonly Layer[], active = layers[layers.length - 1]): JsonObject {
