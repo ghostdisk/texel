@@ -9,7 +9,7 @@ interface PendingGeneration {
 }
 
 export class LocalGenerationProvider implements GenerationProvider {
-  readonly source = 'local';
+  readonly platform = 'local';
   readonly label = 'Local';
   private socket: WebSocket | null = null;
   private connecting: Promise<readonly GenerationModel[]> | null = null;
@@ -40,9 +40,11 @@ export class LocalGenerationProvider implements GenerationProvider {
               const message = JSON.parse(data);
               if (message.type === 'models') {
                 clearTimeout(timer);
-                resolve((message.models as Omit<GenerationModel, 'capabilities'>[]).map((model) => ({
-                  ...model,
+                resolve((message.models as Pick<GenerationModel, 'id' | 'label' | 'task'>[]).map((model) => ({
+                  id: model.id,
                   label: model.label.startsWith('local/') ? model.label.slice('local/'.length) : model.label,
+                  platform: this.platform,
+                  task: model.task,
                   capabilities: model.task === 'remove' ? {
                     inputImages: 1, mask: true, negativePrompt: false, steps: false, guidance: false,
                     seed: false, denoiseStrength: false, partialPreview: true, maxDimension: 2048,

@@ -2,7 +2,7 @@ import type { GenerationModel } from '../generation/provider';
 import { icon } from './icons';
 
 type RatingKey = 'affordability' | 'speed' | 'quality';
-type SortKey = 'name' | RatingKey;
+type SortKey = 'name' | 'publisher' | 'platform' | RatingKey;
 
 export class GenerationModelPicker {
   readonly button = document.createElement('button');
@@ -69,7 +69,7 @@ export class GenerationModelPicker {
     if (this.sortKey === key) this.ascending = !this.ascending;
     else {
       this.sortKey = key;
-      this.ascending = key === 'name';
+      this.ascending = key === 'name' || key === 'publisher' || key === 'platform';
     }
     this.render();
   }
@@ -78,14 +78,15 @@ export class GenerationModelPicker {
     this.renderHead();
     const terms = this.search.value.trim().toLocaleLowerCase().split(/\s+/).filter(Boolean);
     const models = this.models.filter((model) => {
-      const searchable = `${model.displayName ?? model.label} ${model.id}`.toLocaleLowerCase();
+      const searchable = [model.displayName ?? model.label, model.id, model.publisherName, model.platformName]
+        .filter(Boolean).join(' ').toLocaleLowerCase();
       return terms.every((term) => searchable.includes(term));
     }).sort((left, right) => this.compare(left, right));
     this.body.replaceChildren(...models.map((model) => this.row(model)));
     if (!models.length) {
       const row = document.createElement('tr');
       const cell = document.createElement('td');
-      cell.colSpan = 4;
+      cell.colSpan = 6;
       cell.className = 'generation-model-empty';
       cell.textContent = 'No matching models';
       row.append(cell);
@@ -97,6 +98,8 @@ export class GenerationModelPicker {
     const row = document.createElement('tr');
     for (const [label, key] of [
       ['Model', 'name'],
+      ['Publisher', 'publisher'],
+      ['Platform', 'platform'],
       ['Affordability', 'affordability'],
       ['Speed', 'speed'],
       ['Quality', 'quality'],
@@ -116,8 +119,20 @@ export class GenerationModelPicker {
     let result: number;
     if (this.sortKey === 'name') {
       result = (left.displayName ?? left.label).localeCompare(right.displayName ?? right.label);
+    } else if (this.sortKey === 'publisher') {
+      result = (left.publisherName ?? '?').localeCompare(right.publisherName ?? '?');
+    } else if (this.sortKey === 'platform') {
+      result = (left.platformName ?? '?').localeCompare(right.platformName ?? '?');
     } else {
-      result = (left.ratings?.[this.sortKey] ?? -1) - (right.ratings?.[this.sortKey] ?? -1);
+      const leftRating = left.ratings?.[this.sortKey];
+      const rightRating = right.ratings?.[this.sortKey];
+      if (leftRating === undefined || rightRating === undefined) {
+        if (leftRating === rightRating) {
+          return (left.displayName ?? left.label).localeCompare(right.displayName ?? right.label);
+        }
+        return leftRating === undefined ? 1 : -1;
+      }
+      result = leftRating - rightRating;
     }
     if (!result) result = (left.displayName ?? left.label).localeCompare(right.displayName ?? right.label);
     return this.ascending ? result : -result;
@@ -138,9 +153,14 @@ export class GenerationModelPicker {
     const displayName = document.createElement('strong');
     displayName.textContent = model.displayName ?? model.label;
     const id = document.createElement('small');
-    id.textContent = model.id.slice(model.source.length + 1);
+    id.textContent = model.id;
     name.append(displayName, id);
-    row.append(name, this.rating(model, 'affordability'), this.rating(model, 'speed'), this.rating(model, 'quality'));
+    const publisher = document.createElement('td');
+    publisher.textContent = model.publisherName ?? '?';
+    const platform = document.createElement('td');
+    platform.textContent = model.platformName ?? '?';
+    row.append(name, publisher, platform, this.rating(model, 'affordability'),
+      this.rating(model, 'speed'), this.rating(model, 'quality'));
     return row;
   }
 
@@ -148,7 +168,8 @@ export class GenerationModelPicker {
     const cell = document.createElement('td');
     const rating = model.ratings?.[key];
     if (typeof rating !== 'number') {
-      cell.textContent = '—';
+      cell.textContent = '?';
+      cell.className = 'generation-model-unknown';
       return cell;
     }
     cell.className = 'generation-model-rating';

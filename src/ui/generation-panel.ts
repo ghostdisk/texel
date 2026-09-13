@@ -7,7 +7,6 @@ import { icon } from './icons';
 export class GenerationPanel {
   private readonly window = document.createElement('section');
   private readonly settings = document.createElement('fieldset');
-  private readonly provider = document.createElement('select');
   private readonly modelPicker: GenerationModelPicker;
   private readonly status = document.createElement('div');
   private readonly resultPreview = document.createElement('img');
@@ -27,7 +26,6 @@ export class GenerationPanel {
   private readonly lensFields = new Map<string, HTMLInputElement>();
   private readonly scale: SliderInput;
   private readonly feather: SliderInput;
-  private modelSignature = '';
   private previewSignature = '';
   private previewTimer = 0;
   private previewRequest = 0;
@@ -67,15 +65,9 @@ export class GenerationPanel {
       field.append(document.createTextNode(name), control);
       return field;
     };
-    this.provider.setAttribute('aria-label', 'Generation provider');
-    this.provider.onchange = () => {
-      generation.model = generation.registry.models(this.provider.value).find((model) => model.task !== 'remove')?.id ?? '';
-      this.modelSignature = '';
-      editor.changed();
-    };
     const selectors = document.createElement('div');
     selectors.className = 'generation-selectors';
-    selectors.append(label('Provider', this.provider), label('Model', this.modelPicker.button));
+    selectors.append(label('Model', this.modelPicker.button));
     const prompt = document.createElement('textarea');
     prompt.rows = 5;
     prompt.value = generation.prompt;
@@ -227,15 +219,7 @@ export class GenerationPanel {
 
   update(): void {
     const generation = this.editor.generation;
-    const sources = generation.registry.sources();
-    const signature = JSON.stringify(generation.models.map((model) => [model.id, model.capabilities]));
-    if (signature !== this.modelSignature || !this.provider.options.length) {
-      this.modelSignature = signature;
-      this.provider.replaceChildren(...sources.map((source) => new Option(source.label, source.id)));
-    }
-    const source = generation.selectedModel?.source ?? sources[0]?.id ?? '';
-    this.provider.value = source;
-    const models = generation.registry.models(source).filter((model) => model.task !== 'remove');
+    const models = generation.models.filter((model) => model.task !== 'remove');
     this.modelPicker.update(models, generation.model);
     const capabilities = generation.selectedModel?.capabilities;
     for (const [capability, field] of this.capabilityFields) {

@@ -2,7 +2,7 @@ import type { GenerationEvents, GenerationModel, GenerationProvider, GenerationR
 import { rgbaToPng } from './image-codec';
 
 export class OpenRouterGenerationProvider implements GenerationProvider {
-  readonly source = 'openrouter';
+  readonly platform = 'openrouter';
   readonly label = 'OpenRouter';
   private readonly entries = new Map<string, GenerationModel>();
   private readonly pending = new Map<string, GenerationEvents>();
@@ -25,9 +25,9 @@ export class OpenRouterGenerationProvider implements GenerationProvider {
       const arbitraryOpenAiSize = remote.id === 'openai/gpt-image-2' ||
         remote.id.startsWith('openai/gpt-image-2-') || remote.id.startsWith('openai/gpt-image-2.5-');
       const model: GenerationModel = {
-        id: `${this.source}/${remote.id}`,
+        id: `${this.platform}/${remote.id}`,
         label: remote.name || remote.id,
-        source: this.source,
+        platform: this.platform,
         capabilities: {
           inputImages: remote.architecture.input_modalities?.includes('image') ? Math.max(1, references?.max ?? 1) : 0,
           mask: false,
@@ -64,7 +64,7 @@ export class OpenRouterGenerationProvider implements GenerationProvider {
     try {
       const result = await window.desktop.openRouterGenerate({
         id: request.id,
-        model: request.model.slice(this.source.length + 1),
+        model: request.model.slice(this.platform.length + 1),
         prompt: request.prompt,
         width: request.width,
         height: request.height,
