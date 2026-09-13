@@ -1,0 +1,32 @@
+.theme-texel {
+  color-scheme: dark;
+  --app-bg: #141823;
+  --titlebar-bg: #1b1f2a;
+  --panel-bg: #1d2230;
+  --panel-alt-bg: #171c28;
+  --surface-bg: #252b3a;
+  --surface-raised-bg: #292f40;
+  --surface-hover-bg: #333b50;
+  --field-bg: #151a25;
+  --canvas-surround: #11151e;
+  --border: #343c50;
+  --border-strong: #4a5268;
+  --text: #e4e7f3;
+  --text-strong: #ffffff;
+  --text-muted: #9ba5bd;
+  --text-faint: #727d97;
+  --accent: #9876f8;
+  --accent-hover: #aa8cff;
+  --accent-soft: #4d426f;
+  --accent-surface: #3b3358;
+  --focus: #b59bff;
+  --danger: #f3aabb;
+  --danger-surface: #482c3a;
+  --success: #7acbb4;
+  --success-surface: #294a43;
+  --info: #68dcff;
+  --shadow: #00000080;
+  --panel-gradient: linear-gradient(125deg, #242a38, #1c212d 75%);
+  --selection-gradient: linear-gradient(110deg, #443c71, #33304c);
+  --primary-gradient: linear-gradient(120deg, #7953cd, #6943b9);
+}

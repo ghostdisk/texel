@@ -117,7 +117,7 @@ function startApplication() {
     const dispatch = (id) => { if (!owner.isDestroyed()) owner.webContents.send('action:execute', id); };
     const template = [];
     for (const group of menus) {
-      if (!['File', 'Edit', 'Select', 'Layer', 'Filter', 'Tools', 'View'].includes(group.label) || !Array.isArray(group.items)) continue;
+      if (!['File', 'Edit', 'Select', 'Layer', 'Filter', 'Tools', 'Settings', 'View'].includes(group.label) || !Array.isArray(group.items)) continue;
       const submenu = [];
       for (const item of group.items) {
         if (!item || typeof item.id !== 'string' || typeof item.label !== 'string') continue;
@@ -168,6 +168,7 @@ function startApplication() {
       { label: 'Layer', submenu: [{ label: 'Starting editor…', enabled: false }] },
       { label: 'Filter', submenu: [{ label: 'Starting editor…', enabled: false }] },
       { label: 'Tools', submenu: [{ label: 'Starting editor…', enabled: false }] },
+      { label: 'Settings', submenu: [{ label: 'Starting editor…', enabled: false }] },
       { label: 'View', submenu: [{ role: 'reload' }, { role: 'toggleDevTools' }, { role: 'togglefullscreen' }] },
     ]));
     await createWindow();

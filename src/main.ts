@@ -3,6 +3,8 @@ import { Editor } from './editor';
 import { EditorView, element } from './ui/editor-view';
 import { hydrateIcons } from './ui/icons';
 import { TitleBar } from './ui/titlebar';
+import { SettingsStore } from './settings';
+import { SettingsView } from './ui/settings-view';
 
 function reportError(error: unknown): void {
   const banner = element('error');
@@ -11,6 +13,8 @@ function reportError(error: unknown): void {
 }
 
 async function boot(): Promise<void> {
+  const settings = new SettingsStore();
+  settings.applyTheme();
   const gpu = await Gpu.create();
   let editor: Editor | undefined;
   let failed = false;
@@ -29,6 +33,8 @@ async function boot(): Promise<void> {
     gpu, element<HTMLCanvasElement>('canvas'), element('stage'), overlay,
     element('brush-cursor'), element('tool-mode-cursor'), reportError,
   );
+  const settingsView = new SettingsView(settings);
+  editor.onOpenSettings = () => settingsView.open();
   new TitleBar(editor.actions);
   new EditorView(editor);
   editor.actions.attach();

@@ -1,10 +1,11 @@
 <!doctype html>
-<html lang="en">
+<html lang="en" class="theme-texel">
   <head>
     <meta charset="UTF-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
     <meta http-equiv="Content-Security-Policy" content="default-src 'self'; script-src 'self'; style-src 'self' 'unsafe-inline'; img-src 'self' blob: data:; connect-src 'self' ws://127.0.0.1:*" />
     <title>Texel</title>
+    <link rel="stylesheet" href="/src/themes.css" />
     <link rel="stylesheet" href="/src/style.css" />
     <link rel="icon" type="image/svg+xml" href="/assets/branding/icon.svg" />
   </head>
@@ -21,6 +22,7 @@
             <button data-menu="Select" data-mnemonic="s" aria-haspopup="menu" aria-expanded="false">Select</button>
             <button data-menu="Filter" data-mnemonic="i" aria-haspopup="menu" aria-expanded="false">Filter</button>
             <button data-menu="Tools" data-mnemonic="t" aria-haspopup="menu" aria-expanded="false">Tools</button>
+            <button data-menu="Settings" data-mnemonic="g" aria-haspopup="menu" aria-expanded="false">Settings</button>
             <button data-menu="View" data-mnemonic="v" aria-haspopup="menu" aria-expanded="false">View</button>
           </nav>
         </div>
@@ -192,6 +194,16 @@
         <div id="guide-list" class="guide-list"></div>
         <div class="dialog-actions"><button id="close-precision" type="button">Close</button></div>
       </form>
+    </dialog>
+    <dialog id="settings-dialog" class="settings-dialog">
+      <div class="settings-heading">
+        <div><h2>Settings</h2><p>Changes apply immediately.</p></div>
+        <button id="close-settings" type="button">Close</button>
+      </div>
+      <section class="settings-section" aria-labelledby="appearance-heading">
+        <h3 id="appearance-heading">Appearance</h3>
+        <div id="theme-grid" class="theme-grid" role="group" aria-label="Theme"></div>
+      </section>
     </dialog>
     <script type="module" src="/src/main.ts"></script>
   </body>

@@ -106,6 +106,7 @@ export class Editor {
   onNewSizedLayer?: () => void;
   onRename?: () => void;
   onGuideSettings?: () => void;
+  onOpenSettings?: () => void;
   commitEdits?: () => void;
   private scheduledFrame = 0;
   private pendingStamps = new Map<ImageLayer, BrushStamp[]>();
@@ -938,6 +939,7 @@ export class Editor {
       const image = await window.desktop.openImage();
       if (image) await this.addImage(image.name, new Blob([image.bytes]));
     } });
+    register({ id: 'settings.open', label: 'Appearance…', menu: 'Settings', execute: () => this.onOpenSettings?.() });
     register({ id: 'layer.new', label: 'New pixel layer', menu: 'Layer', execute: () => this.image.createPixelLayer() });
     register({ id: 'layer.new-text', label: 'New text layer', menu: 'Layer', execute: () => (this.tools.get('text') as TextTool).createAt() });
     register({ id: 'layer.new-sized', label: 'New sized layer…', menu: 'Layer', execute: () => this.onNewSizedLayer?.() });
