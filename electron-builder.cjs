@@ -8,6 +8,7 @@ module.exports = {
   directories: { output: 'release', buildResources: 'assets/branding' },
   asar: true,
   npmRebuild: false,
+  electronLanguages: ['en-US'],
   files: ['dist/**/*', 'electron/**/*.cjs', 'assets/branding/*.png', 'package.json'],
   extraResources: [{ from: '.packaging/native', to: 'native', filter: ['**/*'] }],
   // Use the loader distributed with this exact Electron release; its notices ship with Electron.
