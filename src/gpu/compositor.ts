@@ -248,7 +248,7 @@ export class Compositor {
 
   render(
     root: GroupLayer, view: GPUTextureView, viewport: Rect, framing: Rect, pixelsPerUnit: number,
-    background: GPUColor,
+    background: GPUColorDict,
     selection: ImageLayer | null = null, editingSelection = false, maskEdit: ImageLayer | null = null, generation: GenerationVisual | null = null,
   ): RenderStats {
     const start = performance.now();

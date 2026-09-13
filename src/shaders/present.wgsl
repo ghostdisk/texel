@@ -5,6 +5,7 @@ struct Params {
   info: vec4f,
   row0: vec4f,
   row1: vec4f,
+  background: vec4f,
 }
 
 @group(0) @binding(0) var image: texture_2d<f32>;
@@ -39,5 +40,5 @@ fn toSrgb(color: vec3f) -> vec3f {
   let tile = vec2u(input.position.xy / 12);
   let background = vec3f(select(0.72, 0.86, (tile.x + tile.y) % 2u == 0u));
   let artwork = toSrgb(color.rgb + background * (1 - color.a));
-  return vec4f(select(vec3f(0.09, 0.098, 0.118), artwork, insideFrame), 1);
+  return vec4f(select(params.background.rgb, artwork, insideFrame), 1);
 }

@@ -123,7 +123,7 @@ export class Editor {
   private lastMenus = '';
   private reframing = false;
   private selectionCheck = 0;
-  private canvasBackground: GPUColor = { r: 0.067, g: 0.082, b: 0.118, a: 1 };
+  private canvasBackground: GPUColorDict = { r: 0.067, g: 0.082, b: 0.118, a: 1 };
 
   constructor(
     readonly gpu: Gpu,
