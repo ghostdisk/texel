@@ -97,11 +97,36 @@ export interface GenerationProvider {
 
 export class GenerationModelRegistry {
   private readonly providers = new Map<string, GenerationProvider>();
+  private readonly owners = new Map<string, string>();
+  private readonly contributed = new Map<string, { model: GenerationModel; owner: string }>();
   private readonly entries = new Map<string, GenerationModel>();
 
-  register(provider: GenerationProvider): void {
+  register(provider: GenerationProvider, owner = 'texel-editor/core'): void {
     if (this.providers.has(provider.platform)) throw new Error('Duplicate generation platform: ' + provider.platform);
     this.providers.set(provider.platform, provider);
+    this.owners.set(provider.platform, owner);
+  }
+
+  registerModel(model: GenerationModel, owner = 'texel-editor/core'): void {
+    const provider = this.providers.get(model.platform);
+    if (!provider || !model.id.startsWith(model.platform + '/')) throw new Error('Model provider is unavailable: ' + model.platform);
+    if (this.contributed.has(model.id)) throw new Error('Duplicate generation model: ' + model.id);
+    this.contributed.set(model.id, { model, owner });
+    this.entries.set(model.id, this.registered(model, provider));
+  }
+
+  unregisterOwner(owner: string): void {
+    const platforms = [...this.owners].filter(([, candidate]) => candidate === owner).map(([platform]) => platform);
+    for (const platform of platforms) {
+      this.providers.delete(platform);
+      this.owners.delete(platform);
+      for (const [id, model] of this.entries) if (model.platform === platform) this.entries.delete(id);
+    }
+    for (const [id, contribution] of this.contributed) {
+      if (contribution.owner !== owner) continue;
+      this.contributed.delete(id);
+      this.entries.delete(id);
+    }
   }
 
   private prettyIdentifier(value: string): string {
@@ -150,6 +175,10 @@ export class GenerationModelRegistry {
         this.entries.set(model.id, this.registered(model, result.value.provider));
       }
     }
+    for (const { model } of this.contributed.values()) {
+      const provider = this.providers.get(model.platform);
+      if (provider) this.entries.set(model.id, this.registered(model, provider));
+    }
     if (!this.entries.size && failure) throw failure;
     return this.models();
   }
@@ -179,3 +208,5 @@ export class GenerationModelRegistry {
     return provider;
   }
 }
+
+export const generationModelRegistry = new GenerationModelRegistry();

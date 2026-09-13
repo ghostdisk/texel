@@ -1,0 +1,35 @@
+{
+  "version": 6,
+  "cmakeMinimumRequired": {
+    "major": 3,
+    "minor": 28,
+    "patch": 0
+  },
+  "configurePresets": [
+    {
+      "name": "release",
+      "generator": "Ninja",
+      "binaryDir": "${sourceDir}/../build/native",
+      "toolchainFile": "${sourceDir}/cmake/clang.cmake",
+      "cacheVariables": {
+        "CMAKE_BUILD_TYPE": "MinSizeRel",
+        "CMAKE_C_FLAGS_MINSIZEREL": "/O1 /Ob1 /DNDEBUG /Gy /Gw",
+        "CMAKE_CXX_FLAGS_MINSIZEREL": "/O1 /Ob1 /DNDEBUG /Gy /Gw",
+        "CMAKE_SHARED_LINKER_FLAGS_MINSIZEREL": "/INCREMENTAL:NO /OPT:REF /OPT:ICF",
+        "CMAKE_MSVC_RUNTIME_LIBRARY": "MultiThreaded$<$<CONFIG:Debug>:Debug>",
+        "GGML_NATIVE": "OFF",
+        "GGML_AVX": "OFF",
+        "GGML_AVX2": "OFF",
+        "GGML_FMA": "OFF",
+        "GGML_F16C": "OFF",
+        "GGML_AVX512": "OFF"
+      }
+    }
+  ],
+  "buildPresets": [
+    {
+      "name": "release",
+      "configurePreset": "release"
+    }
+  ]
+}

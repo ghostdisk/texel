@@ -32,28 +32,14 @@ contextBridge.exposeInMainWorld('desktop', {
     ipcRenderer.on('document:close-request', listener);
     return () => ipcRenderer.removeListener('document:close-request', listener);
   },
-  generationBackend: () => ipcRenderer.invoke('generation:backend'),
-  restartGenerationBackend: () => ipcRenderer.invoke('generation:restart'),
-  openRouterKeyStatus: () => ipcRenderer.invoke('openrouter:key-status'),
-  setOpenRouterKey: (key) => ipcRenderer.invoke('openrouter:set-key', key),
-  openRouterModels: () => ipcRenderer.invoke('openrouter:models'),
-  openRouterGenerate: (request) => ipcRenderer.invoke('openrouter:generate', request),
-  cancelOpenRouterGeneration: (id) => ipcRenderer.invoke('openrouter:cancel', id),
-  onOpenRouterGeneration: (callback) => {
+  listPackages: () => ipcRenderer.invoke('packages:list'),
+  invokePackage: (packageName, message, ...args) => ipcRenderer.invoke('packages:invoke', packageName, message, args),
+  packageSettings: () => ipcRenderer.invoke('packages:settings'),
+  setPackageSetting: (packageName, key, value) => ipcRenderer.invoke('packages:set-setting', packageName, key, value),
+  onPackageMessage: (callback) => {
     const listener = (_event, value) => callback(value);
-    ipcRenderer.on('openrouter:generation-event', listener);
-    return () => ipcRenderer.removeListener('openrouter:generation-event', listener);
-  },
-  falKeyStatus: () => ipcRenderer.invoke('fal:key-status'),
-  setFalKey: (key) => ipcRenderer.invoke('fal:set-key', key),
-  falModels: () => ipcRenderer.invoke('fal:models'),
-  falModel: (id) => ipcRenderer.invoke('fal:model', id),
-  falGenerate: (request) => ipcRenderer.invoke('fal:generate', request),
-  cancelFalGeneration: (id) => ipcRenderer.invoke('fal:cancel', id),
-  onFalGeneration: (callback) => {
-    const listener = (_event, value) => callback(value);
-    ipcRenderer.on('fal:generation-event', listener);
-    return () => ipcRenderer.removeListener('fal:generation-event', listener);
+    ipcRenderer.on('packages:message', listener);
+    return () => ipcRenderer.removeListener('packages:message', listener);
   },
   getSettings: () => ipcRenderer.invoke('settings:get'),
   updateSettings: (settings) => ipcRenderer.invoke('settings:update', settings),

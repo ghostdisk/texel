@@ -1,4 +1,4 @@
-const { copyFile, rm } = require('node:fs/promises');
+const { rm } = require('node:fs/promises');
 const path = require('node:path');
 
 module.exports = {
@@ -11,10 +11,24 @@ module.exports = {
   npmRebuild: false,
   electronLanguages: ['en-US'],
   files: ['dist/**/*', 'electron/**/*.cjs', 'assets/branding/*.png', 'package.json'],
-  extraResources: [{ from: '.packaging/native', to: 'native', filter: ['**/*'] }],
-  // Use the loader distributed with this exact Electron release; its notices ship with Electron.
+  extraResources: [
+    {
+      from: 'packages',
+      to: 'packages',
+      filter: ['**/*', '!**/native{,/**/*}', '!**/third_party{,/**/*}', '!**/build{,/**/*}', '!**/setup.mjs', '!**/build.mjs'],
+    },
+    {
+      from: 'packages/texel-editor/local-ai-base/build/install',
+      to: 'packages/texel-editor/local-ai-base/runtime',
+      filter: ['**/*'],
+    },
+    {
+      from: 'packages/texel-editor/local-ai-vulkan/build/install',
+      to: 'packages/texel-editor/local-ai-vulkan/runtime',
+      filter: ['**/*'],
+    },
+  ],
   async afterPack({ appOutDir }) {
-    await copyFile(path.join(appOutDir, 'vulkan-1.dll'), path.join(appOutDir, 'resources', 'native', 'vulkan-1.dll'));
     await Promise.all([
       rm(path.join(appOutDir, 'vk_swiftshader.dll'), { force: true }),
       rm(path.join(appOutDir, 'vk_swiftshader_icd.json'), { force: true }),

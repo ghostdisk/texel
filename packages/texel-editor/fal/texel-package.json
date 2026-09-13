@@ -1,0 +1,10 @@
+{
+  "schemaVersion": 1,
+  "name": "texel-editor/fal",
+  "displayName": "Fal.ai",
+  "version": "0.1.0",
+  "description": "Fal.ai model discovery, schema adaptation, and generation backend.",
+  "dependencies": [],
+  "node": "node.cjs",
+  "renderer": "renderer.js"
+}

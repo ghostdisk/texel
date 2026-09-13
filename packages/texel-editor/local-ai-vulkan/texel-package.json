@@ -1,0 +1,10 @@
+{
+  "schemaVersion": 1,
+  "name": "texel-editor/local-ai-vulkan",
+  "displayName": "Local AI — Vulkan",
+  "version": "0.1.0",
+  "description": "Vulkan backend for local image generation and object removal.",
+  "dependencies": ["texel-editor/local-ai-base"],
+  "node": "node.cjs",
+  "files": ["runtime/**/*"]
+}

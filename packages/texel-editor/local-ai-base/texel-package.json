@@ -1,0 +1,11 @@
+{
+  "schemaVersion": 1,
+  "name": "texel-editor/local-ai-base",
+  "displayName": "Local AI",
+  "version": "0.1.0",
+  "description": "Local inference host, transport, model registry, and runtime lifecycle.",
+  "dependencies": [],
+  "node": "node.cjs",
+  "renderer": "renderer.js",
+  "files": ["runtime/**/*", "models.json"]
+}

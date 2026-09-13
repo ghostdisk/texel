@@ -1,20 +1,11 @@
-import { FalGenerationProvider } from './fal-provider';
-import { LocalGenerationProvider } from './local-provider';
-import { OpenRouterGenerationProvider } from './openrouter-provider';
-import { GenerationModelRegistry } from './provider';
+import { generationModelRegistry } from './provider';
 import type { GenerationEvents, GenerationModel, GenerationRequest } from './provider';
 
 export class AIRequestService {
-  readonly registry = new GenerationModelRegistry();
+  readonly registry = generationModelRegistry;
   models: readonly GenerationModel[] = [];
   error = '';
   onChange?: () => void;
-
-  constructor() {
-    this.registry.register(new LocalGenerationProvider());
-    this.registry.register(new OpenRouterGenerationProvider());
-    this.registry.register(new FalGenerationProvider());
-  }
 
   async refreshModels(): Promise<readonly GenerationModel[]> {
     try {

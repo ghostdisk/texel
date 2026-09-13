@@ -3,7 +3,7 @@
   <head>
     <meta charset="UTF-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-    <meta http-equiv="Content-Security-Policy" content="default-src 'self'; script-src 'self'; style-src 'self' 'unsafe-inline'; img-src 'self' blob: data:; connect-src 'self' ws://127.0.0.1:*" />
+    <meta http-equiv="Content-Security-Policy" content="default-src 'self'; script-src 'self' texel-package:; style-src 'self' 'unsafe-inline'; img-src 'self' blob: data:; connect-src 'self' ws://127.0.0.1:*" />
     <title>Texel</title>
     <link rel="stylesheet" href="/src/themes.css" />
     <link rel="stylesheet" href="/src/style.css" />
@@ -206,30 +206,27 @@
         <div><h2>Settings</h2><p>Changes apply immediately.</p></div>
         <button id="close-settings" type="button">Close</button>
       </div>
-      <section class="settings-section" aria-labelledby="appearance-heading">
-        <h3 id="appearance-heading">Appearance</h3>
-        <div id="theme-grid" class="theme-grid" role="group" aria-label="Theme"></div>
-        <div class="appearance-setting">
-          <label for="canvas-background">Canvas background</label>
-          <input id="canvas-background" type="color" aria-label="Canvas background color" />
-          <button id="reset-canvas-background" type="button">Use theme default</button>
+      <div class="settings-layout">
+        <nav class="settings-navigation" aria-label="Settings sections">
+          <button type="button" data-settings-page="appearance" class="selected">Appearance</button>
+          <button type="button" data-settings-page="packages">Packages</button>
+        </nav>
+        <div class="settings-pages">
+          <section class="settings-section" data-settings-panel="appearance" aria-labelledby="appearance-heading">
+            <h3 id="appearance-heading">Appearance</h3>
+            <div id="theme-grid" class="theme-grid" role="group" aria-label="Theme"></div>
+            <div class="appearance-setting">
+              <label for="canvas-background">Canvas background</label>
+              <input id="canvas-background" type="color" aria-label="Canvas background color" />
+              <button id="reset-canvas-background" type="button">Use theme default</button>
+            </div>
+          </section>
+          <section class="settings-section" data-settings-panel="packages" aria-labelledby="packages-heading" hidden>
+            <h3 id="packages-heading">Packages</h3>
+            <div id="package-settings-list" class="package-settings-list"></div>
+          </section>
         </div>
-        <h3 class="settings-subheading" id="providers-heading">AI providers</h3>
-        <div class="provider-setting" aria-labelledby="providers-heading">
-          <label for="openrouter-key">OpenRouter API key</label>
-          <input id="openrouter-key" type="password" autocomplete="off" spellcheck="false" placeholder="sk-or-…" />
-          <button id="save-openrouter-key" type="button">Save key</button>
-          <button id="remove-openrouter-key" type="button">Remove</button>
-          <span id="openrouter-key-status" role="status"></span>
-        </div>
-        <div class="provider-setting" aria-labelledby="providers-heading">
-          <label for="fal-key">fal API key</label>
-          <input id="fal-key" type="password" autocomplete="off" spellcheck="false" placeholder="key ID:key secret" />
-          <button id="save-fal-key" type="button">Save key</button>
-          <button id="remove-fal-key" type="button">Remove</button>
-          <span id="fal-key-status" role="status"></span>
-        </div>
-      </section>
+      </div>
     </dialog>
     <script type="module" src="/src/main.ts"></script>
   </body>

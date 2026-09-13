@@ -6,6 +6,7 @@ import { TitleBar } from './ui/titlebar';
 import { SettingsStore } from './settings';
 import { SettingsView } from './ui/settings-view';
 import { CommandPalette } from './ui/command-palette';
+import { RendererPackageLoader } from './package-runtime';
 
 function reportError(error: unknown): void {
   const banner = element('error');
@@ -19,6 +20,9 @@ async function boot(): Promise<void> {
   setMaximized(await window.desktop.isWindowMaximized());
   const settings = new SettingsStore(reportError);
   await settings.load();
+  const packages = new RendererPackageLoader(reportError);
+  await packages.load();
+  window.addEventListener('beforeunload', () => { void packages.unload(); }, { once: true });
   const gpu = await Gpu.create();
   let editor: Editor | undefined;
   let failed = false;

@@ -6,9 +6,11 @@ import path from 'node:path';
 
 const root = path.resolve(import.meta.dirname, '..');
 const token = randomBytes(32).toString('hex');
-const preset = process.env.IMGED_NATIVE_PRESET ?? 'clang-vulkan';
-const binary = process.env.IMGED_NATIVE_BINARY ?? path.join(root, 'native/build', preset, 'bin', process.platform === 'win32' ? 'imged-native.exe' : 'imged-native');
-const child = spawn(binary, [], {
+const base = path.join(root, 'packages', 'texel-editor', 'local-ai-base');
+const vulkan = path.join(root, 'packages', 'texel-editor', 'local-ai-vulkan');
+const binary = process.env.TEXEL_LOCAL_AI_BINARY ?? path.join(base, 'build', 'install', 'texel-local-ai.exe');
+const backend = process.env.TEXEL_LOCAL_AI_BACKEND ?? path.join(vulkan, 'build', 'install', 'texel-local-ai-vulkan.dll');
+const child = spawn(binary, ['--backend', backend, '--models', path.join(root, 'models'), '--config', path.join(base, 'models.json')], {
   cwd: root, windowsHide: true, env: { ...process.env, IMGED_BACKEND_TOKEN: token }, stdio: ['pipe', 'pipe', 'pipe'],
 });
 let stderr = '';
@@ -67,8 +69,8 @@ socket.onmessage = async ({ data }) => {
       if (message.width !== width || message.height !== height || !png || png[0] !== 137) throw new Error('Invalid generated PNG.');
       const pngHeader = new DataView(png.buffer, png.byteOffset, png.byteLength);
       if (pngHeader.getUint32(16) !== width || pngHeader.getUint32(20) !== height) throw new Error('PNG dimensions differ from requested size.');
-      await mkdir(path.join(root, 'native/build'), { recursive: true });
-      await writeFile(path.join(root, 'native/build/smoke-result.png'), png);
+      await mkdir(path.join(base, 'build'), { recursive: true });
+      await writeFile(path.join(base, 'build', 'smoke-result.png'), png);
       if (!previews) throw new Error('No live previews were emitted.');
       stage = 'cancel';
       setTimeout(() => generate('smoke-cancel', 30, true), 100);

@@ -1,14 +1,13 @@
-const { app, BrowserWindow, ClipboardItem, clipboard, dialog, ipcMain, Menu, nativeTheme, safeStorage } = require('electron');
+const { app, BrowserWindow, ClipboardItem, clipboard, dialog, ipcMain, Menu, nativeTheme, protocol, safeStorage } = require('electron');
 const { readFile } = require('node:fs/promises');
 const path = require('node:path');
-const { NativeBackend } = require('./native-backend.cjs');
 const { IMAGE_EXTENSIONS, isSupportedOpenPath, registerDocumentFiles } = require('./document-files.cjs');
 const { registerImageFiles } = require('./image-files.cjs');
 const { registerSettings } = require('./settings.cjs');
-const { registerOpenRouter } = require('./openrouter.cjs');
-const { registerFal } = require('./fal.cjs');
+const { PackageLoader } = require('./package-loader.cjs');
 app.setName('Texel');
 nativeTheme.themeSource = 'dark';
+protocol.registerSchemesAsPrivileged([{ scheme: 'texel-package', privileges: { standard: true, secure: true, supportFetchAPI: true, corsEnabled: true } }]);
 
 if (!app.requestSingleInstanceLock()) app.quit();
 else startApplication();
@@ -17,9 +16,7 @@ function startApplication() {
   const documentFiles = registerDocumentFiles({ ipcMain, dialog }, ownerOf);
   registerImageFiles({ ipcMain, dialog }, ownerOf);
   registerSettings({ app, ipcMain, nativeTheme }, ownerOf);
-  const openRouter = registerOpenRouter({ app, ipcMain, safeStorage }, ownerOf);
-  const fal = registerFal({ app, ipcMain, safeStorage }, ownerOf);
-  let backend;
+  const packageLoader = new PackageLoader({ app, BrowserWindow, ipcMain, safeStorage, root: path.join(__dirname, '..'), ownerOf });
   let quitting = false;
   let editorWindow = null;
 
@@ -66,8 +63,6 @@ function startApplication() {
     return owner && event.senderFrame === owner.webContents.mainFrame ? owner : null;
   }
 
-  ipcMain.handle('generation:backend', (event) => ownerOf(event) && backend ? backend.start() : { error: 'Invalid window.' });
-  ipcMain.handle('generation:restart', (event) => ownerOf(event) && backend ? backend.restart() : { error: 'Invalid window.' });
   ipcMain.handle('window:is-maximized', (event) => ownerOf(event)?.isMaximized() ?? false);
 
   ipcMain.handle('clipboard:write', async (event, value) => {
@@ -195,11 +190,16 @@ function startApplication() {
 
   app.whenReady().then(async () => {
     app.setAppUserModelId('app.texel.editor');
-    backend = new NativeBackend(path.join(__dirname, '..'), {
-      packaged: app.isPackaged, resourcesPath: process.resourcesPath,
-      userData: app.getPath('userData'), executableDirectory: path.dirname(app.getPath('exe')),
+    await packageLoader.load();
+    protocol.handle('texel-package', async (request) => {
+      const file = packageLoader.resolveRequest(request.url);
+      if (!file) return new Response('Package file not found.', { status: 404 });
+      const extension = path.extname(file).toLowerCase();
+      const types = { '.js': 'text/javascript', '.mjs': 'text/javascript', '.json': 'application/json', '.css': 'text/css', '.png': 'image/png', '.svg': 'image/svg+xml' };
+      return new Response(await readFile(file), {
+        headers: { 'content-type': types[extension] ?? 'application/octet-stream', 'access-control-allow-origin': '*' },
+      });
     });
-    void backend.start();
     Menu.setApplicationMenu(Menu.buildFromTemplate([
       { label: 'File', submenu: [{ role: 'quit' }] },
       { label: 'Edit', submenu: [{ role: 'cut' }, { role: 'copy' }, { role: 'paste' }] },
@@ -219,8 +219,6 @@ function startApplication() {
     if (quitting) return;
     event.preventDefault();
     quitting = true;
-    openRouter.stop();
-    fal.stop();
-    void (backend?.stop() ?? Promise.resolve()).finally(() => app.quit());
+    void packageLoader.unload().finally(() => app.quit());
   });
 }

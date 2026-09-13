@@ -5,7 +5,7 @@ dist/
 
 
 models/
-native/build/
-third_party/
+packages/**/build/
+packages/**/third_party/
 release/
 .packaging/

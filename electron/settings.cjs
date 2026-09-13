@@ -12,9 +12,10 @@ function registerSettings({ app, ipcMain, nativeTheme }, ownerOf) {
     if (cached) return cached;
     try {
       const parsed = JSON.parse(await readFile(settingsPath(), 'utf8'));
-      if (parsed && typeof parsed === 'object' && typeof parsed.theme === 'string') {
-        const canvasBackground = parsed.canvasBackground === null || /^#[0-9a-f]{6}$/i.test(parsed.canvasBackground) ? parsed.canvasBackground : null;
-        cached = { theme: parsed.theme, canvasBackground };
+      const appearance = parsed?.appearance ?? parsed;
+      if (appearance && typeof appearance === 'object' && typeof appearance.theme === 'string') {
+        const canvasBackground = appearance.canvasBackground === null || /^#[0-9a-f]{6}$/i.test(appearance.canvasBackground) ? appearance.canvasBackground : null;
+        cached = { theme: appearance.theme, canvasBackground };
       } else cached = defaults;
     } catch (error) {
       if (error?.code !== 'ENOENT') console.error('Unable to read settings:', error);
@@ -28,7 +29,7 @@ function registerSettings({ app, ipcMain, nativeTheme }, ownerOf) {
     const temporary = `${file}.${process.pid}.tmp`;
     writes = writes.catch(() => undefined).then(async () => {
       await mkdir(path.dirname(file), { recursive: true });
-      await writeFile(temporary, JSON.stringify(settings, null, 2), 'utf8');
+      await writeFile(temporary, JSON.stringify({ appearance: settings }, null, 2), 'utf8');
       await rename(temporary, file);
     });
     return writes;
