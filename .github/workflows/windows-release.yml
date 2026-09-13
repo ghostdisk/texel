@@ -30,8 +30,15 @@ jobs:
           $current = (Get-Content package.json -Raw | ConvertFrom-Json).version
           $changed = '${{ github.event_name }}' -eq 'workflow_dispatch'
           if (-not $changed) {
-            gh api "repos/${{ github.repository }}/releases/tags/v$current" --silent 2>$null
-            $changed = $LASTEXITCODE -ne 0
+            try {
+              Invoke-RestMethod -Uri "https://api.github.com/repos/${{ github.repository }}/releases/tags/v$current" -Headers @{
+                Authorization = "Bearer $env:GH_TOKEN"
+                'User-Agent' = 'Texel-release-workflow'
+              } | Out-Null
+            } catch {
+              if ([int]$_.Exception.Response.StatusCode -ne 404) { throw }
+              $changed = $true
+            }
           }
           if (-not $changed) {
             $previousSource = git show "$($env:BEFORE_SHA):package.json" 2>$null
