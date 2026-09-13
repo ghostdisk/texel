@@ -18,14 +18,16 @@ class LayerSelectionTransform implements TransformTarget {
     world: Matrix;
     parentInverse: Matrix;
   }[];
+  readonly selection: boolean;
   private matrix: Matrix = IDENTITY;
   private readonly bounds: Rect;
 
-  constructor(layers: readonly Layer[]) {
+  constructor(layers: readonly Layer[], bounds?: Rect, selection = false) {
     this.before = layers.map((layer) => ({
       layer, local: layer.transform, world: layer.worldTransform(), parentInverse: inverse(layer.parent!.worldTransform()),
     }));
-    this.bounds = unionBounds(layers.map((layer) => transformBounds(layer.worldTransform(), layer.localBounds())));
+    this.selection = selection;
+    this.bounds = bounds ?? unionBounds(layers.map((layer) => transformBounds(layer.worldTransform(), layer.localBounds())));
   }
 
   get transform(): Matrix { return this.matrix; }
@@ -44,6 +46,9 @@ export class TransformTool extends Tool {
   readonly hint = 'Drag to move · Drag bounds to resize · Shift constrains · Hold Space to pan';
   private readonly controls: TransformControls;
   private multiple: LayerSelectionTransform | null = null;
+  private preparation = 0;
+  private pointerHeld = false;
+  private lastPointer: ToolPointer | null = null;
   private actionControls: {
     select: HTMLSelectElement;
     actions: readonly string[];
@@ -54,7 +59,7 @@ export class TransformTool extends Tool {
     this.controls = new TransformControls(
       editor,
       () => this.target(),
-      () => editor.image.selectedRoots.length > 0,
+      () => editor.image.selectedRoots.length > 0 && (!editor.image.selectionMask || editor.hasFloatingSelection),
       (target, matrix, _pointer, axis) => this.snap(target, matrix, axis),
     );
   }
@@ -97,22 +102,50 @@ export class TransformTool extends Tool {
 
   pointerDown(pointer: ToolPointer): void {
     if (pointer.ctrl) { void this.editor.pickLayer(pointer.world, pointer.shift).catch(this.editor.report); return; }
+    this.pointerHeld = true;
+    this.lastPointer = pointer;
+    if (this.editor.image.selectionMask) {
+      const preparation = ++this.preparation;
+      void this.prepareSelection(pointer, preparation).catch(this.editor.report);
+      return;
+    }
     const layers = this.editor.image.selectedRoots;
     this.multiple = layers.length > 1 ? new LayerSelectionTransform(layers) : null;
     this.controls.pointerDown(pointer);
   }
-  pointerMove(pointer: ToolPointer): void { this.controls.pointerMove(pointer); }
+  private async prepareSelection(pointer: ToolPointer, preparation: number): Promise<void> {
+    const target = await this.editor.selectionTransformTargets();
+    if (!target || preparation !== this.preparation || !this.pointerHeld) return;
+    this.multiple = new LayerSelectionTransform(target.layers, worldBounds(target.primary), true);
+    this.controls.pointerDown(pointer);
+    if (this.lastPointer) this.controls.pointerMove(this.lastPointer);
+    this.editor.changed();
+  }
+  pointerMove(pointer: ToolPointer): void {
+    this.lastPointer = pointer;
+    this.controls.pointerMove(pointer);
+  }
   hover(pointer: ToolPointer | null): void { this.controls.hover(pointer); }
   drawOverlay(controls = true): void {
+    if (this.editor.image.selectionMask && !this.editor.hasFloatingSelection && !this.multiple) return;
     const layers = this.editor.image.selectedLayers;
     if (layers.length > 1) {
       for (const layer of layers) new TransformControls(this.editor, () => layer, () => false).drawOverlay(false);
       if (controls) this.controls.drawOverlay(true);
     } else this.controls.drawOverlay(controls);
   }
-  cancel(): void { this.controls.cancel(); this.multiple = null; }
+  cancel(): void {
+    this.preparation++;
+    this.pointerHeld = false;
+    this.lastPointer = null;
+    this.controls.cancel();
+    this.multiple = null;
+  }
 
   finish(): void {
+    this.preparation++;
+    this.pointerHeld = false;
+    this.lastPointer = null;
     const change = this.controls.finish();
     this.multiple = null;
     if (!change) return;
@@ -121,7 +154,7 @@ export class TransformTool extends Tool {
       const layers = change.target.before;
       const selection = this.editor.image.selectionState();
       this.editor.history.push(new UndoOperation(
-        label + ' layers',
+        label + (change.target.selection ? ' selected pixels' : ' layers'),
         { type: 'tool', targetId: this.id, action: 'transform-layers', data: {
           layers: layers.map((item) => ({ layerId: item.layer.id, transform: [...item.local] })), selection,
         } },

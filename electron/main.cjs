@@ -1,4 +1,4 @@
-const { app, BrowserWindow, dialog, ipcMain, Menu, nativeTheme, safeStorage } = require('electron');
+const { app, BrowserWindow, ClipboardItem, clipboard, dialog, ipcMain, Menu, nativeTheme, safeStorage } = require('electron');
 const { readFile } = require('node:fs/promises');
 const path = require('node:path');
 const { NativeBackend } = require('./native-backend.cjs');
@@ -50,6 +50,9 @@ function startApplication() {
     });
     editorWindow = window;
     window.setMenuBarVisibility(false);
+    const sendMaximized = () => window.webContents.send('window:maximized-changed', window.isMaximized());
+    window.on('maximize', sendMaximized);
+    window.on('unmaximize', sendMaximized);
     window.on('closed', () => { if (editorWindow === window) editorWindow = null; });
     documentFiles.attachWindow(window);
     window.webContents.setWindowOpenHandler(() => ({ action: 'deny' }));
@@ -65,6 +68,37 @@ function startApplication() {
 
   ipcMain.handle('generation:backend', (event) => ownerOf(event) && backend ? backend.start() : { error: 'Invalid window.' });
   ipcMain.handle('generation:restart', (event) => ownerOf(event) && backend ? backend.restart() : { error: 'Invalid window.' });
+  ipcMain.handle('window:is-maximized', (event) => ownerOf(event)?.isMaximized() ?? false);
+
+  ipcMain.handle('clipboard:write', async (event, value) => {
+    if (!ownerOf(event) || !value || typeof value !== 'object' || typeof value.metadata !== 'string' || value.metadata.length > 4096) return false;
+    const data = { 'web application/x.texel-clipboard': value.metadata };
+    if (value.image !== null) {
+      if (!(value.image instanceof Uint8Array) || !value.image.byteLength || value.image.byteLength > 0x7fffffff) return false;
+      data['image/png'] = new Blob([value.image], { type: 'image/png' });
+    }
+    await clipboard.write([new ClipboardItem(data)]);
+    return true;
+  });
+
+  ipcMain.handle('clipboard:read', async (event) => {
+    if (!ownerOf(event)) return null;
+    const items = await clipboard.read();
+    let metadata = '', image = null, mediaType = '';
+    for (const item of items) {
+      if (!metadata && item.types.includes('web application/x.texel-clipboard')) {
+        metadata = await item.getType('web application/x.texel-clipboard').then((blob) => blob.text());
+      }
+      if (!image) {
+        const type = item.types.find((candidate) => candidate.startsWith('image/'));
+        if (type) {
+          mediaType = type;
+          image = new Uint8Array(await item.getType(type).then((blob) => blob.arrayBuffer()));
+        }
+      }
+    }
+    return { metadata: metadata.slice(0, 4096), image, mediaType };
+  });
 
   ipcMain.handle('image:open', async (event) => {
     const owner = ownerOf(event);
@@ -150,7 +184,6 @@ function startApplication() {
         }
       }
       if (group.label === 'File') submenu.push({ type: 'separator' }, { role: 'quit' });
-      if (group.label === 'Edit') submenu.push({ type: 'separator' }, { role: 'cut' }, { role: 'copy' }, { role: 'paste' });
       if (group.label === 'View') submenu.push(
         { type: 'separator' }, { role: 'reload' }, { role: 'toggleDevTools' }, { role: 'togglefullscreen' },
       );

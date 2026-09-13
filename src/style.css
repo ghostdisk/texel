@@ -28,6 +28,7 @@ h2 { display: flex; align-items: center; gap: 7px; font-weight: 600; font-size: 
 .icon-button .icon { width: 18px; height: 18px; }
 #app { height: 100dvh; display: flex; flex-direction: column; }
 .titlebar { height: 36px; flex-shrink: 0; background: var(--titlebar-bg); border-block: 1px solid var(--border); -webkit-app-region: drag; user-select: none; }
+.window-maximized .titlebar { border-top: 0; }
 .titlebar-content { display: flex; align-items: center; height: 100%; margin-left: env(titlebar-area-x, 0px); width: env(titlebar-area-width, calc(100% - 138px)); }
 .wordmark { display: flex; align-items: center; gap: 11px; height: 100%; padding: 0 17px 0 13px; font-size: 15px; font-weight: 600; letter-spacing: -.3px; border-right: 1px solid color-mix(in srgb, var(--text) 5%, transparent); }
 .wordmark img { width: 28px; height: 28px; flex-shrink: 0; object-fit: contain; }

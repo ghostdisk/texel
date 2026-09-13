@@ -14,6 +14,9 @@ function reportError(error: unknown): void {
 }
 
 async function boot(): Promise<void> {
+  const setMaximized = (maximized: boolean) => document.documentElement.classList.toggle('window-maximized', maximized);
+  window.desktop.onWindowMaximizedChanged(setMaximized);
+  setMaximized(await window.desktop.isWindowMaximized());
   const settings = new SettingsStore(reportError);
   await settings.load();
   const gpu = await Gpu.create();

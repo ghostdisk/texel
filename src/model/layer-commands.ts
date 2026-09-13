@@ -244,6 +244,33 @@ export class LayerCommands {
       copies.map((copy) => ({ action: 'remove', layerId: copy.id })), redo, this.state(copies), snapshots);
   }
 
+  paste(serialized: readonly SerializedLayer[], sourceSnapshots: Map<string, Surface>, worldTransforms: readonly Matrix[]): void {
+    if (!serialized.length || serialized.length !== worldTransforms.length) return;
+    const parent = this.image.destination();
+    const ids = new Map<string, string>();
+    const allocate = (data: SerializedLayer) => { ids.set(data.id, crypto.randomUUID()); data.children.forEach(allocate); };
+    serialized.forEach(allocate);
+    const copies: Layer[] = [];
+    const snapshots = new Map<string, Surface>();
+    const redo: LayerStep[] = [];
+    try {
+      for (let index = 0; index < serialized.length; index++) {
+        const copy = this.image.restoreLayer(serialized[index], sourceSnapshots, ids);
+        copies.push(copy);
+        copy.setTransform(multiply(inverse(parent.worldTransform()), worldTransforms[index]));
+        redo.push({
+          action: 'add', parentId: parent.id, index: parent.children.length + index,
+          layer: this.image.serializeLayer(copy, snapshots),
+        });
+      }
+    } catch (error) {
+      for (const snapshot of snapshots.values()) snapshot.texture.destroy();
+      throw error;
+    } finally { for (const copy of copies) this.compositor.release(copy); }
+    this.commit(copies.length > 1 ? 'Paste layers' : 'Paste layer',
+      copies.map((copy) => ({ action: 'remove', layerId: copy.id })), redo, this.state(copies), snapshots);
+  }
+
   async layerViaSelection(layer: ImageLayer, selection: ImageLayer, cut: boolean): Promise<void> {
     if (cut && !layer.pixelEditable) throw new Error('Text layers cannot be cut as pixels. Use Layer via Copy to create a pixel layer.');
     const layers = this.image.allLayers();

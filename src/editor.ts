@@ -1,4 +1,5 @@
 import { ActionRegistry } from './actions';
+import { EditorClipboard } from './clipboard';
 import { DocumentFiles } from './files/document-files';
 import type { LoadedDocument } from './files/txl';
 import { GeneratorManager } from './generators/manager';
@@ -80,6 +81,7 @@ export class Editor {
   readonly paths: PathRenderer;
   readonly filters = new FilterRegistry();
   readonly actions: ActionRegistry;
+  readonly clipboard: EditorClipboard;
   readonly generators: GeneratorManager;
   readonly files: DocumentFiles;
   readonly documents: EditorDocument[] = [];
@@ -125,6 +127,12 @@ export class Editor {
   private lastMenus = '';
   private reframing = false;
   private selectionCheck = 0;
+  private floatingSelection: {
+    documentId: string;
+    layerId: string;
+    selectionId: string;
+  } | null = null;
+  private floatingSelectionPromise: Promise<{ primary: ImageLayer; layers: readonly Layer[] } | null> | null = null;
   private suppressContextMenu = false;
   private canvasBackground: GPUColorDict = { r: 0.067, g: 0.082, b: 0.118, a: 1 };
 
@@ -169,6 +177,7 @@ export class Editor {
     this.currentDocument = this.createDocumentSession();
     this.documents.push(this.currentDocument);
     this.actions = new ActionRegistry(report);
+    this.clipboard = new EditorClipboard(this);
     this.baseTool = new BrushTool(this);
     this.tools.set(this.activeTool.id, this.activeTool);
     this.tools.set('rectangle', new RectangleTool(this));
@@ -191,7 +200,7 @@ export class Editor {
     this.actions.blocked = () => this.halted || this.reframing || this.files.busy;
     this.actions.context = () => ({
       hasSelection: !!this.image.selectionMask,
-      canSelectionLayer: !!this.layerViaSelectionTarget,
+      canSelectionLayer: !!this.selectionPixelTarget,
       isGenerating: this.generators.busy,
       isCropping: this.activeTool.id === 'crop',
       hasPolygonPath: this.activeTool.id === 'polygon-lasso' && (this.activeTool as PolygonLassoTool).hasPath,
@@ -282,6 +291,8 @@ export class Editor {
     this.tools.get('eyedropper')?.cancel();
     this.previews.clear();
     this.currentDocument = document;
+    this.floatingSelection = null;
+    this.floatingSelectionPromise = null;
     this.selectionMode = document.selectionMode && !!document.image.selectionMask;
     this.selectionReturnId = document.selectionReturnId;
     this.editedMask = document.editedMaskId ?
@@ -357,6 +368,7 @@ export class Editor {
     this.halted = true;
     this.finishGesture();
     for (const document of this.documents.splice(0)) document.dispose(this.compositor);
+    this.clipboard.dispose();
   }
 
   private setMaskEditLayer(layer: ImageLayer | null): void {
@@ -451,8 +463,7 @@ export class Editor {
     this.image.deleteSelected(selection);
   }
 
-  private clearSelection(): void {
-    const layer = this.paintTarget;
+  clearSelectedPixels(layer = this.paintTarget): void {
     if (!this.image.selectionMask || !layer) return;
     const snapshots = new Map<string, Surface>();
     let selection: MaskInput | null = null;
@@ -482,7 +493,7 @@ export class Editor {
     } finally { selection?.surface.texture.destroy(); }
   }
 
-  private get layerViaSelectionTarget(): ImageLayer | null {
+  get selectionPixelTarget(): ImageLayer | null {
     if (!this.image.selectionMask || this.image.selectedLayers.length !== 1) return null;
     const selected = this.image.selected;
     const candidate = selected.isSelection ?
@@ -491,10 +502,42 @@ export class Editor {
   }
 
   private async layerViaSelection(cut: boolean): Promise<void> {
-    const layer = this.layerViaSelectionTarget;
+    const layer = this.selectionPixelTarget;
     const selection = this.image.selectionMask;
     if (!layer || !selection) return;
     await this.editPixels(() => this.image.commands.layerViaSelection(layer, selection, cut));
+  }
+
+  async selectionTransformTargets(): Promise<{ primary: ImageLayer; layers: readonly Layer[] } | null> {
+    const selection = this.image.selectionMask;
+    const existing = this.floatingSelection;
+    if (selection && existing?.documentId === this.image.id && existing.selectionId === selection.id) {
+      const layer = this.image.allLayers().find((candidate) => candidate.id === existing.layerId);
+      if (layer instanceof ImageLayer && layer.parent) return { primary: layer, layers: [layer, selection] };
+    }
+    if (this.floatingSelectionPromise) return this.floatingSelectionPromise;
+    this.floatingSelection = null;
+    const target = this.selectionPixelTarget;
+    if (!selection || !target?.pixelEditable) return null;
+    const documentId = this.image.id;
+    const prepare = (async () => {
+      await this.image.commands.layerViaSelection(target, selection, true);
+      const layer = this.image.selected;
+      if (this.image.id !== documentId || !(layer instanceof ImageLayer) || !layer.parent || this.image.selectionMask !== selection) return null;
+      this.floatingSelection = { documentId, layerId: layer.id, selectionId: selection.id };
+      this.selectionMode = false;
+      this.changed();
+      return { primary: layer, layers: [layer, selection] as readonly Layer[] };
+    })();
+    this.floatingSelectionPromise = prepare;
+    try { return await prepare; }
+    finally { if (this.floatingSelectionPromise === prepare) this.floatingSelectionPromise = null; }
+  }
+
+  get hasFloatingSelection(): boolean {
+    const floating = this.floatingSelection;
+    return !!floating && floating.documentId === this.image.id && this.image.selectionMask?.id === floating.selectionId &&
+      this.image.allLayers().some((layer) => layer.id === floating.layerId && layer instanceof ImageLayer && !!layer.parent);
   }
 
   private promoteSelection(): void {
@@ -845,19 +888,19 @@ export class Editor {
     ));
   }
 
-  nudgeSelection(dx: number, dy: number): void {
-    this.changeSelectedGeometry('Nudge', (layers) => {
+  async nudgeSelection(dx: number, dy: number): Promise<void> {
+    await this.changeSelectedGeometry('Nudge', (_visible, layers) => {
       const operation = translation(dx, dy);
       for (const layer of layers) applyWorldTransform(layer, operation);
     });
   }
 
-  alignSelection(mode: 'left' | 'center' | 'right' | 'top' | 'middle' | 'bottom'): void {
-    this.changeSelectedGeometry('Align ' + mode, (layers) => {
-      const bounds = layers.map(worldBounds);
-      const target = layers.length === 1 ? this.image.frame : unionBounds(bounds);
-      for (let index = 0; index < layers.length; index++) {
-        const bounds = worldBounds(layers[index]);
+  async alignSelection(mode: 'left' | 'center' | 'right' | 'top' | 'middle' | 'bottom'): Promise<void> {
+    await this.changeSelectedGeometry('Align ' + mode, (visible, layers) => {
+      const bounds = visible.map(worldBounds);
+      const target = visible.length === 1 ? this.image.frame : unionBounds(bounds);
+      for (let index = 0; index < visible.length; index++) {
+        const bounds = worldBounds(visible[index]);
         let dx = 0, dy = 0;
         if (mode === 'left') dx = target.x - bounds.x;
         if (mode === 'center') dx = target.x + target.width / 2 - bounds.x - bounds.width / 2;
@@ -865,15 +908,17 @@ export class Editor {
         if (mode === 'top') dy = target.y - bounds.y;
         if (mode === 'middle') dy = target.y + target.height / 2 - bounds.y - bounds.height / 2;
         if (mode === 'bottom') dy = target.y + target.height - bounds.y - bounds.height;
-        applyWorldTransform(layers[index], translation(dx, dy));
+        const operation = translation(dx, dy);
+        if (visible.length === 1 && layers.length > 1) for (const layer of layers) applyWorldTransform(layer, operation);
+        else applyWorldTransform(visible[index], operation);
       }
     });
   }
 
-  distributeSelection(axis: 'horizontal' | 'vertical'): void {
-    this.changeSelectedGeometry(`Distribute ${axis} centers`, (layers) => {
-      if (layers.length < 3) return;
-      const entries = layers.map((layer) => {
+  async distributeSelection(axis: 'horizontal' | 'vertical'): Promise<void> {
+    await this.changeSelectedGeometry(`Distribute ${axis} centers`, (visible) => {
+      if (visible.length < 3) return;
+      const entries = visible.map((layer) => {
         const bounds = worldBounds(layer);
         return { layer, center: axis === 'horizontal' ? bounds.x + bounds.width / 2 : bounds.y + bounds.height / 2 };
       }).sort((a, b) => a.center - b.center);
@@ -886,18 +931,18 @@ export class Editor {
     });
   }
 
-  rotateSelection(clockwise: boolean): void {
-    this.changeSelectedGeometry(clockwise ? 'Rotate 90° clockwise' : 'Rotate 90° counterclockwise', (layers) => {
-      const bounds = unionBounds(layers.map(worldBounds));
+  async rotateSelection(clockwise: boolean): Promise<void> {
+    await this.changeSelectedGeometry(clockwise ? 'Rotate 90° clockwise' : 'Rotate 90° counterclockwise', (visible, layers) => {
+      const bounds = unionBounds(visible.map(worldBounds));
       const center = { x: bounds.x + bounds.width / 2, y: bounds.y + bounds.height / 2 };
       const operation = around(center, clockwise ? [0, 1, -1, 0, 0, 0] : [0, -1, 1, 0, 0, 0]);
       for (const layer of layers) applyWorldTransform(layer, operation);
     });
   }
 
-  flipSelection(axis: 'horizontal' | 'vertical'): void {
-    this.changeSelectedGeometry(axis === 'horizontal' ? 'Flip horizontally' : 'Flip vertically', (layers) => {
-      const bounds = unionBounds(layers.map(worldBounds));
+  async flipSelection(axis: 'horizontal' | 'vertical'): Promise<void> {
+    await this.changeSelectedGeometry(axis === 'horizontal' ? 'Flip horizontally' : 'Flip vertically', (visible, layers) => {
+      const bounds = unionBounds(visible.map(worldBounds));
       const center = { x: bounds.x + bounds.width / 2, y: bounds.y + bounds.height / 2 };
       const operation = around(center, axis === 'horizontal' ? [-1, 0, 0, 1, 0, 0] : [1, 0, 0, -1, 0, 0]);
       for (const layer of layers) applyWorldTransform(layer, operation);
@@ -937,17 +982,21 @@ export class Editor {
     this.setPrecisionState(state, 'Delete guide');
   }
 
-  private changeSelectedGeometry(label: string, mutate: (layers: readonly Layer[]) => void): void {
+  private async changeSelectedGeometry(label: string, mutate: (visible: readonly Layer[], layers: readonly Layer[]) => void): Promise<void> {
     this.finishGesture();
-    const layers = this.image.selectedRoots;
+    const hasSelection = !!this.image.selectionMask;
+    const selection = await this.selectionTransformTargets();
+    if (hasSelection && !selection) return;
+    const visible = selection ? [selection.primary] : this.image.selectedRoots;
+    const layers = selection?.layers ?? visible;
     if (!layers.length) return;
     const before = layers.map((layer) => layer.properties());
-    try { mutate(layers); }
+    try { mutate(visible, layers); }
     catch (error) {
       for (let index = 0; index < layers.length; index++) layers[index].setProperties(before[index]);
       throw error;
     }
-    this.recordLayerChanges(layers, before, layers.length > 1 ? label + ' layers' : label + ' layer');
+    this.recordLayerChanges(layers, before, selection ? label + ' selected pixels' : layers.length > 1 ? label + ' layers' : label + ' layer');
   }
 
   addFilter(kind: string): void {
@@ -1104,6 +1153,15 @@ export class Editor {
     register({ id: 'history.undo', label: () => `Undo${this.history.canUndo ? ` ${this.history.undoLabel}` : ''}`, menu: 'Edit', enabled: () => this.history.canUndo, execute: () => this.history.undo() });
     register({ id: 'history.redo', label: () => `Redo${this.history.canRedo ? ` ${this.history.redoLabel}` : ''}`, menu: 'Edit', enabled: () => this.history.canRedo, execute: () => this.history.redo() });
     register({
+      id: 'clipboard.cut', label: 'Cut', menu: 'Edit', separatorBefore: true,
+      enabled: () => this.clipboard.canCut, execute: () => this.editPixels(() => this.clipboard.cut()),
+    });
+    register({
+      id: 'clipboard.copy', label: 'Copy', menu: 'Edit', enabled: () => this.clipboard.canCopy,
+      execute: () => this.editPixels(() => this.clipboard.copy()),
+    });
+    register({ id: 'clipboard.paste', label: 'Paste', menu: 'Edit', execute: () => this.editPixels(() => this.clipboard.paste()) });
+    register({
       id: 'layer.duplicate', menu: 'Layer', separatorBefore: true,
       label: () => this.image.selectedRoots.length > 1 ? 'Duplicate layers' : 'Duplicate layer',
       enabled: () => this.image.selectedRoots.length > 0 && !this.image.selected.isSelection,
@@ -1117,11 +1175,11 @@ export class Editor {
     });
     register({
       id: 'selection.layer-copy', label: 'Layer via Copy', menu: 'Layer',
-      enabled: () => !!this.layerViaSelectionTarget, execute: () => this.layerViaSelection(false),
+      enabled: () => !!this.selectionPixelTarget, execute: () => this.layerViaSelection(false),
     });
     register({
       id: 'selection.layer-cut', label: 'Layer via Cut', menu: 'Layer',
-      enabled: () => !!this.layerViaSelectionTarget?.pixelEditable, execute: () => this.layerViaSelection(true),
+      enabled: () => !!this.selectionPixelTarget?.pixelEditable, execute: () => this.layerViaSelection(true),
     });
     register({ id: 'layer.rename', label: 'Rename layer', menu: 'Layer', enabled: () => this.image.selectedLayers.length === 1, execute: () => this.onRename?.() });
     register({ id: 'layer.delete', label: () => this.image.selectedRoots.length > 1 ? 'Delete layers' : 'Delete layer', menu: 'Layer', enabled: () => !!this.image.selected.parent, execute: () => this.image.deleteSelected() });
@@ -1133,7 +1191,7 @@ export class Editor {
     reframe('normalize', 'Normalize to Canvas', true);
     reframe('trim', 'Trim Transparent Borders');
     reframe('extend', 'Extend to Canvas');
-    const canTransform = () => this.image.selectedRoots.length > 0;
+    const canTransform = () => this.image.selectionMask ? !!this.selectionPixelTarget?.pixelEditable : this.image.selectedRoots.length > 0;
     for (const [id, label, dx, dy] of [
       ['left', 'Nudge left', -1, 0], ['right', 'Nudge right', 1, 0],
       ['up', 'Nudge up', 0, -1], ['down', 'Nudge down', 0, 1],
@@ -1154,11 +1212,11 @@ export class Editor {
     });
     register({
       id: 'transform.distribute-horizontal', label: 'Distribute horizontal centers', menu: 'Layer', submenu: 'Distribute',
-      enabled: () => this.image.selectedRoots.length >= 3, execute: () => this.distributeSelection('horizontal'),
+      enabled: () => !this.image.selectionMask && this.image.selectedRoots.length >= 3, execute: () => this.distributeSelection('horizontal'),
     });
     register({
       id: 'transform.distribute-vertical', label: 'Distribute vertical centers', menu: 'Layer', submenu: 'Distribute',
-      enabled: () => this.image.selectedRoots.length >= 3, execute: () => this.distributeSelection('vertical'),
+      enabled: () => !this.image.selectionMask && this.image.selectedRoots.length >= 3, execute: () => this.distributeSelection('vertical'),
     });
     register({ id: 'transform.rotate-cw', label: 'Rotate 90° clockwise', menu: 'Layer', submenu: 'Transform', enabled: canTransform, execute: () => this.rotateSelection(true) });
     register({ id: 'transform.rotate-ccw', label: 'Rotate 90° counterclockwise', menu: 'Layer', submenu: 'Transform', enabled: canTransform, execute: () => this.rotateSelection(false) });
@@ -1182,7 +1240,7 @@ export class Editor {
     register({
       id: 'selection.clear', label: 'Clear selected pixels', menu: 'Edit',
       enabled: () => !!this.image.selectionMask && !!this.paintTarget,
-      execute: () => this.clearSelection(),
+      execute: () => this.clearSelectedPixels(),
     });
     for (const filter of this.filters.list()) register({
       id: `filter.${filter.kind}`, label: filter.label, menu: 'Filter', submenu: filter.group,
@@ -1371,6 +1429,9 @@ export class Editor {
     this.actions.bind('Ctrl+Shift+Tab', 'view.previous-document');
     this.actions.bind('Ctrl+Shift+O', 'file.import');
     this.actions.bind('Ctrl+P', 'command.palette');
+    this.actions.bind('Ctrl+X', 'clipboard.cut');
+    this.actions.bind('Ctrl+C', 'clipboard.copy');
+    this.actions.bind('Ctrl+V', 'clipboard.paste');
   }
 
   private attachInput(): void {

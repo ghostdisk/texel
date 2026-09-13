@@ -3,7 +3,15 @@ const { contextBridge, ipcRenderer } = require('electron');
 contextBridge.exposeInMainWorld('desktop', {
   openMenu: (label, x, y) => ipcRenderer.invoke('window:open-menu', label, x, y),
   openContextMenu: (items, x, y) => ipcRenderer.invoke('window:open-context-menu', items, x, y),
+  isWindowMaximized: () => ipcRenderer.invoke('window:is-maximized'),
+  onWindowMaximizedChanged: (callback) => {
+    const listener = (_event, maximized) => callback(maximized === true);
+    ipcRenderer.on('window:maximized-changed', listener);
+    return () => ipcRenderer.removeListener('window:maximized-changed', listener);
+  },
   openImage: () => ipcRenderer.invoke('image:open'),
+  writeClipboard: (value) => ipcRenderer.invoke('clipboard:write', value),
+  readClipboard: () => ipcRenderer.invoke('clipboard:read'),
   chooseImageExport: (format, name) => ipcRenderer.invoke('image:choose-export', format, name),
   writeImageExport: (token, bytes) => ipcRenderer.invoke('image:write-export', token, bytes),
   openDocument: () => ipcRenderer.invoke('document:open'),

@@ -129,7 +129,18 @@ interface Window {
   desktop: {
     openMenu(label: string, x: number, y: number): Promise<void>;
     openContextMenu(items: import('./actions').MenuAction[], x: number, y: number): Promise<void>;
+    isWindowMaximized(): Promise<boolean>;
+    onWindowMaximizedChanged(callback: (maximized: boolean) => void): () => void;
     openImage(): Promise<ImportedImage | null>;
+    writeClipboard(value: {
+      metadata: string;
+      image: Uint8Array<ArrayBuffer> | null;
+    }): Promise<boolean>;
+    readClipboard(): Promise<{
+      metadata: string;
+      image: Uint8Array<ArrayBuffer> | null;
+      mediaType: string;
+    } | null>;
     chooseImageExport(format: ImageExportFormat, name: string): Promise<ImageExportHandle | null>;
     writeImageExport(token: string, bytes: Uint8Array<ArrayBuffer>): Promise<void>;
     openDocument(): Promise<DocumentFileHandle | null>;
