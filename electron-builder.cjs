@@ -1,4 +1,4 @@
-const { copyFile } = require('node:fs/promises');
+const { copyFile, rm } = require('node:fs/promises');
 const path = require('node:path');
 
 module.exports = {
@@ -15,6 +15,10 @@ module.exports = {
   // Use the loader distributed with this exact Electron release; its notices ship with Electron.
   async afterPack({ appOutDir }) {
     await copyFile(path.join(appOutDir, 'vulkan-1.dll'), path.join(appOutDir, 'resources', 'native', 'vulkan-1.dll'));
+    await Promise.all([
+      rm(path.join(appOutDir, 'vk_swiftshader.dll'), { force: true }),
+      rm(path.join(appOutDir, 'vk_swiftshader_icd.json'), { force: true }),
+    ]);
   },
   fileAssociations: [{ ext: 'txl', name: 'Texel.Document', description: 'Texel image document', icon: 'txl.ico', role: 'Editor' }],
   win: { icon: 'icon.ico', target: [{ target: 'nsis', arch: ['x64'] }] },
