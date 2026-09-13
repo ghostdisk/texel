@@ -309,7 +309,7 @@ input[type="range"]::-webkit-slider-thumb { appearance: none; width: 11px; heigh
 .generation-model-dialog > input { width: 100%; height: 34px; padding: 5px 9px; border-color: var(--accent); }
 .generation-model-table-wrap { max-height: min(430px, calc(100vh - 180px)); margin-top: 7px; overflow: auto; border: 1px solid var(--border); border-radius: 4px; }
 .generation-model-dialog table { width: 100%; min-width: 790px; border-collapse: collapse; table-layout: fixed; }
-.generation-model-dialog th { position: sticky; z-index: 1; top: 0; padding: 0; background: var(--header-bg); border-bottom: 1px solid var(--border-strong); }
+.generation-model-dialog th { position: sticky; z-index: 1; top: 0; padding: 0; background: var(--panel-bg); border-bottom: 1px solid var(--border-strong); }
 .generation-model-dialog th:first-child { width: auto; }
 .generation-model-dialog th:nth-child(2) { width: 118px; }
 .generation-model-dialog th:nth-child(3) { width: 92px; }
