@@ -28,6 +28,14 @@ export interface ActionMenu {
   items: MenuAction[];
 }
 
+export interface CommandAction {
+  id: string;
+  label: string;
+  category: string;
+  enabled: boolean;
+  shortcut: string;
+}
+
 export interface KeybindingOptions {
   when?: string;
   hold?: boolean;
@@ -155,6 +163,22 @@ export class ActionRegistry {
         shortcut: shortcuts.get(action.id) ?? '',
       }];
     });
+  }
+
+  commandItems(): CommandAction[] {
+    const context = this.context?.() ?? {};
+    const shortcuts = new Map<string, string>();
+    for (const chord of this.bindings.keys()) {
+      const binding = this.binding(chord, context);
+      if (binding && !shortcuts.has(binding.actionId)) shortcuts.set(binding.actionId, chord);
+    }
+    return [...this.actions.values()].map((action) => ({
+      id: action.id,
+      label: typeof action.label === 'function' ? action.label() : action.label,
+      category: [action.menu ?? 'Context', action.submenu].filter(Boolean).join(' › '),
+      enabled: this.enabled(action.id),
+      shortcut: shortcuts.get(action.id) ?? '',
+    }));
   }
 
   menus(): ActionMenu[] {

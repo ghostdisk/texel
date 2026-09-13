@@ -112,6 +112,7 @@ export class Editor {
   onGuideSettings?: () => void;
   onOpenSettings?: () => void;
   onCanvasBackgroundSettings?: () => void;
+  onCommandPalette?: () => void;
   onDocumentsChange?: () => void;
   commitEdits?: () => void;
   private scheduledFrame = 0;
@@ -1072,6 +1073,7 @@ export class Editor {
       const image = await window.desktop.openImage();
       if (image) await this.addImage(image.name, new Blob([image.bytes]));
     } });
+    register({ id: 'command.palette', label: 'Command palette…', menu: 'Edit', execute: () => this.onCommandPalette?.() });
     register({ id: 'settings.open', label: 'Appearance…', menu: 'Settings', execute: () => this.onOpenSettings?.() });
     register({ id: 'settings.canvas-background', label: 'Canvas background…', execute: () => this.onCanvasBackgroundSettings?.() });
     register({ id: 'layer.new', label: 'New pixel layer', menu: 'Layer', execute: () => this.image.createPixelLayer() });
@@ -1342,6 +1344,7 @@ export class Editor {
     this.actions.bind('Ctrl+Tab', 'view.next-document');
     this.actions.bind('Ctrl+Shift+Tab', 'view.previous-document');
     this.actions.bind('Ctrl+Shift+O', 'file.import');
+    this.actions.bind('Ctrl+P', 'command.palette');
   }
 
   private attachInput(): void {

@@ -5,6 +5,7 @@ import { hydrateIcons } from './ui/icons';
 import { TitleBar } from './ui/titlebar';
 import { SettingsStore } from './settings';
 import { SettingsView } from './ui/settings-view';
+import { CommandPalette } from './ui/command-palette';
 
 function reportError(error: unknown): void {
   const banner = element('error');
@@ -39,6 +40,8 @@ async function boot(): Promise<void> {
   const settingsView = new SettingsView(settings);
   editor.onOpenSettings = () => settingsView.open();
   editor.onCanvasBackgroundSettings = () => settingsView.openCanvasBackground();
+  const commandPalette = new CommandPalette(editor.actions);
+  editor.onCommandPalette = () => commandPalette.open();
   new TitleBar(editor.actions);
   new EditorView(editor);
   editor.actions.attach();

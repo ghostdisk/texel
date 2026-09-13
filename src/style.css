@@ -312,6 +312,20 @@ dialog { width: 360px; border: 1px solid var(--border-strong); border-radius: 7p
 dialog::backdrop { background: color-mix(in srgb, var(--canvas-surround) 70%, transparent); }
 dialog h2 { font-size: 17px; margin-bottom: 10px; }
 dialog p { font-size: 11px; color: var(--text-muted); line-height: 1.6; margin-bottom: 18px; }
+.command-palette { width: min(600px, calc(100vw - 32px)); margin: 13vh auto auto; padding: 7px; overflow: hidden; background: var(--surface-raised-bg); }
+.command-palette[open] { display: flex; flex-direction: column; }
+#command-search { width: 100%; height: 38px; flex-shrink: 0; padding: 6px 10px; border-color: var(--accent); font-size: 14px; }
+.command-results { max-height: min(344px, calc(100vh - 150px)); margin-top: 6px; overflow-y: auto; }
+.command-result { display: grid; grid-template-columns: 26px minmax(0, 1fr) auto; align-items: center; gap: 8px; width: 100%; min-height: 42px; padding: 5px 9px; border: 0; border-radius: 3px; background: transparent; text-align: left; }
+.command-result[aria-selected="true"] { background: var(--accent-soft); color: var(--text-strong); }
+.command-result:disabled { color: var(--text-faint); opacity: .65; }
+.command-result-icon { display: grid; width: 24px; height: 24px; place-items: center; color: var(--text-muted); }
+.command-result-icon .icon { width: 19px; height: 19px; }
+.command-result-copy { display: flex; min-width: 0; flex-direction: column; gap: 2px; }
+.command-result-copy strong { overflow: hidden; font-size: 12px; font-weight: 500; text-overflow: ellipsis; white-space: nowrap; }
+.command-result-copy small { overflow: hidden; color: var(--text-muted); font-size: 10px; text-overflow: ellipsis; white-space: nowrap; }
+.command-result kbd { min-width: 58px; color: var(--text-muted); font: 11px/1.4 "Segoe UI", sans-serif; text-align: right; }
+.command-empty { padding: 24px 10px; color: var(--text-muted); text-align: center; }
 .dialog-actions { display: flex; justify-content: flex-end; gap: 7px; margin-top: 12px; }
 .precision-grid-size { display: flex; align-items: center; justify-content: space-between; margin: 12px 0; }
 .precision-grid-size input { width: 110px; }

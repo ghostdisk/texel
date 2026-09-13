@@ -171,6 +171,11 @@
         <span id="image-operation-status" role="status"></span><span class="spacer"></span><span>RGBA · 16-bit float</span>
       </footer>
     </div>
+    <dialog id="command-palette" class="command-palette">
+      <input id="command-search" type="text" autocomplete="off" spellcheck="false" placeholder="Search commands" aria-label="Search commands" aria-controls="command-results" />
+      <div id="command-results" class="command-results" role="listbox"></div>
+      <div id="command-empty" class="command-empty" hidden>No matching commands</div>
+    </dialog>
     <dialog id="size-dialog">
       <form id="size-form">
         <h2 id="dialog-title">New document</h2>
