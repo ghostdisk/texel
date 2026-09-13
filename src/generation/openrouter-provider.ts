@@ -63,7 +63,7 @@ export class OpenRouterGenerationProvider implements GenerationProvider {
         height: request.height,
         input,
         seed: model.capabilities.seed ? request.seed : undefined,
-        stream: model.capabilities.partialPreview,
+        stream: model.capabilities.partialPreview && !input,
       });
       if (signal.aborted) throw new DOMException('Generation cancelled.', 'AbortError');
       return new Blob([result.bytes], { type: result.mediaType });
