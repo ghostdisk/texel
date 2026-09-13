@@ -40,7 +40,7 @@ async function boot(): Promise<void> {
   const settingsView = new SettingsView(settings);
   editor.onOpenSettings = () => settingsView.open();
   editor.onCanvasBackgroundSettings = () => settingsView.openCanvasBackground();
-  const commandPalette = new CommandPalette(editor.actions);
+  const commandPalette = new CommandPalette(editor);
   editor.onCommandPalette = () => commandPalette.open();
   new TitleBar(editor.actions);
   new EditorView(editor);

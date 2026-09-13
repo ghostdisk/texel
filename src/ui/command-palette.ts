@@ -1,9 +1,26 @@
 import type { ActionRegistry, CommandAction } from '../actions';
+import type { Editor } from '../editor';
 import { icon } from './icons';
 import type { IconName } from './icons';
 
-interface RankedCommand {
-  command: CommandAction;
+export interface PaletteItem {
+  id: string;
+  label: string;
+  category: string;
+  shortcut: string;
+  enabled: boolean;
+  icon: IconName | null;
+  searchText: string;
+  execute(): void;
+}
+
+export interface PaletteSource {
+  priority: number;
+  items(): PaletteItem[];
+}
+
+interface RankedItem {
+  item: PaletteItem;
   score: number;
   order: number;
 }
@@ -59,6 +76,40 @@ function actionIcon(id: string): IconName | null {
   return null;
 }
 
+class CommandSource implements PaletteSource {
+  readonly priority = 0;
+
+  constructor(private readonly actions: ActionRegistry) {}
+
+  items(): PaletteItem[] {
+    return this.actions.commandItems().map((command: CommandAction) => ({
+      ...command,
+      icon: actionIcon(command.id),
+      searchText: `${command.label} ${command.category} ${command.id}`,
+      execute: () => this.actions.execute(command.id),
+    }));
+  }
+}
+
+class OpenDocumentSource implements PaletteSource {
+  readonly priority = 24;
+
+  constructor(private readonly editor: Editor) {}
+
+  items(): PaletteItem[] {
+    return this.editor.documents.map((document) => ({
+      id: `document.${document.id}`,
+      label: document.name,
+      category: document.dirty ? 'Open documents · Unsaved changes' : 'Open documents',
+      shortcut: '',
+      enabled: true,
+      icon: 'document',
+      searchText: `${document.name} open document tab`,
+      execute: () => this.editor.run(() => this.editor.activateDocument(document)),
+    }));
+  }
+}
+
 function fuzzyScore(needle: string, haystack: string): number | null {
   let position = 0;
   let previous = -2;
@@ -89,10 +140,12 @@ export class CommandPalette {
   private readonly search = document.querySelector<HTMLInputElement>('#command-search')!;
   private readonly results = document.querySelector<HTMLElement>('#command-results')!;
   private readonly empty = document.querySelector<HTMLElement>('#command-empty')!;
-  private commands: CommandAction[] = [];
+  private readonly sources: readonly PaletteSource[];
+  private items: PaletteItem[] = [];
   private active = 0;
 
-  constructor(private readonly actions: ActionRegistry) {
+  constructor(editor: Editor) {
+    this.sources = [new OpenDocumentSource(editor), new CommandSource(editor.actions)];
     this.search.oninput = () => this.filter();
     this.search.onkeydown = (event) => {
       if (event.key === 'ArrowDown' || event.key === 'ArrowUp') {
@@ -124,66 +177,67 @@ export class CommandPalette {
   private filter(): void {
     const query = this.search.value.trim().toLowerCase();
     const tokens = query.split(/\s+/).filter(Boolean);
-    const ranked = this.actions.commandItems().flatMap((command, order): RankedCommand[] => {
-      if (!tokens.length) return [{ command, score: 0, order }];
-      const label = command.label.toLowerCase();
-      const haystack = `${label} ${command.category.toLowerCase()} ${command.id.toLowerCase()}`;
-      let score = label.startsWith(query) ? 80 : label.includes(query) ? 45 : 0;
+    let order = 0;
+    const ranked = this.sources.flatMap((source): RankedItem[] => source.items().flatMap((item): RankedItem[] => {
+      const itemOrder = order++;
+      if (!tokens.length) return [{ item, score: source.priority, order: itemOrder }];
+      const label = item.label.toLowerCase();
+      const haystack = item.searchText.toLowerCase();
+      let score = source.priority + (label.startsWith(query) ? 80 : label.includes(query) ? 45 : 0);
       for (const token of tokens) {
         const tokenScore = fuzzyScore(token, haystack);
         if (tokenScore === null) return [];
         score += tokenScore;
       }
-      return [{ command, score, order }];
-    });
+      return [{ item, score, order: itemOrder }];
+    }));
     ranked.sort((a, b) => b.score - a.score || a.order - b.order);
-    this.commands = ranked.map((entry) => entry.command);
-    this.active = Math.max(0, this.commands.findIndex((command) => command.enabled));
+    this.items = ranked.map((entry) => entry.item);
+    this.active = Math.max(0, this.items.findIndex((item) => item.enabled));
     this.render();
   }
 
   private render(): void {
-    this.empty.hidden = this.commands.length > 0;
-    const rows = this.commands.map((command, index) => {
+    this.empty.hidden = this.items.length > 0;
+    const rows = this.items.map((item, index) => {
       const row = document.createElement('button');
       row.type = 'button';
       row.id = `command-result-${index}`;
       row.className = 'command-result';
       row.setAttribute('role', 'option');
       row.setAttribute('aria-selected', String(index === this.active));
-      row.disabled = !command.enabled;
+      row.disabled = !item.enabled;
       const glyph = document.createElement('span');
       glyph.className = 'command-result-icon';
-      const iconName = actionIcon(command.id);
-      if (iconName) glyph.append(icon(iconName));
+      if (item.icon) glyph.append(icon(item.icon));
       const copy = document.createElement('span');
       copy.className = 'command-result-copy';
       const label = document.createElement('strong');
-      label.textContent = command.label;
+      label.textContent = item.label;
       const category = document.createElement('small');
-      category.textContent = command.category;
+      category.textContent = item.category;
       copy.append(label, category);
       const shortcut = document.createElement('kbd');
-      shortcut.textContent = formatShortcut(command.shortcut);
+      shortcut.textContent = formatShortcut(item.shortcut);
       row.append(glyph, copy, shortcut);
       row.onpointerenter = () => this.select(index, false);
       row.onclick = () => this.execute(index);
       return row;
     });
     this.results.replaceChildren(...rows);
-    this.search.setAttribute('aria-activedescendant', this.commands.length ? `command-result-${this.active}` : '');
+    this.search.setAttribute('aria-activedescendant', this.items.length ? `command-result-${this.active}` : '');
   }
 
   private move(offset: number): void {
-    if (!this.commands.length) return;
+    if (!this.items.length) return;
     let index = this.active;
-    do index = (index + offset + this.commands.length) % this.commands.length;
-    while (!this.commands[index].enabled && index !== this.active);
+    do index = (index + offset + this.items.length) % this.items.length;
+    while (!this.items[index].enabled && index !== this.active);
     this.select(index, true);
   }
 
   private select(index: number, scroll: boolean): void {
-    if (!this.commands[index]?.enabled) return;
+    if (!this.items[index]?.enabled) return;
     this.active = index;
     const rows = [...this.results.querySelectorAll<HTMLElement>('.command-result')];
     rows.forEach((row, rowIndex) => row.setAttribute('aria-selected', String(rowIndex === index)));
@@ -192,9 +246,9 @@ export class CommandPalette {
   }
 
   private execute(index: number): void {
-    const command = this.commands[index];
-    if (!command?.enabled) return;
+    const item = this.items[index];
+    if (!item?.enabled) return;
     this.dialog.close();
-    this.actions.execute(command.id);
+    item.execute();
   }
 }
