@@ -50,6 +50,7 @@ export class EditorView {
   private readonly historyPanel: HistoryPanel;
   private draggedFilterId: string | null = null;
   private draggedFilterLayer: Layer | null = null;
+  private documentSignature = '';
 
   constructor(private readonly editor: Editor) {
     this.panels = new TabGroup(element('document-panels'), [
@@ -58,6 +59,7 @@ export class EditorView {
     ], 'Document panels');
     this.historyPanel = new HistoryPanel(editor, element('history-list'));
     editor.onChange = () => this.render();
+    editor.onDocumentsChange = () => this.renderDocumentTabs();
     editor.onPreviews = () => this.renderPreviews();
     editor.onColorChange = (primary, secondary) => {
       input('brush-color').value = primary;
@@ -153,12 +155,11 @@ export class EditorView {
   }
 
   render(): void {
+    this.renderDocumentTabs();
     this.renderTree();
     this.historyPanel.render();
     const { editor } = this;
     const layer = editor.image.selected;
-    element('document-title').textContent = editor.files.name + (editor.files.dirty ? ' *' : '');
-    element('document-title').title = editor.files.name;
     element('frame-label').textContent = `${editor.image.width} × ${editor.image.height} px`;
     element('layer-kind').textContent = editor.image.selectedLayers.length > 1 ? editor.image.selectedLayers.length + ' LAYERS' : layer.isSelection ? 'SELECTION' : layer instanceof ImageLayer && layer.channels === 1 ? 'MASK' : layer === editor.image.root ? 'ROOT' : layer.kind.toUpperCase();
     element('layer-size').textContent = editor.image.selectedLayers.length > 1 ? '' : layer instanceof ImageLayer ? `${layer.width} × ${layer.height} native pixels` : `${(layer as GroupLayer).children.length} children · isolated group`;
@@ -206,6 +207,54 @@ export class EditorView {
     element('remove-selection').setAttribute('aria-busy', String(editor.generation.removing));
     element('image-operation-status').textContent = editor.generation.removing ? editor.generation.progress.phase : '';
     editor.generation.onChange?.();
+  }
+
+  private renderDocumentTabs(): void {
+    const signature = JSON.stringify(this.editor.documents.map((document) => [
+      document.id, document.name, document.dirty, document === this.editor.document,
+    ]));
+    if (signature === this.documentSignature) return;
+    this.documentSignature = signature;
+    const tabs = element('document-tabs');
+    const nodes = this.editor.documents.map((session) => {
+      const tab = document.createElement('div');
+      tab.className = 'document-tab' + (session === this.editor.document ? ' active' : '');
+      const select = document.createElement('button');
+      select.className = 'document-tab-select';
+      select.type = 'button';
+      select.title = session.name;
+      select.setAttribute('role', 'tab');
+      select.setAttribute('aria-selected', String(session === this.editor.document));
+      select.tabIndex = session === this.editor.document ? 0 : -1;
+      const image = document.createElement('img');
+      image.src = '/assets/branding/txl.svg';
+      image.alt = '';
+      const label = document.createElement('span');
+      label.className = 'document-tab-label';
+      label.textContent = session.name + (session.dirty ? ' *' : '');
+      select.append(image, label);
+      select.onclick = () => this.editor.run(() => this.editor.activateDocument(session));
+      select.onkeydown = (event) => {
+        if (event.key !== 'ArrowLeft' && event.key !== 'ArrowRight') return;
+        event.preventDefault();
+        this.editor.run(() => this.editor.activateRelativeDocument(event.key === 'ArrowLeft' ? -1 : 1));
+        queueMicrotask(() => element('document-tabs').querySelector<HTMLButtonElement>('[role="tab"][aria-selected="true"]')?.focus());
+      };
+      tab.onauxclick = (event) => {
+        if (event.button === 1) { event.preventDefault(); void this.editor.files.closeDocument(session).catch(this.editor.report); }
+      };
+      const close = document.createElement('button');
+      close.className = 'document-tab-close';
+      close.type = 'button';
+      close.textContent = '×';
+      close.title = `Close ${session.name}`;
+      close.setAttribute('aria-label', `Close ${session.name}`);
+      close.onclick = (event) => { event.stopPropagation(); void this.editor.files.closeDocument(session).catch(this.editor.report); };
+      tab.append(select, close);
+      return tab;
+    });
+    tabs.replaceChildren(...nodes);
+    tabs.querySelector('.document-tab.active')?.scrollIntoView({ block: 'nearest', inline: 'nearest' });
   }
 
   private renderTree(force = false): void {

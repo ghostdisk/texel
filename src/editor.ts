@@ -283,6 +283,12 @@ export class Editor {
     this.onDocumentsChange?.();
   }
 
+  activateRelativeDocument(offset: number): void {
+    if (this.documents.length < 2) return;
+    const index = this.documents.indexOf(this.currentDocument);
+    this.activateDocument(this.documents[(index + offset + this.documents.length) % this.documents.length]);
+  }
+
   createDocument(width: number, height: number): EditorDocument {
     const document = this.createDocumentSession();
     document.image.reset(width, height);
@@ -1239,7 +1245,16 @@ export class Editor {
       },
     });
     register({
+      id: 'view.next-document', label: 'Next document', menu: 'View',
+      enabled: () => this.documents.length > 1, execute: () => this.activateRelativeDocument(1),
+    });
+    register({
+      id: 'view.previous-document', label: 'Previous document', menu: 'View',
+      enabled: () => this.documents.length > 1, execute: () => this.activateRelativeDocument(-1),
+    });
+    register({
       id: 'view.pan', label: () => this.panMode ? 'Exit pan mode' : 'Pan mode', menu: 'View',
+      separatorBefore: true,
       execute: () => { this.panMode = !this.panMode; this.updatePanCursor(); this.changed(); },
       hold: {
         press: () => this.setPanHeld(true),
@@ -1314,6 +1329,8 @@ export class Editor {
     this.actions.bind('Ctrl+S', 'file.save');
     this.actions.bind('Ctrl+Shift+S', 'file.save-as');
     this.actions.bind('Ctrl+W', 'file.close');
+    this.actions.bind('Ctrl+Tab', 'view.next-document');
+    this.actions.bind('Ctrl+Shift+Tab', 'view.previous-document');
     this.actions.bind('Ctrl+Shift+O', 'file.import');
   }
 
