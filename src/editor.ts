@@ -1192,7 +1192,7 @@ export class Editor {
     register({ id: 'layer.new-text', label: 'New text layer', menu: 'Layer', execute: () => (this.tools.get('text') as TextTool).createAt() });
     register({ id: 'layer.new-sized', label: 'New sized layer…', menu: 'Layer', execute: () => this.onNewSizedLayer?.() });
     register({ id: 'mask.new', label: 'New mask layer', menu: 'Layer', execute: () => this.image.createMask() });
-    register({ id: 'group.new', label: 'New group', menu: 'Layer', execute: () => this.image.add(new GroupLayer('Group')) });
+    register({ id: 'group.new', label: 'New group', menu: 'Layer', execute: () => { this.image.add(new GroupLayer('Group')); } });
     register({ id: 'history.undo', label: () => `Undo${this.history.canUndo ? ` ${this.history.undoLabel}` : ''}`, menu: 'Edit', enabled: () => this.history.canUndo, execute: () => this.history.undo() });
     register({ id: 'history.redo', label: () => `Redo${this.history.canRedo ? ` ${this.history.redoLabel}` : ''}`, menu: 'Edit', enabled: () => this.history.canRedo, execute: () => this.history.redo() });
     register({

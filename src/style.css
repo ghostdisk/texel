@@ -1,4 +1,5 @@
 :root {
+  --generative-gradient: linear-gradient(45deg, #6cdcff, #9b79ff 42%, #ec8acf 74%, #ffd59d);
   font-family: "Segoe UI Variable Text", "Segoe UI", Inter, sans-serif;
   font-size: 12px;
   font-synthesis: none;
@@ -422,6 +423,10 @@ dialog p { font-size: 11px; color: var(--text-muted); line-height: 1.6; margin-b
 .layer-row.selection-layer { border-style: dashed; border-color: var(--info); background: color-mix(in srgb, var(--info) 12%, var(--panel-alt-bg)); }
 .layer-row.selection-layer.selected { border-color: var(--info); background: color-mix(in srgb, var(--info) 20%, var(--panel-alt-bg)); }
 .selection-layer .layer-title { color: var(--info); }
+.layer-row.generation-layer { border-color: transparent; background: linear-gradient(var(--panel-alt-bg), var(--panel-alt-bg)) padding-box, var(--generative-gradient) border-box; }
+.layer-row.generation-layer.selected { background: var(--selection-gradient) padding-box, var(--generative-gradient) border-box; }
+.generation-badge { display: flex; align-items: center; gap: 2px; }
+.generation-badge .icon { width: 16px; height: 16px; }
 .mask-layer .layer-preview, .selection-layer .layer-preview { border-color: var(--text-faint); }
 .layer-row.layer-drag-source { opacity: .45; }
 .layer-row.drop-parent { box-shadow: inset 3px 0 var(--accent); }

@@ -242,10 +242,10 @@ export class GeneratorWindow {
     include.className = 'generator-toggle';
     const includeToggle = document.createElement('input');
     includeToggle.type = 'checkbox';
-    includeToggle.checked = generator.includeTransient;
-    includeToggle.onchange = () => { generator.includeTransient = includeToggle.checked; this.editor.changed(); };
-    include.title = 'Include the current transient result when composing the color input sent to the model';
-    include.append(includeToggle, document.createTextNode('Include transient layer'));
+    includeToggle.checked = generator.includeResult;
+    includeToggle.onchange = () => { generator.includeResult = includeToggle.checked; this.editor.changed(); };
+    include.title = 'Include the current result layer when composing the color input sent to the model';
+    include.append(includeToggle, document.createTextNode('Include result layer'));
     const heading = document.createElement('h3');
     heading.textContent = 'Model inputs';
     const previews = document.createElement('div');
@@ -273,6 +273,7 @@ export class GeneratorWindow {
     this.generate.replaceChildren(icon('generate'), document.createTextNode('Generate'));
     this.generate.onclick = () => void this.manager.generate();
     this.apply.textContent = 'Apply';
+    this.apply.title = 'Keep this result and generate into a new layer next time';
     this.apply.onclick = () => this.manager.apply();
     this.cancel.textContent = 'Cancel';
     this.cancel.onclick = () => this.manager.cancel();
@@ -298,7 +299,8 @@ export class GeneratorWindow {
       generator.model,
       generator.scale,
       generator.feather,
-      generator.includeTransient,
+      generator.includeResult,
+      generator.resultLayer?.id,
       generator.lens.transform,
       selection?.id,
       selection?.revision,

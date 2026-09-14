@@ -366,20 +366,62 @@ export class ImageDocument implements UndoTarget {
     } catch (error) { this.compositor.release(layer); throw error; }
   }
 
-  add(layer: Layer, parent = this.destination(), index = parent.children.length, selectAdded = true, label = layer instanceof GroupLayer ? 'Add group' : 'Add layer'): void {
+  add(layer: Layer, parent = this.destination(), index = parent.children.length, selectAdded = true, label = layer instanceof GroupLayer ? 'Add group' : 'Add layer'): UndoOperation {
     const snapshots = new Map<string, Surface>();
     try {
       const serialized = this.serializeLayer(layer, snapshots);
       const previousSelection = this.selectionState();
       parent.add(layer, index);
       if (selectAdded) this.selected = layer;
-      this.history.push(new UndoOperation(
+      const operation = new UndoOperation(
         label,
         { type: 'image', targetId: this.id, action: 'remove-layer', data: { layerId: layer.id, selection: previousSelection } },
         { type: 'image', targetId: this.id, action: 'add-layer', data: { parentId: parent.id, index, layer: serialized, selection: this.selectionState() } },
         snapshots,
-      ));
+      );
+      this.history.push(operation);
+      return operation;
     } catch (error) { for (const snapshot of snapshots.values()) snapshot.destroy(); throw error; }
+  }
+
+  /** Replace native pixels and placement, optionally continuing the latest progressive edit. */
+  updatePixels(layer: ImageLayer, source: Surface, transform: Matrix, label: string, previous?: UndoOperation): UndoOperation {
+    const snapshots = new Map<string, Surface>();
+    try {
+      this.flush();
+      const latest = this.history.isCurrent(previous) ? previous : undefined;
+      const added = latest?.redo.type === 'image' && latest.redo.targetId === this.id && latest.redo.action === 'add-layer' ?
+        latest.redo.data.layer as SerializedLayer : undefined;
+      const extendsAdd = added?.id === layer.id;
+      const extendsUpdate = latest?.redo.type === 'layer' && latest.redo.targetId === layer.id && latest.redo.action === 'reframe';
+      const after = this.captureSurface(source, snapshots);
+      let operation: UndoOperation;
+      if (latest && added && extendsAdd) {
+        const updated: SerializedLayer = {
+          ...added, width: source.width, height: source.height, snapshotId: after,
+          properties: { ...added.properties, transform: [...transform] },
+        };
+        operation = new UndoOperation(label, latest.undo, { ...latest.redo, data: { ...latest.redo.data, layer: updated } }, snapshots);
+      } else {
+        const before = latest && extendsUpdate ?
+          this.captureSurface(latest.snapshot(String(latest.undo.data.snapshotId)), snapshots) : this.capturePixels(layer, snapshots);
+        const beforeTransform = latest && extendsUpdate ? latest.undo.data.transform : [...layer.transform];
+        operation = new UndoOperation(
+          label,
+          { type: 'layer', targetId: layer.id, action: 'reframe', data: { snapshotId: before, transform: beforeTransform } },
+          { type: 'layer', targetId: layer.id, action: 'reframe', data: { snapshotId: after, transform: [...transform] } },
+          snapshots,
+        );
+      }
+      layer.replaceSource(source);
+      layer.setTransform(transform);
+      this.history.push(operation, extendsAdd || extendsUpdate ? latest : undefined);
+      return operation;
+    } catch (error) {
+      if (layer.source !== source) source.destroy();
+      for (const snapshot of snapshots.values()) snapshot.destroy();
+      throw error;
+    }
   }
 
   deleteSelected(layer?: Layer): void { this.commands.delete(layer ? [layer] : this.selectedRoots); }

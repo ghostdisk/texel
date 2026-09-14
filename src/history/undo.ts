@@ -95,8 +95,18 @@ export class UndoStack {
   get undoLabel(): string { return this.entries[this.position - 1]?.label ?? ''; }
   get redoLabel(): string { return this.entries[this.position]?.label ?? ''; }
 
+  isCurrent(operation: UndoOperation | undefined): boolean {
+    return !!operation && this.position === this.entries.length && this.entries[this.position - 1] === operation;
+  }
+
   /** Record an edit already applied by a completed gesture or command. */
-  push(operation: UndoOperation): void {
+  push(operation: UndoOperation, replace?: UndoOperation): void {
+    // A progressive edit can replace its latest entry, never an intervening user edit.
+    if (this.isCurrent(replace)) {
+      this.entries.pop()!.dispose();
+      this.states.pop();
+      this.position--;
+    }
     for (const entry of this.entries.splice(this.position)) entry.dispose();
     this.states.splice(this.position + 1);
     this.states.push(crypto.randomUUID());

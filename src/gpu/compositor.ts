@@ -50,6 +50,7 @@ export class Compositor {
   private index = new Map<string, Layer>();
   private evaluated = new Map<Layer, Evaluation>();
   private visiting = new Set<Layer>();
+  private readonly excludedLayers = new Set<Layer>();
   private readonly operations = new Map<ImageLayer, RenderOperation[]>();
   private stats: RenderStats = { updatedLayers: 0, cachedLayers: 0, encodingMs: 0 };
 
@@ -61,28 +62,13 @@ export class Compositor {
     this.blender = new BlendCompositor(gpu);
   }
 
-  private generationPreview: {
-    root: GroupLayer;
-    layer: ImageLayer;
-    index: number;
-  } | null = null;
-
-  setGenerationPreview(root: GroupLayer, layer: ImageLayer | null, index = root.children.length): void {
-    const previous = this.generationPreview;
-    this.generationPreview = layer ? { root, layer, index } : null;
-    previous?.root.invalidate();
-    if (previous?.root !== root) root.invalidate();
-  }
-
-  captureGenerationInput(root: GroupLayer, target: GenerationFrame, selection: ImageLayer | null, includePreview = false): GenerationCapture {
+  captureGenerationInput(root: GroupLayer, target: GenerationFrame, selection: ImageLayer | null, excludedLayers: readonly Layer[] = []): GenerationCapture {
     const frame = this.gpu.beginFrame();
     const bounds = { x: 0, y: 0, width: target.width, height: target.height };
     const input = createSurface('Generation input', bounds);
     let mask: Surface | null = null;
-    const preview = this.generationPreview;
-    if (!includePreview && preview) this.generationPreview = null;
     try {
-      this.prepare(root);
+      this.prepare(root, excludedLayers);
       this.encodePaint(frame);
       const worldToPixels = inverse(target.transform);
       const density = maxScale(worldToPixels);
@@ -105,17 +91,13 @@ export class Compositor {
       mask?.destroy();
       frame.release();
       throw error;
-    } finally {
-      if (!includePreview && preview) this.generationPreview = preview;
-    }
+    } finally { this.excludedLayers.clear(); }
   }
 
-  /** Render the committed document into its canonical canvas, without presentation-only overlays or previews. */
+  /** Render the document into its canonical canvas, without presentation-only overlays. */
   captureDocument(root: GroupLayer, bounds: Rect): Surface {
     const frame = this.gpu.beginFrame();
     const result = createSurface('Document export', bounds);
-    const preview = this.generationPreview;
-    this.generationPreview = null;
     try {
       this.prepare(root);
       this.encodePaint(frame);
@@ -131,7 +113,7 @@ export class Compositor {
       for (const cache of this.caches.values()) cache.revision = -1;
       frame.release();
       throw error;
-    } finally { this.generationPreview = preview; }
+    }
   }
 
   /** Bake selected branches in their common parent's coordinates, retaining partial ancestor effects. */
@@ -228,9 +210,16 @@ export class Compositor {
     }
   }
 
-  private prepare(layer: Layer): void {
+  private prepare(layer: Layer, excludedLayers: readonly Layer[] = []): void {
     validateLayerDependencies(layer);
     this.index = layerIndex(layer);
+    this.excludedLayers.clear();
+    const exclude = (item: Layer) => {
+      this.excludedLayers.add(item);
+      this.index.delete(item.id);
+      if (item instanceof GroupLayer) item.children.forEach(exclude);
+    };
+    excludedLayers.forEach(exclude);
     this.evaluated.clear();
     this.visiting.clear();
   }
@@ -319,7 +308,6 @@ export class Compositor {
 
   release(layer: Layer): void {
     if (layer instanceof GroupLayer) for (const child of layer.children) this.release(child);
-    if (layer === this.generationPreview?.layer || layer === this.generationPreview?.root) this.generationPreview = null;
     if (layer instanceof ImageLayer) { this.operations.delete(layer); layer.source.destroy(); }
     const cache = this.caches.get(layer);
     if (cache) for (const surface of cache.surfaces.values()) surface.destroy();
@@ -373,11 +361,8 @@ export class Compositor {
     const children: EvaluatedChild[] = [];
     let childrenChanged = false;
     if (layer instanceof GroupLayer) {
-      const preview = this.generationPreview?.root === layer ? this.generationPreview.layer : null;
-      const previewIndex = this.generationPreview?.root === layer ? this.generationPreview.index : layer.children.length;
-      const childrenToRender = preview ? [...layer.children.slice(0, previewIndex), preview, ...layer.children.slice(previewIndex)] : layer.children;
-      for (const child of childrenToRender) {
-        if (!child.visibleInStack || child.opacity === 0) continue;
+      for (const child of layer.children) {
+        if (!child.visibleInStack || child.opacity === 0 || this.excludedLayers.has(child)) continue;
         const evaluated = this.evaluate(frame, child, world, pixelsPerUnit);
         children.push({ layer: child, surface: evaluated.surface });
         childrenChanged ||= evaluated.changed;

@@ -4,6 +4,7 @@ import { GenerationBlend } from '../gpu/generation-blend';
 import { GenerationMask } from '../gpu/generation-mask';
 import { importImage } from '../gpu/images';
 import type { Surface } from '../gpu/surface';
+import type { UndoOperation } from '../history/undo';
 import { inverse, multiply } from '../model/geometry';
 import type { Matrix } from '../model/geometry';
 import { GroupLayer, ImageLayer } from '../model/layers';
@@ -29,6 +30,7 @@ interface RunningRequest {
   pendingPreview: Blob | null;
   previewReading: boolean;
   finishing: boolean;
+  edit?: UndoOperation;
 }
 
 export abstract class Generator {
@@ -48,7 +50,7 @@ export abstract class Generator {
   feather = 0;
   sendInput = true;
   sendMask = true;
-  includeTransient = false;
+  includeResult = false;
   autoRun = false;
   progress: GenerationProgress = { phase: 'Ready', step: 0, steps: 0 };
   error = '';
@@ -59,9 +61,9 @@ export abstract class Generator {
   protected readonly operation: 'remove' | undefined = undefined;
   protected readonly supportsAutoRun: boolean = false;
   private running: RunningRequest | null = null;
-  private transient: ImageLayer | null = null;
-  private transientParent: GroupLayer | null = null;
-  private transientIndex = 0;
+  private result: ImageLayer | null = null;
+  private resultSource: Surface | null = null;
+  private resultFrame: GenerationFrame | null = null;
   private resolvingModel = '';
   private modelRequest = 0;
   private selectionSignature = '';
@@ -80,15 +82,16 @@ export abstract class Generator {
   }
   get selectedModel(): GenerationModel | undefined { return this.service.registry.model(this.model); }
   get busy(): boolean { return !!this.running; }
-  get hasResult(): boolean { return !!this.transient; }
-  get canApply(): boolean { return !this.busy && !!this.transient; }
+  get hasResult(): boolean { return !!this.result; }
+  get resultLayer(): ImageLayer | null { return this.result; }
+  get canApply(): boolean { return !this.busy && !!this.result; }
   get canGenerate(): boolean {
     return !this.busy && !this.resolvingModel && !!this.model && (!this.requiresPrompt || !!this.prompt.trim()) &&
       (!this.requiresSelection || !!this.editor.image.selectionMask) && !this.sizeError && !this.requirementError;
   }
   get frame(): GenerationFrame { return this.lens.frame(this.scale, this.selectedModel?.capabilities.dimensionMultiple); }
   get resultSize(): Pick<GenerationFrame, 'width' | 'height'> | null {
-    const source = this.transient?.source;
+    const source = this.result?.source;
     return source ? { width: source.width, height: source.height } : null;
   }
   get visual(): GenerationVisual | null {
@@ -137,13 +140,16 @@ export abstract class Generator {
   close(): void {
     clearTimeout(this.autoTimer);
     this.cancel();
-    if (this.transient) this.apply(true);
+    this.releaseResult();
     this.onChange = undefined;
   }
 
   validate(): void {
     if (this.running && (this.running.documentId !== this.editor.image.id || this.running.root !== this.editor.image.root)) this.cancel();
-    if (this.transientParent && !this.editor.image.allLayers().includes(this.transientParent)) this.discardTransient();
+    if (this.result && (!this.editor.image.allLayers().includes(this.result) || this.result.source !== this.resultSource)) {
+      this.releaseResult();
+      this.cancel();
+    }
     const signature = this.currentSelectionSignature();
     if (signature === this.selectionSignature) return;
     this.selectionSignature = signature;
@@ -215,7 +221,8 @@ export abstract class Generator {
     if (!model || this.busy) return { input: null, mask: null };
     const frame = this.frame;
     const selection = model.capabilities.mask || this.requiresSelection ? this.editor.image.selectionMask : null;
-    const capture = this.editor.compositor.captureGenerationInput(this.editor.image.root, frame, selection, this.includeTransient);
+    const excluded = !this.includeResult && this.result ? [this.result] : [];
+    const capture = this.editor.compositor.captureGenerationInput(this.editor.image.root, frame, selection, excluded);
     let mask = capture.mask;
     if (mask && this.feather > 0) {
       const feathered = this.masks.create(mask, frame, this.feather, capture.input);
@@ -260,7 +267,8 @@ export abstract class Generator {
     this.notify();
     try {
       const selection = model.capabilities.mask ? this.editor.image.selectionMask : null;
-      const capture = this.editor.compositor.captureGenerationInput(run.root, run.frame, selection, this.includeTransient);
+      const excluded = !this.includeResult && this.result ? [this.result] : [];
+      const capture = this.editor.compositor.captureGenerationInput(run.root, run.frame, selection, excluded);
       run.input = capture.input;
       run.mask = capture.mask;
       const sourceInput = capture.input;
@@ -343,21 +351,9 @@ export abstract class Generator {
     this.notify();
   }
 
-  apply(force = false): void {
-    const layer = this.transient;
-    if (!layer || this.busy && !force) return;
-    const parent = this.transientParent && this.editor.image.allLayers().includes(this.transientParent) ? this.transientParent : this.editor.image.root;
-    const index = parent === this.transientParent ? Math.min(this.transientIndex, parent.children.length) : parent.children.length;
-    this.editor.compositor.setGenerationPreview(parent, null);
-    this.transient = null;
-    this.transientParent = null;
-    try {
-      this.editor.image.add(layer, parent, index, true, this.label);
-    } catch (error) {
-      if (!layer.parent) this.editor.compositor.release(layer);
-      throw error;
-    }
-    this.clearResultPreview();
+  apply(): void {
+    if (!this.canApply) return;
+    this.releaseResult();
     this.notify();
   }
 
@@ -380,7 +376,7 @@ export abstract class Generator {
     const imported = await importImage(this.editor.gpu, this.editor.compositor.quads, this.resultName, blob);
     try {
       if (!this.valid(run)) throw new DOMException('Generation cancelled.', 'AbortError');
-      this.installTransient(imported.source, run);
+      this.installPixels(imported.source, run);
       this.setResultPreview(blob);
     } finally { imported.source.destroy(); }
   }
@@ -395,7 +391,7 @@ export abstract class Generator {
         const imported = await importImage(this.editor.gpu, this.editor.compositor.quads, this.resultName + ' preview', blob);
         try {
           if (!this.valid(run) || run.finishing) continue;
-          this.installTransient(imported.source, run);
+          this.installPixels(imported.source, run);
         } finally { imported.source.destroy(); }
       }
     } catch (error) {
@@ -403,26 +399,41 @@ export abstract class Generator {
     } finally { run.previewReading = false; }
   }
 
-  private installTransient(generated: Surface, run: RunningRequest): void {
+  private installPixels(generated: Surface, run: RunningRequest): void {
+    this.editor.finishGesture();
+    if (!this.valid(run)) throw new DOMException('Generation cancelled.', 'AbortError');
     const frame = generationResultFrame(run.frame, generated.width, generated.height);
     const output = this.blend.apply(generated, run.mask, multiply(inverse(frame.transform), run.frame.transform));
-    if (!this.transientParent) {
-      const target = this.target();
-      this.transientParent = target.parent;
-      this.transientIndex = target.index;
+    const layer = this.result;
+    const previousFrame = this.resultFrame;
+    this.resultSource = output;
+    this.resultFrame = frame;
+    if (layer && previousFrame) {
+      // Change the native pixel grid without resetting user placement, including moves between groups.
+      const transform = multiply(layer.transform, multiply(inverse(previousFrame.transform), frame.transform));
+      try { run.edit = this.editor.image.updatePixels(layer, output, transform, this.label, run.edit); }
+      catch (error) { this.releaseResult(); throw error; }
+    } else {
+      const { parent, index } = this.target();
+      const created = new ImageLayer(this.resultName, output);
+      this.result = created;
+      try {
+        created.setTransform(multiply(inverse(parent.worldTransform()), frame.transform));
+        run.edit = this.editor.image.add(created, parent, index, true, this.label);
+      } catch (error) {
+        if (!created.parent) this.editor.compositor.release(created);
+        this.releaseResult();
+        throw error;
+      }
     }
-    if (this.transient) this.transient.replaceSource(output);
-    else this.transient = new ImageLayer(this.resultName, output);
-    this.transient.setTransform(multiply(inverse(this.transientParent.worldTransform()), frame.transform));
-    this.editor.compositor.setGenerationPreview(this.transientParent, this.transient, this.transientIndex);
-    this.editor.requestRender();
+    this.notify();
   }
 
-  private discardTransient(): void {
-    if (this.transient) this.editor.compositor.release(this.transient);
-    if (this.transientParent) this.editor.compositor.setGenerationPreview(this.transientParent, null);
-    this.transient = null;
-    this.transientParent = null;
+  private releaseResult(): void {
+    // The document owns the layer and its pixels; Apply/Close only ends generator ownership.
+    this.result = null;
+    this.resultSource = null;
+    this.resultFrame = null;
     this.clearResultPreview();
   }
 

@@ -307,8 +307,9 @@ export class EditorView {
 
   private renderTree(force = false): void {
     const { image } = this.editor;
+    const generatedLayer = this.editor.generators.active?.resultLayer;
     const layers = image.allLayers().filter((layer) => !layer.isSelection || layer === image.selectionMask || this.editor.selectionMode || image.isSelected(layer));
-    const signature = JSON.stringify(layers.map((layer) => [layer.id, layer.name, layer.visible, layer.parent?.id, layer.filters.length, layer.isSelection]));
+    const signature = JSON.stringify(layers.map((layer) => [layer.id, layer.name, layer.visible, layer.parent?.id, layer.filters.length, layer.isSelection, layer === generatedLayer]));
     if (force || signature !== this.treeSignature || layers.some((layer, index) => layer !== this.treeLayers[index])) {
       this.endLayerDrag();
       this.treeSignature = signature;
@@ -319,8 +320,9 @@ export class EditorView {
       this.groupDropEnds.clear();
       const visit = (layer: Layer, depth: number) => {
         if (!layers.includes(layer)) return;
+        const isGenerated = layer === generatedLayer;
         const row = document.createElement('div');
-        row.className = `layer-row${layer.isSelection ? ' selection-layer' : layer instanceof ImageLayer && layer.channels === 1 ? ' mask-layer' : ''}`;
+        row.className = `layer-row${isGenerated ? ' generation-layer' : layer.isSelection ? ' selection-layer' : layer instanceof ImageLayer && layer.channels === 1 ? ' mask-layer' : ''}`;
         row.style.paddingLeft = `${3 + depth * 12}px`;
         row.style.setProperty('--layer-indent', row.style.paddingLeft);
         row.draggable = false;
@@ -364,6 +366,13 @@ export class EditorView {
           [...this.rows.keys()].map((id) => image.find(id)));
         choose.ondblclick = (event) => { event.preventDefault(); this.rename(layer); };
         row.append(visibility, choose);
+        if (isGenerated) {
+          const badge = document.createElement('span');
+          badge.className = 'layer-badge generation-badge';
+          badge.title = 'Current generator output';
+          badge.append(icon('generate'), document.createTextNode('AI'));
+          row.append(badge);
+        }
         if (layer instanceof ImageLayer && layer.channels === 1) {
           const badge = document.createElement('span');
           badge.className = 'layer-badge mask-badge';
