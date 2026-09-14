@@ -204,7 +204,7 @@ export class ActionRegistry {
 
   attach(): () => void {
     const keydown = (event: KeyboardEvent) => {
-      if (event.isComposing || isEditingText(event.target) || document.querySelector('dialog[open], [popover]:popover-open') ||
+      if (event.defaultPrevented || event.isComposing || isEditingText(event.target) || document.querySelector('dialog[open], [popover]:popover-open') ||
           document.getElementById('app')?.inert) return;
       const key = event.code.replace(/^Key/, '').replace(/^Digit/, '');
       const chord = event.code.startsWith('Alt') ? 'alt' : [event.ctrlKey || event.metaKey ? 'ctrl' : '', event.altKey ? 'alt' : '', event.shiftKey ? 'shift' : '', key.toLowerCase()].filter(Boolean).join('+');
@@ -230,12 +230,12 @@ export class ActionRegistry {
       if (![...this.held.values()].includes(action)) action.hold?.release();
     };
     const releaseAll = () => { for (const action of new Set(this.held.values())) action.hold?.release(); this.held.clear(); };
-    window.addEventListener('keydown', keydown);
+    document.addEventListener('keydown', keydown);
     window.addEventListener('keyup', keyup);
     window.addEventListener('blur', releaseAll);
     return () => {
       releaseAll();
-      window.removeEventListener('keydown', keydown);
+      document.removeEventListener('keydown', keydown);
       window.removeEventListener('keyup', keyup);
       window.removeEventListener('blur', releaseAll);
     };

@@ -94,6 +94,6 @@ export abstract class DrawingTool extends Tool {
     const layer = this.editor.image.find(String(payload.data.layerId));
     if (!(layer instanceof ImageLayer)) throw new Error('Drawing undo requires a pixel layer.');
     layer.restorePixels(this.editor.gpu, operation.snapshot(String(payload.data.snapshotId)));
-    this.editor.image.selected = layer;
+    if (!layer.isSelection) this.editor.image.selected = layer;
   }
 }

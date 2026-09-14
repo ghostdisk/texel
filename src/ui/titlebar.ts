@@ -53,7 +53,7 @@ export class TitleBar {
       this.close();
     });
     window.addEventListener('keydown', (event) => {
-      if (document.querySelector('dialog[open], [popover]:popover-open')) return;
+      if (event.defaultPrevented || document.querySelector('dialog[open], [popover]:popover-open')) return;
       if (event.key === 'Escape' && this.activeButton) { event.preventDefault(); this.close(); return; }
       if (event.key === 'F10' && !event.shiftKey) { event.preventDefault(); this.buttons[0]?.focus(); }
       const target = event.altKey && !event.ctrlKey && !event.metaKey ?

@@ -1,4 +1,5 @@
 struct Params {
+  clip: vec4f,
   singleChannel: f32,
 }
 @group(0) @binding(0) var source: texture_2d<f32>;
@@ -9,7 +10,8 @@ var<workgroup> tileOccupied: atomic<u32>;
 @compute @workgroup_size(16, 16) fn main(@builtin(global_invocation_id) id: vec3u, @builtin(local_invocation_index) local: u32) {
   if (local == 0) { atomicStore(&tileOccupied, 0); }
   workgroupBarrier();
-  if (all(id.xy < textureDimensions(source))) {
+  let position = vec2f(id.xy) + 0.5;
+  if (all(id.xy < textureDimensions(source)) && all(position >= params.clip.xy) && all(position < params.clip.zw)) {
     let pixel = textureLoad(source, id.xy, 0);
     if (select(pixel.a, pixel.r, params.singleChannel > 0.5) > 0.0) { atomicOr(&tileOccupied, 1); }
   }

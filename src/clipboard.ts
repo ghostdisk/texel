@@ -48,7 +48,7 @@ export class EditorClipboard {
       const target = this.editor.selectionPixelTarget;
       if (!target?.pixelEditable) return;
       await this.copyPixels();
-      this.editor.clearSelectedPixels(target);
+      this.editor.image.commands.cutPixels(target);
     } else {
       if (!this.editor.image.selectedRoots.length) return;
       await this.copyLayers();
@@ -73,8 +73,8 @@ export class EditorClipboard {
       if (transform) layer.setTransform(multiply(inverse(parent.worldTransform()), transform));
       else layer.setTransform(multiply(inverse(parent.worldTransform()), [1, 0, 0, 1,
         (this.editor.image.width - layer.width) / 2, (this.editor.image.height - layer.height) / 2]));
-      this.editor.image.add(layer, parent);
-    } catch (error) { if (!layer.parent) this.editor.compositor.release(layer); throw error; }
+      this.editor.image.commands.pastePixels(layer, parent);
+    } finally { this.editor.compositor.release(layer); }
   }
 
   private async copyLayers(): Promise<void> {
@@ -114,16 +114,19 @@ export class EditorClipboard {
     } finally { extracted.surface.destroy(); }
   }
 
-  private async extract(layer: ImageLayer): Promise<{ surface: Surface; transform: Matrix }> {
+  private async extract(layer: ImageLayer): Promise<{
+    surface: Surface;
+    transform: Matrix;
+  }> {
     const selection = this.editor.captureSelection(layer);
     if (!selection) throw new Error('There is no active selection to copy.');
-    const masked = createSurface(this.editor.gpu.device, 'Clipboard selection', layer.source.bounds);
+    const masked = createSurface('Clipboard selection', layer.source.bounds, layer.source.scale);
     const frame = this.editor.gpu.beginFrame();
     try {
       this.editor.layerMasks.encode(frame, layer.source, masked, selection);
       frame.submit();
       const bounds = await this.editor.layerReframer.contentBounds(masked);
-      if (!bounds) throw new Error('There are no pixels in the selected area.');
+      if (!bounds) throw new Error('Selection is empty.');
       const surface = this.editor.layerReframer.resize(masked, bounds);
       return { surface, transform: multiply(layer.worldTransform(), [1, 0, 0, 1, bounds.x, bounds.y]) };
     } finally {

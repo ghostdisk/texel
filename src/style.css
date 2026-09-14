@@ -373,7 +373,21 @@ input[type="range"]::-webkit-slider-thumb { appearance: none; width: 11px; heigh
 .has-error { border-color: var(--danger); color: var(--danger); }
 button.primary { background: var(--primary-button-bg); color: var(--primary-button-text); border-color: var(--primary-button-bg); }
 button.primary:hover:not(:disabled) { background: var(--primary-button-hover-bg); border-color: var(--primary-button-hover-bg); color: var(--primary-button-text); }
-#error { position: fixed; z-index: 20; bottom: 38px; left: 66px; max-width: min(660px, calc(100vw - 90px)); padding: 11px 14px; background: var(--danger-surface); color: var(--danger); border: 1px solid var(--danger); border-radius: 5px; box-shadow: 0 6px 20px var(--shadow); }
+#error { position: fixed; z-index: 2000; top: 50%; left: 50%; transform: translate(-50%, -50%); width: max-content; max-width: min(660px, calc(100vw - 40px)); display: flex; flex-direction: column; align-items: center; gap: 10px; pointer-events: none; }
+.editor-message { max-width: 100%; padding: 11px 14px; background: var(--danger-surface); color: var(--danger); border: 1px solid var(--danger); border-radius: 5px; box-shadow: 0 6px 20px var(--shadow); text-align: center; overflow-wrap: anywhere; animation: editor-message-float 4.5s linear both; }
+@keyframes editor-message-float {
+  0% { opacity: 0; transform: translateY(0); }
+  8% { opacity: 1; }
+  60% { opacity: 1; }
+  100% { opacity: 0; transform: translateY(-60px); }
+}
+@keyframes editor-message-fade {
+  0%, 100% { opacity: 0; }
+  8%, 60% { opacity: 1; }
+}
+@media (prefers-reduced-motion: reduce) {
+  .editor-message { animation-name: editor-message-fade; }
+}
 dialog { width: 360px; border: 1px solid var(--border-strong); border-radius: 7px; padding: 20px; background: var(--panel-gradient); color: var(--text); box-shadow: 0 20px 80px var(--shadow); }
 dialog::backdrop { background: color-mix(in srgb, var(--canvas-surround) 70%, transparent); }
 dialog h2 { font-size: 17px; margin-bottom: 10px; }

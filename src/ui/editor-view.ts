@@ -35,6 +35,7 @@ type LayerDrop =
 
 export class EditorView {
   private treeSignature = '';
+  private treeLayers: Layer[] = [];
   private rows = new Map<string, HTMLElement>();
   private optionsTool = '';
   private sizedLayerDialog = false;
@@ -306,22 +307,44 @@ export class EditorView {
 
   private renderTree(force = false): void {
     const { image } = this.editor;
-    const layers = image.allLayers().filter((layer) => !layer.isSelection || layer === image.selectionMask);
+    const layers = image.allLayers().filter((layer) => !layer.isSelection || layer === image.selectionMask || this.editor.selectionMode || image.isSelected(layer));
     const signature = JSON.stringify(layers.map((layer) => [layer.id, layer.name, layer.visible, layer.parent?.id, layer.filters.length, layer.isSelection]));
-    if (force || signature !== this.treeSignature) {
+    if (force || signature !== this.treeSignature || layers.some((layer, index) => layer !== this.treeLayers[index])) {
       this.endLayerDrag();
       this.treeSignature = signature;
+      this.treeLayers = layers;
       const tree = element('layer-tree');
       tree.replaceChildren();
       this.rows.clear();
       this.groupDropEnds.clear();
       const visit = (layer: Layer, depth: number) => {
-        if (layer.isSelection && layer !== image.selectionMask) return;
+        if (!layers.includes(layer)) return;
         const row = document.createElement('div');
         row.className = `layer-row${layer.isSelection ? ' selection-layer' : layer instanceof ImageLayer && layer.channels === 1 ? ' mask-layer' : ''}`;
         row.style.paddingLeft = `${3 + depth * 12}px`;
         row.style.setProperty('--layer-indent', row.style.paddingLeft);
         row.draggable = false;
+        row.oncontextmenu = (event) => {
+          event.preventDefault();
+          event.stopPropagation();
+          this.editor.run(async () => {
+            this.editor.finishGesture();
+            if (!image.isSelected(layer)) this.editor.select(layer);
+            const groups = [
+              ['layer.new', 'group.new', 'mask.new'],
+              ['clipboard.cut', 'clipboard.copy', 'clipboard.paste'],
+              ['selection.layer-copy', 'selection.layer-cut', 'selection.promote', 'selection.deselect'],
+              ['layer.duplicate', 'layer.group', 'layer.merge'],
+              ['layer.reframe.normalize', 'layer.reframe.trim', 'layer.reframe.extend'],
+              ['layer.up', 'layer.down'],
+              ['layer.visibility', 'layer.rename', 'layer.delete'],
+            ];
+            const items = groups.flatMap((ids, group) => this.editor.actions.menuItems(ids).map((item, index) => ({
+              ...item, submenu: undefined, separatorBefore: group > 0 && index === 0,
+            })));
+            await window.desktop.openContextMenu(items, event.clientX, event.clientY);
+          });
+        };
         const visibility = document.createElement('button');
         visibility.className = 'visibility';
         visibility.onclick = () => this.editor.run(() => this.editor.toggleLayerVisibility(layer));

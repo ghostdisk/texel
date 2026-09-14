@@ -128,19 +128,26 @@ function startApplication() {
   ipcMain.handle('window:open-context-menu', (event, items, x, y) => {
     const owner = ownerOf(event);
     if (!owner || !Array.isArray(items) || !Number.isFinite(x) || !Number.isFinite(y)) return;
-    const allowed = new Set(['selection.promote', 'selection.layer-copy', 'selection.layer-cut']);
+    const allowed = new Set([
+      'selection.promote', 'selection.layer-copy', 'selection.layer-cut', 'selection.deselect',
+      'layer.new', 'group.new', 'mask.new', 'clipboard.cut', 'clipboard.copy', 'clipboard.paste',
+      'layer.duplicate', 'layer.group', 'layer.merge', 'layer.reframe.normalize', 'layer.reframe.trim', 'layer.reframe.extend',
+      'layer.up', 'layer.down', 'layer.visibility', 'layer.rename', 'layer.delete',
+    ]);
     const dispatch = (id) => { if (!owner.isDestroyed()) owner.webContents.send('action:execute', id); };
-    const template = items.flatMap((item) => {
-      if (!item || !allowed.has(item.id) || typeof item.label !== 'string') return [];
-      return [{
+    const template = [];
+    for (const item of items) {
+      if (!item || !allowed.has(item.id) || typeof item.label !== 'string') continue;
+      if (item.separatorBefore && template.length && template.at(-1).type !== 'separator') template.push({ type: 'separator' });
+      template.push({
         id: item.id,
         label: item.label.slice(0, 128),
         enabled: !!item.enabled,
         accelerator: typeof item.shortcut === 'string' && item.shortcut ? item.shortcut : undefined,
         registerAccelerator: false,
         click: () => dispatch(item.id),
-      }];
-    });
+      });
+    }
     if (!template.length) return;
     const [width, height] = owner.getContentSize();
     const zoom = owner.webContents.getZoomFactor();

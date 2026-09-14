@@ -128,6 +128,10 @@ export class ImageDocument implements UndoTarget {
     this.inactiveSelection = { layer, revision: layer.revision };
   }
 
+  activateSelection(layer: ImageLayer): void {
+    if (this.inactiveSelection?.layer === layer) this.inactiveSelection = null;
+  }
+
   createPixelLayer(width = this.width, height = this.height): void {
     const parent = this.destination();
     const layer = createImageLayer(this.gpu, 'Pixel layer', width, height);
@@ -146,11 +150,11 @@ export class ImageDocument implements UndoTarget {
 
   ensureSelection(fill = false): ImageLayer {
     const existing = this.selectionLayer;
-    this.inactiveSelection = null;
     if (existing) { if (fill) this.fillSelection(existing); return existing; }
     const layer = createImageLayer(this.gpu, 'Selection', this.width, this.height, 1, Number(fill));
     layer.setSelection(true);
     layer.setTransform(inverse(this.root.worldTransform()));
+    if (!fill) this.deactivateEmptySelection(layer);
     this.add(layer, this.root, 0, false);
     return layer;
   }

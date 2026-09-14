@@ -324,7 +324,6 @@ export class TxlFormat {
       !selectedLayerIds.every((id) => ids.has(id)) || !selectedLayerIds.includes(activeLayerId)) return bad('invalid layer selection.');
     if (selectedLayerIds.length > 1 && selectedLayerIds.some((id) => id === root.id || id === selectionId)) return bad('the root or selection mask cannot be part of a multiple layer selection.');
     if (doc.activeSelectionId !== null && doc.activeSelectionId !== selectionId) return bad('invalid active selection mask.');
-    if (doc.activeSelectionId === null && selectionId && selectedLayerIds.includes(selectionId)) return bad('an inactive selection mask cannot be the selected layer.');
     return {
       format: 'texel', schemaVersion: manifest.schemaVersion, buffers,
       document: {

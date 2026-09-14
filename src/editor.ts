@@ -72,6 +72,20 @@ interface PointerGesture {
   travel: number;
 }
 
+interface SelectionContentState {
+  documentId: string;
+  layer: ImageLayer;
+  source: Surface;
+  revision: number;
+  outputRevision: number;
+  rootRevision: number;
+}
+
+interface SelectionTransformTargets {
+  primary: ImageLayer;
+  layers: readonly Layer[];
+}
+
 export class Editor {
   readonly compositor: Compositor;
   readonly layerReframer: LayerReframer;
@@ -127,13 +141,18 @@ export class Editor {
   private context: GPUCanvasContext;
   private lastMenus = '';
   private reframing = false;
-  private selectionCheck = 0;
+  private selectionCheck: Promise<void> | null = null;
+  private checkedSelection: SelectionContentState | null = null;
   private floatingSelection: {
     documentId: string;
-    layerId: string;
-    selectionId: string;
+    layer: ImageLayer;
+    source: Surface;
+    revision: number;
+    selection: ImageLayer;
+    selectionSource: Surface;
+    selectionRevision: number;
   } | null = null;
-  private floatingSelectionPromise: Promise<{ primary: ImageLayer; layers: readonly Layer[] } | null> | null = null;
+  private floatingSelectionPromise: Promise<SelectionTransformTargets | null> | null = null;
   private suppressContextMenu = false;
   private canvasBackground: GPUColorDict = { r: 0.067, g: 0.082, b: 0.118, a: 1 };
 
@@ -257,16 +276,12 @@ export class Editor {
       if (document === this.currentDocument) this.changed();
       else this.onDocumentsChange?.();
     };
-    document.history.onChange = (operation, direction) => {
+    document.history.onChange = () => {
       if (document !== this.currentDocument) { this.onDocumentsChange?.(); return; }
       this.pickGeneration++;
       this.queuePreviews();
       this.changed();
-      const selection = document.image.selectionLayer;
-      const payload = operation && direction ? operation.payload(direction) : null;
-      if (selection && payload && (payload.targetId === selection.id || payload.data.layerId === selection.id)) {
-        void this.checkSelectionEmpty(selection).catch(this.report);
-      }
+      this.checkSelectionEmpty();
     };
     document.viewport.onChange = () => {
       if (document !== this.currentDocument) return;
@@ -294,7 +309,7 @@ export class Editor {
     this.currentDocument = document;
     this.floatingSelection = null;
     this.floatingSelectionPromise = null;
-    this.selectionMode = document.selectionMode && !!document.image.selectionMask;
+    this.selectionMode = document.selectionMode && !!document.image.selectionLayer;
     this.selectionReturnId = document.selectionReturnId;
     this.editedMask = document.editedMaskId ?
       (document.image.allLayers().find((layer) => layer.id === document.editedMaskId && layer instanceof ImageLayer) as ImageLayer | undefined) ?? null : null;
@@ -424,36 +439,61 @@ export class Editor {
     this.finishGesture();
     if (enabled) {
       if (!this.image.selected.isSelection) this.selectionReturnId = this.image.selected.id;
-      const mask = this.image.ensureSelection();
-      this.selectionMode = true;
-      this.image.select(mask);
-    } else {
-      this.selectionMode = false;
-      if (this.image.selected.isSelection) {
-        this.image.selected = this.image.allLayers().find((layer) => layer.id === this.selectionReturnId && !layer.isSelection) ??
-          this.image.allLayers().find((layer) => layer instanceof ImageLayer && !layer.isSelection) ?? this.image.root;
-      }
-      this.changed();
+      this.image.ensureSelection();
     }
-  }
-
-  private async checkSelectionEmpty(selection: ImageLayer): Promise<void> {
-    const check = ++this.selectionCheck;
-    const documentId = this.image.id;
-    const revision = selection.revision;
-    const source = selection.source;
-    this.flushPaint();
-    const empty = await this.readback.isEmpty(this.compositor.resolve(selection, this.rasterDensity));
-    if (!empty || check !== this.selectionCheck || this.image.id !== documentId || this.image.selectionLayer !== selection ||
-      selection.revision !== revision || selection.source !== source || this.interacting) return;
-    this.setSelectionMode(false);
-    this.image.deactivateEmptySelection(selection);
-    if (this.maskEditLayer === selection) this.setMaskEditLayer(null);
+    this.selectionMode = enabled;
+    this.checkSelectionEmpty();
     this.changed();
   }
 
-  private deselect(): void {
-    const selection = this.image.selectionMask;
+  private checkSelectionEmpty(): void {
+    if (this.selectionCheck || this.interacting || this.reframing || this.halted) return;
+    const image = this.image;
+    const selection = image.selectionLayer;
+    if (!selection) { this.checkedSelection = null; this.floatingSelection = null; return; }
+    const checked = this.checkedSelection;
+    const sameContent = checked?.documentId === image.id && checked.layer === selection &&
+      checked.source === selection.source && checked.revision === selection.revision;
+    if (sameContent && checked.outputRevision === selection.outputRevision && checked.rootRevision === image.root.revision) return;
+    this.flushPaint();
+    const output = this.compositor.resolve(selection, this.rasterDensity);
+    if (sameContent && checked.outputRevision === selection.outputRevision) {
+      checked.rootRevision = image.root.revision;
+      return;
+    }
+    const state: SelectionContentState = {
+      documentId: image.id, layer: selection, source: selection.source, revision: selection.revision,
+      outputRevision: selection.outputRevision, rootRevision: image.root.revision,
+    };
+    // Hold the exact pixels being checked: edits and undo can replace the live surface during readback.
+    const snapshot = output.snapshot('Selection occupancy');
+    this.selectionCheck = this.readback.isEmpty(snapshot).then((empty) => {
+      if (this.image !== image || image.id !== state.documentId || image.selectionLayer !== selection ||
+        selection.source !== state.source || selection.revision !== state.revision || selection.outputRevision !== state.outputRevision ||
+        image.root.revision !== state.rootRevision || this.interacting || this.reframing || this.halted) return;
+      this.checkedSelection = state;
+      const active = image.selectionMask;
+      if (empty) {
+        image.deactivateEmptySelection(selection);
+        this.floatingSelection = null;
+        if (active) {
+          this.selectionMode = false;
+          if (this.maskEditLayer === selection) this.setMaskEditLayer(null);
+          if (image.isSelected(selection)) {
+            image.selected = image.allLayers().find((layer) => layer.id === this.selectionReturnId && !layer.isSelection) ?? image.root;
+          }
+        }
+      } else image.activateSelection(selection);
+      if (image.selectionMask !== active) this.changed();
+    }).catch(this.report).finally(() => {
+      snapshot.destroy();
+      this.selectionCheck = null;
+      this.requestRender();
+    });
+  }
+
+  deselect(): void {
+    const selection = this.image.selectionLayer;
     if (!selection) return;
     this.setSelectionMode(false);
     this.image.deleteSelected(selection);
@@ -501,26 +541,32 @@ export class Editor {
     const layer = this.selectionPixelTarget;
     const selection = this.image.selectionMask;
     if (!layer || !selection) return;
-    await this.editPixels(() => this.image.commands.layerViaSelection(layer, selection, cut));
+    await this.editPixels(async () => {
+      const copy = await this.image.commands.layerViaSelection(layer, selection, cut);
+      if (copy) this.rememberFloatingSelection(copy, selection);
+    });
   }
 
-  async selectionTransformTargets(): Promise<{ primary: ImageLayer; layers: readonly Layer[] } | null> {
+  private rememberFloatingSelection(layer: ImageLayer, selection: ImageLayer): void {
+    this.floatingSelection = {
+      documentId: this.image.id, layer, source: layer.source, revision: layer.revision,
+      selection, selectionSource: selection.source, selectionRevision: selection.revision,
+    };
+  }
+
+  async selectionTransformTargets(): Promise<SelectionTransformTargets | null> {
     const selection = this.image.selectionMask;
     const existing = this.floatingSelection;
-    if (selection && existing?.documentId === this.image.id && existing.selectionId === selection.id) {
-      const layer = this.image.allLayers().find((candidate) => candidate.id === existing.layerId);
-      if (layer instanceof ImageLayer && layer.parent) return { primary: layer, layers: [layer, selection] };
-    }
+    if (selection && existing && this.hasFloatingSelection) return { primary: existing.layer, layers: [existing.layer, selection] };
     if (this.floatingSelectionPromise) return this.floatingSelectionPromise;
     this.floatingSelection = null;
     const target = this.selectionPixelTarget;
     if (!selection || !target?.pixelEditable) return null;
     const documentId = this.image.id;
     const prepare = (async () => {
-      await this.image.commands.layerViaSelection(target, selection, true);
-      const layer = this.image.selected;
-      if (this.image.id !== documentId || !(layer instanceof ImageLayer) || !layer.parent || this.image.selectionMask !== selection) return null;
-      this.floatingSelection = { documentId, layerId: layer.id, selectionId: selection.id };
+      const layer = await this.image.commands.layerViaSelection(target, selection, true, false);
+      if (!layer || this.image.id !== documentId || !layer.parent || this.image.selectionMask !== selection) return null;
+      this.rememberFloatingSelection(layer, selection);
       this.selectionMode = false;
       this.changed();
       return { primary: layer, layers: [layer, selection] as readonly Layer[] };
@@ -532,8 +578,10 @@ export class Editor {
 
   get hasFloatingSelection(): boolean {
     const floating = this.floatingSelection;
-    return !!floating && floating.documentId === this.image.id && this.image.selectionMask?.id === floating.selectionId &&
-      this.image.allLayers().some((layer) => layer.id === floating.layerId && layer instanceof ImageLayer && !!layer.parent);
+    return !!floating && floating.documentId === this.image.id && this.image.selectionMask === floating.selection &&
+      this.selectionPixelTarget === floating.layer && !!floating.layer.parent && this.image.allLayers().includes(floating.layer) &&
+      floating.layer.source === floating.source && floating.layer.revision === floating.revision &&
+      floating.selection.source === floating.selectionSource && floating.selection.revision === floating.selectionRevision;
   }
 
   private promoteSelection(): void {
@@ -636,7 +684,7 @@ export class Editor {
     if (this.editedMask && (this.image.selected !== this.editedMask || !this.image.allLayers().includes(this.editedMask))) {
       this.setMaskEditLayer(null);
     }
-    if (!this.image.selectionMask || !this.image.selected.isSelection) this.selectionMode = false;
+    if (!this.image.selectionLayer) this.selectionMode = false;
     this.onChange?.();
     this.refreshHover();
     const menus = this.actions.menus();
@@ -668,6 +716,7 @@ export class Editor {
         }
         this.generators.drawOverlay();
         if (!this.interacting) {
+          this.checkSelectionEmpty();
           if (this.previewsReady) { this.previewsReady = false; this.onPreviews?.(); }
           if (this.previewsRequested && !this.previewsRunning) void this.refreshPreviews().catch(this.report);
         }
@@ -761,8 +810,7 @@ export class Editor {
     this.finishGesture();
     if (layer.isSelection && !this.image.selected.isSelection) this.selectionReturnId = this.image.selected.id;
     this.image.select(layer, mode, order);
-    this.selectionMode = this.image.selected.isSelection;
-    if (!this.selectionMode) this.selectionReturnId = this.image.selected.id;
+    if (!this.image.selected.isSelection) this.selectionReturnId = this.image.selected.id;
     if (this.image.selectedLayers.length > 1) this.setMaskEditLayer(null);
     this.changed();
   }
@@ -821,6 +869,7 @@ export class Editor {
     this.flushPaint();
     if (pointer && this.canvas.hasPointerCapture(pointer.id)) this.canvas.releasePointerCapture(pointer.id);
     this.canvas.style.cursor = this.panHeld ? 'grab' : this.activeTool.cursor;
+    this.checkSelectionEmpty();
     this.requestRender();
   }
 
@@ -1071,20 +1120,19 @@ export class Editor {
     else if (payload.type === 'layer') {
       const layer = image.find(payload.targetId);
       layer.applyUndo(operation, direction, { gpu: this.gpu, filters: this.filters });
-      image.selected = layer;
+      if (!layer.isSelection) image.selected = layer;
     } else if (payload.type === 'filter') {
       const layer = image.find(String(payload.data.layerId));
       const filter = layer.filters.find((item) => item.id === payload.targetId);
       if (!filter) throw new Error('Undo filter no longer exists.');
       filter.applyUndo(operation, direction);
       layer.invalidate();
-      image.selected = layer;
+      if (!layer.isSelection) image.selected = layer;
     } else {
       const tool = this.tools.get(payload.targetId);
       if (!tool) throw new Error(`Unknown undo tool: ${payload.targetId}`);
       tool.applyUndo(operation, direction);
     }
-    this.selectionMode = image.selected.isSelection;
   }
 
   async addImage(name: string, blob: Blob): Promise<void> {
@@ -1162,7 +1210,7 @@ export class Editor {
       enabled: () => this.image.selectedRoots.length > 0 && !this.image.selected.isSelection,
       execute: () => this.editPixels(() => this.image.duplicateSelected()),
     });
-    register({ id: 'layer.group', label: 'Group layers', menu: 'Layer', enabled: () => this.image.selectedRoots.length > 0, execute: () => this.image.groupSelected() });
+    register({ id: 'layer.group', label: 'Group layers', menu: 'Layer', enabled: () => this.image.selectedRoots.length > 0 && !this.image.selected.isSelection, execute: () => this.image.groupSelected() });
     register({
       id: 'layer.merge', menu: 'Layer',
       label: () => this.image.selectedRoots.length > 1 ? 'Merge layers' : this.image.selected instanceof GroupLayer ? 'Merge group' : 'Merge down',
@@ -1218,12 +1266,13 @@ export class Editor {
     register({ id: 'transform.flip-horizontal', label: 'Flip horizontally', menu: 'Layer', submenu: 'Transform', enabled: canTransform, execute: () => this.flipSelection('horizontal') });
     register({ id: 'transform.flip-vertical', label: 'Flip vertically', menu: 'Layer', submenu: 'Transform', enabled: canTransform, execute: () => this.flipSelection('vertical') });
     for (const [direction, offset] of [['up', 1], ['down', -1]] as const) register({
-      id: `layer.${direction}`, label: `Move layer ${direction}`, menu: 'Layer', separatorBefore: direction === 'up',
+      id: `layer.${direction}`, label: () => `Move ${this.image.selectedRoots.length > 1 ? 'layers' : 'layer'} ${direction}`, menu: 'Layer', separatorBefore: direction === 'up',
       enabled: () => this.image.commands.canStep(offset),
       execute: () => this.image.commands.step(offset),
     });
     register({
       id: 'layer.visibility', menu: 'Layer',
+      enabled: () => this.image.selectedLayers.length === 1,
       label: () => {
         const layer = this.image.selected;
         if (layer === this.maskEditLayer) return 'Finish editing mask';
@@ -1251,11 +1300,10 @@ export class Editor {
     });
     register({ id: 'selection.mode', label: () => this.selectionMode ? 'Finish editing selection' : 'Edit selection', menu: 'Select', execute: () => this.setSelectionMode(!this.selectionMode) });
     register({ id: 'selection.all', label: 'Select all', menu: 'Select', execute: () => {
-      const selection = this.image.ensureSelection(true);
-      if (this.selectionMode) this.image.select(selection);
+      this.image.ensureSelection(true);
       this.changed();
     } });
-    register({ id: 'selection.deselect', label: 'Deselect', menu: 'Select', enabled: () => !!this.image.selectionMask, execute: () => this.deselect() });
+    register({ id: 'selection.deselect', label: 'Deselect', menu: 'Select', enabled: () => !!this.image.selectionLayer, execute: () => this.deselect() });
     register({ id: 'selection.promote', label: 'Promote selection to mask', menu: 'Select', enabled: () => !!this.image.selectionMask, execute: () => this.promoteSelection() });
     register({ id: 'drawing.erase', label: () => this.eraseMode ? 'Switch to draw mode' : 'Switch to erase mode', menu: 'Tools', execute: () => {
       this.eraseMode = !this.eraseMode;
@@ -1408,6 +1456,7 @@ export class Editor {
     this.actions.bind('Ctrl+Shift+J', 'selection.layer-cut', { when: 'canSelectionLayer' });
     this.actions.bind('Ctrl+G', 'layer.group');
     this.actions.bind('Ctrl+E', 'layer.merge');
+    this.actions.bind('Ctrl+F', 'layer.reframe.normalize');
     this.actions.bind('Insert', 'layer.new');
     this.actions.bind('Ctrl+Shift+N', 'layer.new');
     this.actions.bind('F2', 'layer.rename');

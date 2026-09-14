@@ -271,7 +271,67 @@ export class LayerCommands {
       copies.map((copy) => ({ action: 'remove', layerId: copy.id })), redo, this.state(copies), snapshots);
   }
 
-  async layerViaSelection(layer: ImageLayer, selection: ImageLayer, cut: boolean): Promise<void> {
+  private deselectionSteps(snapshots: Map<string, Surface>): {
+    undo: LayerStep[];
+    redo: LayerStep[];
+  } {
+    const selection = this.image.selectionLayer;
+    if (!selection?.parent) return { undo: [], redo: [] };
+    return {
+      undo: [{
+        action: 'add', parentId: selection.parent.id, index: selection.parent.children.indexOf(selection),
+        layer: this.image.serializeLayer(selection, snapshots),
+      }],
+      redo: [{ action: 'remove', layerId: selection.id }],
+    };
+  }
+
+  cutPixels(layer: ImageLayer): void {
+    const selection = this.image.selectionMask;
+    if (!selection || !layer.parent || !layer.pixelEditable || layer.channels !== 4) return;
+    this.compositor.flush();
+    const mask = this.compositor.resolve(selection, 1);
+    const remaining = createSurface('Cut pixels remainder', layer.source.bounds, layer.source.scale);
+    const snapshots = new Map<string, Surface>();
+    const frame = this.gpu.beginFrame();
+    let before: string;
+    let after: string;
+    let deselection: ReturnType<LayerCommands['deselectionSteps']>;
+    try {
+      this.masks.encode(frame, layer.source, remaining, {
+        surface: mask, transform: multiply(inverse(selection.worldTransform()), layer.worldTransform()),
+      }, true);
+      frame.submit();
+      before = this.image.capturePixels(layer, snapshots);
+      after = this.image.captureSurface(remaining, snapshots);
+      deselection = this.deselectionSteps(snapshots);
+    } catch (error) { for (const snapshot of snapshots.values()) snapshot.destroy(); throw error; }
+    finally { frame.release(); remaining.destroy(); }
+    this.commit('Cut pixels',
+      [{ action: 'pixels', layerId: layer.id, snapshotId: before }, ...deselection.undo],
+      [{ action: 'pixels', layerId: layer.id, snapshotId: after }, ...deselection.redo],
+      this.state([layer]), snapshots,
+    );
+  }
+
+  /** Snapshot the imported pixels; the caller retains ownership of the temporary layer. */
+  pastePixels(layer: ImageLayer, parent = this.image.destination()): void {
+    const snapshots = new Map<string, Surface>();
+    const index = parent.children.length - Number(this.image.selectionLayer?.parent === parent);
+    let serialized: SerializedLayer;
+    let deselection: ReturnType<LayerCommands['deselectionSteps']>;
+    try {
+      serialized = this.image.serializeLayer(layer, snapshots);
+      deselection = this.deselectionSteps(snapshots);
+    } catch (error) { for (const snapshot of snapshots.values()) snapshot.destroy(); throw error; }
+    this.commit('Paste pixels',
+      [{ action: 'remove', layerId: layer.id }, ...deselection.undo],
+      [...deselection.redo, { action: 'add', parentId: parent.id, index, layer: serialized }],
+      this.state([layer]), snapshots,
+    );
+  }
+
+  async layerViaSelection(layer: ImageLayer, selection: ImageLayer, cut: boolean, reportEmpty = true): Promise<ImageLayer | null> {
     if (cut && !layer.pixelEditable) throw new Error('Text layers cannot be cut as pixels. Use Layer via Copy to create a pixel layer.');
     const layers = this.image.allLayers();
     if (layer.isSelection || layer.channels !== 4 || !layer.parent || !layers.includes(layer) ||
@@ -288,8 +348,8 @@ export class LayerCommands {
     const selectionRevision = selection.revision;
     const maskWorld = selection.worldTransform();
     const mask = this.compositor.resolve(selection, 1);
-    const masked = createSurface(cut ? 'Layer via cut' : 'Layer via copy', source.bounds);
-    const remaining = cut ? createSurface('Layer via cut remainder', source.bounds) : null;
+    const masked = createSurface(cut ? 'Layer via cut' : 'Layer via copy', source.bounds, source.scale);
+    const remaining = cut ? createSurface('Layer via cut remainder', source.bounds, source.scale) : null;
     const frame = this.gpu.beginFrame();
     let copy: ImageLayer | null = null;
     try {
@@ -303,7 +363,10 @@ export class LayerCommands {
         layer.worldTransform().some((value, index) => value !== world[index]) || selection.worldTransform().some((value, index) => value !== maskWorld[index])) {
         throw new Error(`The layer or selection changed while ${cut ? 'cutting' : 'copying'} pixels. Retry the command.`);
       }
-      if (!bounds) throw new Error('There are no pixels in the selected area.');
+      if (!bounds) {
+        if (reportEmpty) throw new Error('Selection is empty.');
+        return null;
+      }
       copy = new ImageLayer(layer.name + ' copy', this.reframer.resize(masked, bounds));
       copy.setProperties(layer.properties());
       copy.name = layer.name + (cut ? ' cut' : ' copy');
@@ -331,6 +394,7 @@ export class LayerCommands {
       }
       const label = cut ? 'Layer via Cut' : 'Layer via Copy';
       this.commit(label, undo, redo, { ids: [copyId], active: copyId }, snapshots);
+      return this.image.find(copyId) as ImageLayer;
     } catch (error) { if (copy && !copy.parent) this.compositor.release(copy); throw error; }
     finally { frame.release(); masked.destroy(); remaining?.destroy(); }
   }

@@ -19,14 +19,13 @@ abstract class RetouchTool extends BrushLikeTool {
   abstract readonly heal: boolean;
   override readonly supportsAltEyedropper = false;
   readonly cursor = 'crosshair';
-  readonly hint = 'Alt-click a color image layer to sample · Paint on an editable color pixel layer';
+  readonly hint = 'Alt-click a color image layer to sample · Shift-click to draw a line · Paint on an editable color pixel layer';
   aligned = true;
   private sourceLayer: ImageLayer | null = null;
   private sourcePoint: Point = { x: 0, y: 0 };
   private sourceDocument = '';
   private alignedOffset: Point | null = null;
   private stroke: RetouchStroke | null = null;
-  private last: Point = { x: 0, y: 0 };
   private status: HTMLElement | null = null;
   private hoverWorld: Point | null = null;
 
@@ -41,11 +40,11 @@ abstract class RetouchTool extends BrushLikeTool {
     if (!source || !target || target.channels !== 4 || !target.pixelEditable) { this.updateStatus(); return; }
     const sourceWorld = source.worldTransform();
     const targetWorld = target.worldTransform();
-    const point = transformPoint(inverse(targetWorld), pointer.world);
+    const startWorld = transformPoint(targetWorld, this.strokeStart(pointer, target));
     const sampledWorld = transformPoint(sourceWorld, this.sourcePoint);
     const offset = this.aligned && this.alignedOffset ? this.alignedOffset : {
-      x: sampledWorld.x - pointer.world.x,
-      y: sampledWorld.y - pointer.world.y,
+      x: sampledWorld.x - startWorld.x,
+      y: sampledWorld.y - startWorld.y,
     };
     const sourceTransform = multiply(inverse(sourceWorld), multiply([1, 0, 0, 1, offset.x, offset.y], targetWorld));
     const layer = this.beginDrawing();
@@ -70,8 +69,7 @@ abstract class RetouchTool extends BrushLikeTool {
         },
       };
       if (this.aligned && !this.alignedOffset) this.alignedOffset = offset;
-      this.last = point;
-      this.stamp(point, pointer.pressure);
+      this.startStroke(pointer);
     } catch (error) {
       try { super.cancel(); }
       finally { this.releaseStroke(temporary); }
@@ -79,20 +77,7 @@ abstract class RetouchTool extends BrushLikeTool {
     }
   }
 
-  pointerMove(pointer: ToolPointer): void {
-    if (!this.drawing || !this.stroke) return;
-    const point = transformPoint(inverse(this.drawing.layer.worldTransform()), pointer.world);
-    const spacing = Math.max(0.25, this.size * Math.max(0.05, pointer.pressure) * 0.1);
-    let distance = Math.hypot(point.x - this.last.x, point.y - this.last.y);
-    while (distance >= spacing) {
-      const amount = spacing / distance;
-      this.last = { x: this.last.x + (point.x - this.last.x) * amount, y: this.last.y + (point.y - this.last.y) * amount };
-      this.stamp(this.last, pointer.pressure);
-      distance = Math.hypot(point.x - this.last.x, point.y - this.last.y);
-    }
-  }
-
-  private stamp(point: Point, pressure: number): void {
+  protected stamp(point: Point, pressure: number): void {
     if (!this.drawing || !this.stroke) return;
     this.editor.paintRetouch(this.drawing.layer, {
       x: point.x,

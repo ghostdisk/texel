@@ -10,9 +10,16 @@ import { RendererPackageLoader } from './package-runtime';
 import { AboutView } from './ui/about-view';
 
 function reportError(error: unknown): void {
-  const banner = element('error');
-  banner.textContent = error instanceof Error ? error.message : String(error);
-  banner.hidden = false;
+  const messages = element('error');
+  const text = error instanceof Error ? error.message : String(error);
+  for (const existing of messages.children) if (existing.textContent === text) existing.remove();
+  while (messages.children.length >= 3) messages.firstElementChild?.remove();
+  const message = document.createElement('div');
+  message.className = 'editor-message';
+  message.textContent = text;
+  messages.append(message);
+  const timeout = window.setTimeout(() => message.remove(), 5000);
+  message.addEventListener('animationend', () => { clearTimeout(timeout); message.remove(); }, { once: true });
 }
 
 async function boot(): Promise<void> {

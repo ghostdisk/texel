@@ -93,7 +93,7 @@ export class GpuReadback {
       for (const tile of resident) {
         pass.setBindGroup(0, device.createBindGroup({ layout: pipeline.getBindGroupLayout(0), entries: [
           { binding: 0, resource: tile.view }, { binding: 1, resource: { buffer: result } },
-          { binding: 2, resource: frame.uniform([Number(isMaskSurface(source)), 0, 0, 0]) },
+          { binding: 2, resource: frame.uniform([...tileClip(source, tile), Number(isMaskSurface(source)), 0, 0, 0]) },
         ] }));
         pass.dispatchWorkgroups(TILE_SIZE / 16, TILE_SIZE / 16);
       }
