@@ -5,9 +5,8 @@ struct Params {
   row0: vec4f,
   row1: vec4f,
   settings: vec4f,
+  tile: vec4f,
 }
-@group(0) @binding(0) var maskImage: texture_2d<f32>;
-@group(0) @binding(1) var imageSampler: sampler;
 @group(0) @binding(2) var<uniform> params: Params;
 
 struct VertexOutput {
@@ -16,10 +15,10 @@ struct VertexOutput {
 }
 
 @vertex fn vertexMain(@builtin(vertex_index) index: u32) -> VertexOutput {
-  let positions = array<vec2f, 3>(vec2f(-1, -1), vec2f(3, -1), vec2f(-1, 3));
-  let point = positions[index];
-  let uv = point * vec2f(0.5, -0.5) + 0.5;
-  return VertexOutput(vec4f(point, 0, 1), params.viewport.xy + uv * params.viewport.zw);
+  let corners = array<vec2f, 6>(vec2f(0, 0), vec2f(1, 0), vec2f(0, 1), vec2f(0, 1), vec2f(1, 0), vec2f(1, 1));
+  let world = params.tile.xy + corners[index] * params.tile.zw;
+  let clip = (world - params.viewport.xy) / params.viewport.zw * 2 - 1;
+  return VertexOutput(vec4f(clip.x, -clip.y, 0, 1), world);
 }
 
 fn coverage(world: vec2f) -> f32 {
@@ -28,7 +27,7 @@ fn coverage(world: vec2f) -> f32 {
   let local = vec2f(dot(params.row0.xyz, point), dot(params.row1.xyz, point));
   let uv = (local - params.maskBounds.xy) / params.maskBounds.zw;
   if (any(uv < vec2f(0)) || any(uv >= vec2f(1))) { return 0.0; }
-  return clamp(textureSampleLevel(maskImage, imageSampler, uv, 0).r, 0.0, 1.0);
+  return clamp(sampleNeighborhood(local - params.tile.xy, false).r, 0.0, 1.0);
 }
 
 // Contours are detected in screen space, so their width is independent of zoom.

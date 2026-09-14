@@ -32,8 +32,8 @@ export abstract class DrawingTool extends Tool {
       this.drawing = { layer, before, snapshots, selection, erase: this.editor.eraseMode };
       return layer;
     } catch (error) {
-      selection?.surface.texture.destroy();
-      for (const snapshot of snapshots.values()) snapshot.texture.destroy();
+      selection?.surface.destroy();
+      for (const snapshot of snapshots.values()) snapshot.destroy();
       throw error;
     }
   }
@@ -70,9 +70,9 @@ export abstract class DrawingTool extends Tool {
       ));
     } catch (error) {
       drawing.layer.restorePixels(this.editor.gpu, drawing.snapshots.get(drawing.before)!);
-      for (const snapshot of drawing.snapshots.values()) snapshot.texture.destroy();
+      for (const snapshot of drawing.snapshots.values()) snapshot.destroy();
       throw error;
-    } finally { drawing.selection?.surface.texture.destroy(); }
+    } finally { drawing.selection?.surface.destroy(); }
   }
 
   cancel(): void {
@@ -83,8 +83,8 @@ export abstract class DrawingTool extends Tool {
       this.editor.flushPaint();
       drawing.layer.restorePixels(this.editor.gpu, drawing.snapshots.get(drawing.before)!);
     } finally {
-      for (const snapshot of drawing.snapshots.values()) snapshot.texture.destroy();
-      drawing.selection?.surface.texture.destroy();
+      for (const snapshot of drawing.snapshots.values()) snapshot.destroy();
+      drawing.selection?.surface.destroy();
     }
   }
 

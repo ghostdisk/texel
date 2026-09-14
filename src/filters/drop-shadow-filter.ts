@@ -16,6 +16,10 @@ export class DropShadowFilter extends Filter {
   angle = 45;
   distance = 16;
   softness = 8;
+  get supportRadius(): number {
+    const offset = this.offset();
+    return this.opacity > 0 ? Math.ceil(Math.max(Math.abs(offset.x), Math.abs(offset.y)) + this.softness * 3) : 0;
+  }
   private readonly blur = new BlurFilter();
 
   private offset(): Point {

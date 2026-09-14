@@ -23,7 +23,7 @@ Press **R** for Rectangle or **O** for Ellipse. Drag to paint a filled shape wit
 
 Press **F** to fill pixels matching the clicked source color and alpha. Tolerance controls the match. Contiguous mode fills only the connected region; disabling it fills every matching pixel in the layer.
 
-Fill honors opacity, erase mode, and the active selection. The operation runs as GPU scanline spans and is committed as one history entry. Press **Escape** to cancel a pending fill.
+Fill honors opacity, erase mode, and the active selection. Fill walks a graph of 256×256 chunks. Uniform chunks use color comparisons; other chunks use GPU connected components, with only reached edges and bounds read back to continue into neighbors. Temporary GPU buffers are reused between chunks. The completed fill is committed as one history entry. Press **Escape** to cancel a pending fill.
 
 ## Lasso tools
 

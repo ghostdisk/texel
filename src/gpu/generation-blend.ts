@@ -1,35 +1,31 @@
-import shader from '../shaders/generation-blend.wgsl?raw';
 import type { GenerationFrame } from '../generation/lens';
 import { createSurface } from './surface';
 import type { Surface } from './surface';
 import type { Gpu } from './device';
+import { quads } from './quad';
+import { dispatchLocal } from './local';
+
+const shader = `
+@group(0) @binding(1) var destination: texture_storage_2d<rgba16float, write>;
+@group(0) @binding(2) var<uniform> params: vec4f;
+@compute @workgroup_size(8, 8) fn main(@builtin(global_invocation_id) invocation: vec3u) {
+  let position = invocation.xy;
+  let coverage = select(1.0, clamp(loadSecondary(vec2i(position)).r, 0.0, 1.0), params.x > 0.5);
+  storeDestination(vec2i(position), loadSource(vec2i(position)) * coverage);
+}`;
 
 export class GenerationBlend {
-  private readonly pipeline: GPUComputePipeline;
-  private readonly sampler: GPUSampler;
-
-  constructor(private readonly gpu: Gpu) {
-    this.pipeline = gpu.device.createComputePipeline({
-      label: 'Apply generated pixels', layout: 'auto', compute: { module: gpu.device.createShaderModule({ code: shader }), entryPoint: 'main' },
-    });
-    this.sampler = gpu.device.createSampler({ minFilter: 'linear', magFilter: 'linear' });
-  }
+  constructor(private readonly gpu: Gpu) {}
 
   apply(generated: Surface, target: GenerationFrame, mask: Surface | null): Surface {
-    const output = createSurface(this.gpu.device, 'Generated layer pixels', { x: 0, y: 0, width: target.width, height: target.height });
+    const output = createSurface('Generated layer pixels', { x: 0, y: 0, width: target.width, height: target.height });
     const frame = this.gpu.beginFrame();
     try {
-      const pass = frame.encoder.beginComputePass();
-      pass.setPipeline(this.pipeline);
-      pass.setBindGroup(0, this.gpu.device.createBindGroup({ layout: this.pipeline.getBindGroupLayout(0), entries: [
-        { binding: 0, resource: generated.view }, { binding: 1, resource: (mask ?? generated).view },
-        { binding: 2, resource: this.sampler }, { binding: 3, resource: output.view },
-        { binding: 4, resource: frame.uniform([Number(!!mask), 0, 0, 0]) },
-      ] }));
-      pass.dispatchWorkgroups(Math.ceil(target.width / 8), Math.ceil(target.height / 8));
-      pass.end();
+      const sx = target.width / generated.bounds.width, sy = target.height / generated.bounds.height;
+      const resized = quads.region(frame, generated, output.bounds, 1, [sx, 0, 0, sy, -generated.bounds.x * sx, -generated.bounds.y * sy]);
+      dispatchLocal(frame, resized, output, { code: shader, label: 'Apply generated pixels', parameters: [Number(!!mask), 0, 0, 0], secondary: mask ?? resized });
       frame.submit();
       return output;
-    } catch (error) { output.texture.destroy(); frame.release(); throw error; }
+    } catch (error) { output.destroy(); frame.release(); throw error; }
   }
 }

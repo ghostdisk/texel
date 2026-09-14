@@ -9,6 +9,7 @@ import { renderComputeFilter } from './compute';
 export class InvertFilter extends Filter {
   readonly kind = 'invert';
   readonly label = 'Invert';
+  readonly supportRadius = 0;
 
   outputBounds(input: Rect): Rect { return input; }
   protected properties(): JsonObject { return {}; }

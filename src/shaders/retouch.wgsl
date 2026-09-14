@@ -33,7 +33,7 @@ struct VertexOutput {
   let corners = array<vec2f, 6>(vec2f(-1, -1), vec2f(1, -1), vec2f(-1, 1), vec2f(-1, 1), vec2f(1, -1), vec2f(1, 1));
   let local = corners[index];
   let pixel = stamp.xy + local * stamp.z;
-  let clip = pixel / params.targetSize.xy * 2 - 1;
+  let clip = (pixel - params.targetSize.zw) / params.targetSize.xy * 2 - 1;
   return VertexOutput(vec4f(clip.x, -clip.y, 0, 1), local, pixel, stamp.w, brush.x);
 }
 

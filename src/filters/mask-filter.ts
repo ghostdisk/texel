@@ -12,6 +12,7 @@ const renderers = new WeakMap<Gpu, MaskRenderer>();
 export class MaskFilter extends Filter {
   readonly kind = 'mask';
   readonly label = 'Mask';
+  readonly supportRadius = 0;
   layerId: string | null = null;
 
   override dependencies(): readonly string[] { return this.layerId ? [this.layerId] : []; }

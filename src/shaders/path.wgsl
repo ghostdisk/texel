@@ -6,6 +6,7 @@ struct Params {
   maskBounds: vec4f,
   color: vec4f,
   mode: vec4f,
+  origin: vec4f,
 }
 @group(0) @binding(0) var<uniform> params: Params;
 @group(0) @binding(1) var coverageImage: texture_2d<f32>;
@@ -20,13 +21,14 @@ struct VertexOutput {
 @vertex fn vertexMain(@builtin(vertex_index) index: u32) -> VertexOutput {
   let corners = array<vec2f, 6>(vec2f(0, 0), vec2f(1, 0), vec2f(0, 1), vec2f(0, 1), vec2f(1, 0), vec2f(1, 1));
   let pixel = mix(params.bounds.xy, params.bounds.zw, corners[index]);
-  let clip = pixel / params.size.xy * 2 - 1;
+  let clip = (pixel - params.origin.xy) / params.size.xy * 2 - 1;
   return VertexOutput(vec4f(clip.x, -clip.y, 0, 1), pixel);
 }
 
 @fragment fn fragmentMain(input: VertexOutput) -> @location(0) vec4f {
   let coverageUv = (input.pixel - params.bounds.xy) / (params.bounds.zw - params.bounds.xy);
-  var coverage = textureSampleLevel(coverageImage, imageSampler, coverageUv, 0).a;
+  let coveragePixel = textureSampleLevel(coverageImage, imageSampler, coverageUv, 0);
+  var coverage = select(coveragePixel.a, coveragePixel.r, params.mode.y > 0.5);
   if (params.size.w > 0.5) {
     let point = vec3f(input.pixel, 1);
     let local = vec2f(dot(params.row0.xyz, point), dot(params.row1.xyz, point));

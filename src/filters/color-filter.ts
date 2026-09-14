@@ -7,6 +7,7 @@ import { renderComputeFilter } from './compute';
 
 /** Pointwise adjustments share alpha/color conversion, not filter-specific formulas. */
 export abstract class ColorFilter extends Filter {
+  readonly supportRadius = 0;
   protected abstract readonly shader: string;
   protected abstract parameters(): readonly number[];
   protected isIdentity(): boolean { return false; }

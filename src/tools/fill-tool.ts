@@ -56,12 +56,12 @@ export class FillTool extends DrawingTool {
         if (painted) super.cancel();
         else {
           this.drawing = null;
-          drawing.selection?.surface.texture.destroy();
-          for (const snapshot of drawing.snapshots.values()) snapshot.texture.destroy();
+          drawing.selection?.surface.destroy();
+          for (const snapshot of drawing.snapshots.values()) snapshot.destroy();
         }
         if (!controller.signal.aborted) throw error;
       } finally {
-        coverage?.texture.destroy();
+        coverage?.destroy();
         this.pending = null;
         if (this.status) this.status.textContent = '';
         window.removeEventListener('keydown', escape, true);

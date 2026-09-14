@@ -1,58 +1,44 @@
-import behindShader from '../shaders/effect-behind.wgsl?raw';
 import dilationShader from '../shaders/dilate-alpha.wgsl?raw';
-import type { Gpu } from '../gpu/device';
+import { dispatchLocal, expandedRegions } from '../gpu/local';
 import type { Surface } from '../gpu/surface';
 import type { Point, Rect } from '../model/geometry';
+import { unionBounds } from '../model/geometry';
 import type { FilterRenderContext } from './filter';
 
-const pipelines = new WeakMap<Gpu, Map<string, GPUComputePipeline>>();
-const samplers = new WeakMap<Gpu, GPUSampler>();
-
-function pipeline(gpu: Gpu, code: string, label: string): GPUComputePipeline {
-  let cache = pipelines.get(gpu);
-  if (!cache) { cache = new Map(); pipelines.set(gpu, cache); }
-  let result = cache.get(code);
-  if (!result) {
-    result = gpu.device.createComputePipeline({ label, layout: 'auto', compute: { module: gpu.device.createShaderModule({ code }), entryPoint: 'main' } });
-    cache.set(code, result);
-  }
-  return result;
-}
-
 export function dilateAlpha(context: FilterRenderContext, input: Surface, output: Surface, radius: number): void {
-  const effect = pipeline(context.gpu, dilationShader, 'Round alpha border');
-  const pass = context.frame.encoder.beginComputePass();
-  pass.setPipeline(effect);
-  pass.setBindGroup(0, context.gpu.device.createBindGroup({ layout: effect.getBindGroupLayout(0), entries: [
-    { binding: 0, resource: input.view }, { binding: 1, resource: output.view }, { binding: 2, resource: context.frame.uniform([radius, 0, 0, 0]) },
-  ] }));
-  pass.dispatchWorkgroups(Math.ceil(output.texture.width / 8), Math.ceil(output.texture.height / 8));
-  pass.end();
+  dispatchLocal(context.frame, input, output, {
+    code: dilationShader, label: 'Round alpha border', parameters: [radius, 0, 0, 0], radius,
+    regions: expandedRegions(input, Math.ceil(radius) / input.scale),
+  });
 }
 
-export function renderBehind(
-  context: FilterRenderContext, source: Surface, mask: Surface, bounds: Rect,
-  color: string, opacity: number, offset: Point = { x: 0, y: 0 }, outline = false,
-): Surface {
-  const { gpu, frame } = context;
-  const effect = pipeline(gpu, behindShader, 'Composite alpha effect');
-  let sampler = samplers.get(gpu);
-  if (!sampler) { sampler = gpu.device.createSampler({ minFilter: 'linear', magFilter: 'linear' }); samplers.set(gpu, sampler); }
+const behindShader = `
+@group(0) @binding(1) var destination: texture_storage_2d<rgba16float, write>;
+@group(0) @binding(2) var<uniform> params: array<vec4f, 2>;
+@compute @workgroup_size(8, 8) fn main(@builtin(global_invocation_id) invocation: vec3u) {
+  let position = invocation.xy;
+  let original = loadSource(vec2i(position));
+  let maskAlpha = loadSecondary(vec2i(position)).a;
+  let coverage = select(maskAlpha * (1 - original.a), max(0.0, maskAlpha - original.a), params[1].x > 0.5);
+  let alpha = coverage * params[0].a;
+  storeDestination(vec2i(position), original + vec4f(params[0].rgb * alpha, alpha));
+}`;
+
+export function renderBehind(context: FilterRenderContext, source: Surface, mask: Surface, bounds: Rect,
+  color: string, opacity: number, offset: Point = { x: 0, y: 0 }, outline = false): Surface {
   const output = context.surface('result', bounds, source.scale);
+  const aligned = context.surface('effect-aligned', bounds, source.scale);
+  const pass = context.quads.begin(context.frame, aligned);
+  context.quads.draw(pass, context.frame, mask, aligned, [1, 0, 0, 1, offset.x, offset.y]);
+  pass.end();
   const rgb = [1, 3, 5].map((index) => {
     const value = parseInt(color.slice(index, index + 2), 16) / 255;
     return value <= 0.04045 ? value / 12.92 : ((value + 0.055) / 1.055) ** 2.4;
   });
-  const rect = (value: Rect) => [value.x, value.y, value.width, value.height];
-  const params = frame.uniform([...rect(source.bounds), ...rect(mask.bounds), ...rect(output.bounds), ...rgb, opacity, offset.x, offset.y, output.scale, Number(outline)]);
-  const pass = frame.encoder.beginComputePass();
-  pass.setPipeline(effect);
-  pass.setBindGroup(0, gpu.device.createBindGroup({ layout: effect.getBindGroupLayout(0), entries: [
-    { binding: 0, resource: source.view }, { binding: 1, resource: mask.view }, { binding: 2, resource: sampler },
-    { binding: 3, resource: output.view }, { binding: 4, resource: params },
-  ] }));
-  pass.dispatchWorkgroups(Math.ceil(output.texture.width / 8), Math.ceil(output.texture.height / 8));
-  pass.end();
+  dispatchLocal(context.frame, source, output, {
+    code: behindShader, label: 'Composite alpha effect', parameters: [...rgb, opacity, Number(outline), 0, 0, 0],
+    secondary: aligned, regions: [...source.regions, ...aligned.regions],
+  });
   return output;
 }
 

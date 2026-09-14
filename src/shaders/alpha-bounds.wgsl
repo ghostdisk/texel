@@ -8,25 +8,27 @@ struct Bounds {
 
 @group(0) @binding(0) var source: texture_2d<f32>;
 @group(0) @binding(1) var<storage, read_write> bounds: Bounds;
+@group(0) @binding(2) var<uniform> tile: vec4f;
 var<workgroup> tileBounds: Bounds;
 
 @compute @workgroup_size(16, 16)
 fn main(@builtin(global_invocation_id) invocation: vec3u, @builtin(local_invocation_index) index: u32) {
-  let size = textureDimensions(source);
+  let size = vec2u(256);
   if (index == 0u) {
-    atomicStore(&tileBounds.left, size.x);
-    atomicStore(&tileBounds.top, size.y);
+    atomicStore(&tileBounds.left, u32(tile.z));
+    atomicStore(&tileBounds.top, u32(tile.w));
     atomicStore(&tileBounds.right, 0u);
     atomicStore(&tileBounds.bottom, 0u);
   }
   workgroupBarrier();
-  if (all(invocation.xy < size)) {
-    let pixel = textureLoad(source, vec2i(invocation.xy), 0);
+  let position = vec2i(invocation.xy) + vec2i(tile.xy);
+  if (all(invocation.xy < size) && all(position >= vec2i(0)) && all(position < vec2i(tile.zw))) {
+    let pixel = loadTile(source, vec2i(vec2i(invocation.xy)));
     if (select(pixel.a, pixel.r, SINGLE_CHANNEL) > 0.0) {
-      atomicMin(&tileBounds.left, invocation.x);
-      atomicMin(&tileBounds.top, invocation.y);
-      atomicMax(&tileBounds.right, invocation.x + 1u);
-      atomicMax(&tileBounds.bottom, invocation.y + 1u);
+      atomicMin(&tileBounds.left, u32(position.x));
+      atomicMin(&tileBounds.top, u32(position.y));
+      atomicMax(&tileBounds.right, u32(position.x) + 1u);
+      atomicMax(&tileBounds.bottom, u32(position.y) + 1u);
     }
   }
   workgroupBarrier();

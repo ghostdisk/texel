@@ -1,4 +1,5 @@
 import type { Editor } from '../editor';
+import { MAX_IMAGE_SIZE } from '../gpu/surface';
 import { isEditingText } from '../actions';
 import type { Filter, SerializedFilter } from '../filters/filter';
 import { UndoOperation } from '../history/undo';
@@ -736,7 +737,7 @@ export class EditorView {
     element('confirm-size').textContent = sizedLayer ? 'Create layer' : 'Create document';
     input('new-width').value = String(sizedLayer ? 512 : this.editor.image.frame.width);
     input('new-height').value = String(sizedLayer ? 512 : this.editor.image.frame.height);
-    for (const id of ['new-width', 'new-height']) input(id).max = String(this.editor.gpu.device.limits.maxTextureDimension2D);
+    for (const id of ['new-width', 'new-height']) input(id).max = String(MAX_IMAGE_SIZE);
     element<HTMLDialogElement>('size-dialog').showModal();
   }
 

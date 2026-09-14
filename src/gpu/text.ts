@@ -2,7 +2,7 @@ import { validateText } from '../model/text-layer';
 import type { TextProperties } from '../model/text-layer';
 import type { Gpu } from './device';
 import type { QuadRenderer } from './quad';
-import { createSurface } from './surface';
+import { uploadImage } from './images';
 import type { Surface } from './surface';
 
 /** Canvas lays out glyphs; the upload converts sRGB into the editor's linear premultiplied pixels. */
@@ -35,17 +35,5 @@ export function rasterizeText(gpu: Gpu, quads: QuadRenderer, properties: TextPro
     const offset = text.align === 'right' ? advance - metrics[index].width : text.align === 'center' ? (advance - metrics[index].width) / 2 : 0;
     context.fillText(line, left + offset, 2 + ascent + index * lineAdvance);
   });
-  const source = createSurface(gpu.device, 'Text source', { x: 0, y: 0, width, height });
-  const frame = gpu.beginFrame();
-  try {
-    const upload = gpu.device.createTexture({
-      label: 'Text canvas upload', size: { width, height }, format: 'rgba8unorm-srgb',
-      usage: GPUTextureUsage.COPY_DST | GPUTextureUsage.TEXTURE_BINDING | GPUTextureUsage.RENDER_ATTACHMENT,
-    });
-    frame.retire(upload);
-    gpu.device.queue.copyExternalImageToTexture({ source: canvas }, { texture: upload, premultipliedAlpha: false, colorSpace: 'srgb' }, { width, height });
-    quads.copy(frame, { texture: upload, view: upload.createView(), bounds: source.bounds, scale: 1 }, source, true);
-    frame.submit();
-    return source;
-  } catch (error) { source.texture.destroy(); frame.release(); throw error; }
+  return uploadImage(gpu, quads, canvas, width, height, 'Text source');
 }

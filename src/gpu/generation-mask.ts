@@ -1,56 +1,45 @@
-import shader from '../shaders/generation-mask.wgsl?raw';
-import supportShader from '../shaders/removal-mask.wgsl?raw';
 import type { GenerationFrame } from '../generation/lens';
 import type { Gpu } from './device';
-import { createSurface } from './surface';
+import { createSurface, TILE_SIZE } from './surface';
 import type { Surface } from './surface';
+import { dispatchLocal } from './local';
+import { resizeMaskSupport } from './mask-support';
+
+const shader = `
+@group(0) @binding(1) var destination: texture_storage_2d<rgba16float, write>;
+@group(0) @binding(2) var<uniform> params: array<vec4f, 3>;
+@compute @workgroup_size(8, 8) fn main(@builtin(global_invocation_id) invocation: vec3u) {
+  let position = invocation.xy;
+  let pixel = vec2f(position) + params[2].xy;
+  var coverage = 1.0;
+  if (params[1].y > 0.5) { coverage = clamp(loadSource(vec2i(position)).r, 0.0, 1.0); }
+  let edge = min(pixel, params[0].xy - vec2f(1) - pixel) * params[0].zw / params[0].xy;
+  coverage *= smoothstep(0.0, params[1].x, min(edge.x, edge.y));
+  storeDestination(vec2i(position), vec4f(coverage));
+}`;
 
 export class GenerationMask {
-  private readonly pipeline: GPUComputePipeline;
-  private supportPipeline: GPUComputePipeline | null = null;
-
-  constructor(private readonly gpu: Gpu) {
-    this.pipeline = gpu.device.createComputePipeline({
-      label: 'Feather generation mask', layout: 'auto',
-      compute: { module: gpu.device.createShaderModule({ code: shader }), entryPoint: 'main' },
-    });
-  }
+  constructor(private readonly gpu: Gpu) {}
 
   support(selection: Surface, width: number, height: number): Surface {
-    this.supportPipeline ??= this.gpu.device.createComputePipeline({
-      label: 'Resize removal mask', layout: 'auto',
-      compute: { module: this.gpu.device.createShaderModule({ code: supportShader }), entryPoint: 'main' },
-    });
-    const output = createSurface(this.gpu.device, 'Removal support mask', { x: 0, y: 0, width, height });
+    const output = createSurface('Removal support mask', { x: 0, y: 0, width, height });
     const frame = this.gpu.beginFrame();
-    try {
-      const pass = frame.encoder.beginComputePass();
-      pass.setPipeline(this.supportPipeline);
-      pass.setBindGroup(0, this.gpu.device.createBindGroup({ layout: this.supportPipeline.getBindGroupLayout(0), entries: [
-        { binding: 0, resource: selection.view }, { binding: 1, resource: output.view },
-      ] }));
-      pass.dispatchWorkgroups(Math.ceil(width / 8), Math.ceil(height / 8));
-      pass.end();
-      frame.submit();
-      return output;
-    } catch (error) { output.texture.destroy(); frame.release(); throw error; }
+    try { resizeMaskSupport(frame, selection, output); frame.submit(); return output; }
+    catch (error) { output.destroy(); frame.release(); throw error; }
   }
 
   create(selection: Surface | null, target: GenerationFrame, feather: number, fallback: Surface): Surface | null {
     if (feather <= 0) return selection;
-    const output = createSurface(this.gpu.device, 'Feathered generation mask', { x: 0, y: 0, width: target.width, height: target.height });
+    const output = createSurface('Feathered generation mask', { x: 0, y: 0, width: target.width, height: target.height });
     const frame = this.gpu.beginFrame();
     try {
-      const pass = frame.encoder.beginComputePass();
-      pass.setPipeline(this.pipeline);
-      pass.setBindGroup(0, this.gpu.device.createBindGroup({ layout: this.pipeline.getBindGroupLayout(0), entries: [
-        { binding: 0, resource: (selection ?? fallback).view }, { binding: 1, resource: output.view },
-        { binding: 2, resource: frame.uniform([target.width, target.height, target.canonicalWidth, target.canonicalHeight, feather, Number(!!selection), 0, 0]) },
-      ] }));
-      pass.dispatchWorkgroups(Math.ceil(target.width / 8), Math.ceil(target.height / 8));
-      pass.end();
+      dispatchLocal(frame, selection ?? fallback, output, {
+        code: shader, label: 'Feather generation mask', regions: selection ? selection.regions : [output.bounds],
+        parameters: ({ x, y }) => [target.width, target.height, target.canonicalWidth, target.canonicalHeight,
+          feather, Number(!!selection), 0, 0, x * TILE_SIZE, y * TILE_SIZE, 0, 0],
+      });
       frame.submit();
       return output;
-    } catch (error) { output.texture.destroy(); frame.release(); throw error; }
+    } catch (error) { output.destroy(); frame.release(); throw error; }
   }
 }

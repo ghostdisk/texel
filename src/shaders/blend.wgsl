@@ -4,6 +4,8 @@ struct Params {
   sourceBounds: vec4f,
   targetBounds: vec4f,
   info: vec4f,
+  backdropClip: vec4f,
+  sourceClip: vec4f,
 }
 
 @group(0) @binding(0) var backdropImage: texture_2d<f32>;
@@ -97,17 +99,18 @@ fn noise(pixel: vec2f) -> f32 { return fract(sin(dot(pixel, vec2f(12.9898, 78.23
 
 @fragment fn fragmentMain(input: VertexOutput) -> @location(0) vec4f {
   let pixel = vec2i(input.position.xy);
-  let backdrop = textureLoad(backdropImage, pixel, 0);
+  let backdropInside = all(vec2f(pixel) >= params.backdropClip.xy) && all(vec2f(pixel) < params.backdropClip.zw);
+  let backdrop = select(vec4f(0), loadTile(backdropImage, pixel), backdropInside);
   let world = params.targetBounds.xy + input.uv * params.targetBounds.zw;
   let local = vec2f(dot(params.row0.xyz, vec3f(world, 1)), dot(params.row1.xyz, vec3f(world, 1)));
   let sourceUv = (local - params.sourceBounds.xy) / params.sourceBounds.zw;
-  let inside = all(sourceUv >= vec2f(0)) && all(sourceUv <= vec2f(1));
+  let inside = all(vec2f(pixel) >= params.sourceClip.xy) && all(vec2f(pixel) < params.sourceClip.zw);
   var source = select(vec4f(0), textureSample(sourceImage, sourceSampler, sourceUv), inside);
   if (params.info.z > 0.5) { source = vec4f(vec3f(clamp(source.r, 0.0, 1.0)), 1); }
   source *= params.info.x;
   let mode = u32(params.info.y);
   if (mode == 1u) {
-    if (source.a <= noise(input.position.xy)) { return backdrop; }
+    if (source.a <= noise(floor(world * params.info.w))) { return backdrop; }
     source = vec4f(source.rgb / max(source.a, 0.000001), 1);
   }
   if (source.a <= 0.0) { return backdrop; }

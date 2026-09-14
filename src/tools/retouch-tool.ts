@@ -1,5 +1,5 @@
 import type { Editor } from '../editor';
-import { GaussianBlur } from '../gpu/blur';
+import { gaussianBlur } from '../gpu/blur';
 import { createSurface } from '../gpu/surface';
 import type { Surface } from '../gpu/surface';
 import type { RetouchInput } from '../gpu/retouch';
@@ -28,7 +28,6 @@ abstract class RetouchTool extends BrushLikeTool {
   private stroke: RetouchStroke | null = null;
   private last: Point = { x: 0, y: 0 };
   private status: HTMLElement | null = null;
-  private blur: GaussianBlur | null = null;
   private hoverWorld: Point | null = null;
 
   constructor(editor: Editor) {
@@ -130,24 +129,15 @@ abstract class RetouchTool extends BrushLikeTool {
   }
 
   private snapshot(source: Surface, label: string): Surface {
-    const snapshot = createSurface(this.editor.gpu.device, label, source.bounds, source.scale, source.texture.format);
-    try {
-      const encoder = this.editor.gpu.device.createCommandEncoder({ label });
-      encoder.copyTextureToTexture({ texture: source.texture }, { texture: snapshot.texture }, {
-        width: source.texture.width,
-        height: source.texture.height,
-      });
-      this.editor.gpu.device.queue.submit([encoder.finish()]);
-      return snapshot;
-    } catch (error) { snapshot.texture.destroy(); throw error; }
+    return source.snapshot(label);
   }
 
   private prepareHealing(source: Surface, destination: Surface, temporary: Surface[]): [Surface, Surface] {
-    const blur = this.blur ??= new GaussianBlur(this.editor.gpu);
+    const blur = gaussianBlur;
     const makeBlur = (input: Surface, label: string) => {
-      const scratch = createSurface(this.editor.gpu.device, label + ' scratch', input.bounds, input.scale);
+      const scratch = createSurface(label + ' scratch', input.bounds, input.scale);
       temporary.push(scratch);
-      const output = createSurface(this.editor.gpu.device, label, input.bounds, input.scale);
+      const output = createSurface(label, input.bounds, input.scale);
       temporary.push(output);
       return { input, scratch, output };
     };
@@ -177,7 +167,7 @@ abstract class RetouchTool extends BrushLikeTool {
 
   private releaseStroke(temporary: Surface[]): void {
     this.stroke = null;
-    for (const surface of temporary) surface.texture.destroy();
+    for (const surface of temporary) surface.destroy();
   }
 
   hover(pointer: ToolPointer | null): void {

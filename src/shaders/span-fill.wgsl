@@ -1,150 +1,123 @@
 struct Params {
-  size: vec4u,
+  size: vec4f,
   mode: vec4f,
-  row0: vec4f,
-  row1: vec4f,
-  maskBounds: vec4f,
-}
-struct Span {
-  start: u32,
-  end: u32,
-}
-struct QueueState {
-  head: u32,
-  tail: atomic<u32>,
+  seedColor: vec4f,
+  state: vec4f,
+  seedPixel: vec4f,
 }
 @group(0) @binding(0) var source: texture_2d<f32>;
-@group(0) @binding(1) var selectionImage: texture_2d<f32>;
-@group(0) @binding(2) var imageSampler: sampler;
-@group(0) @binding(3) var<uniform> params: Params;
-@group(0) @binding(4) var<storage, read_write> matching: array<atomic<u32>>;
-@group(0) @binding(5) var<storage, read_write> visited: array<atomic<u32>>;
-@group(0) @binding(6) var<storage, read_write> queue: array<Span>;
-@group(0) @binding(7) var<storage, read_write> state: QueueState;
+@group(0) @binding(1) var selection: texture_2d<f32>;
+@group(0) @binding(2) var<uniform> params: Params;
+@group(0) @binding(3) var<storage, read_write> parents: array<atomic<u32>>;
+@group(0) @binding(4) var<storage, read_write> reached: array<atomic<u32>>;
+@group(0) @binding(5) var<storage, read> entries: array<u32>;
+@group(0) @binding(6) var<storage, read_write> summary: array<atomic<u32>>;
+@group(0) @binding(7) var destination: texture_storage_2d<rgba16float, write>;
 
-fn colorAt(point: vec2u) -> vec4f {
-  let pixel = textureLoad(source, vec2i(point), 0);
+const ABSENT = 0xffffffffu;
+
+fn colorAt(position: vec2u) -> vec4f {
+  let pixel = loadTile(source, vec2i(position));
   if (params.mode.y > 0.5) { return vec4f(pixel.rrr, 1); }
   if (pixel.a <= 0.0) { return vec4f(0); }
-  let color = max(pixel.rgb / pixel.a, vec3f(0));
-  let srgb = select(1.055 * pow(color, vec3f(1.0 / 2.4)) - 0.055, color * 12.92, color <= vec3f(0.0031308));
+  let linear = max(pixel.rgb / pixel.a, vec3f(0));
+  let srgb = select(1.055 * pow(linear, vec3f(1.0 / 2.4)) - 0.055, linear * 12.92, linear <= vec3f(0.0031308));
   return vec4f(clamp(srgb, vec3f(0), vec3f(1)), pixel.a);
 }
 
-fn inSelection(point: vec2u) -> bool {
+fn selected(position: vec2u) -> bool {
   if (params.mode.z < 0.5) { return true; }
-  let position = vec3f(vec2f(point) + 0.5, 1);
-  let local = vec2f(dot(params.row0.xyz, position), dot(params.row1.xyz, position));
-  let uv = (local - params.maskBounds.xy) / params.maskBounds.zw;
-  if (any(uv < vec2f(0)) || any(uv >= vec2f(1))) { return false; }
-  let mask = textureSampleLevel(selectionImage, imageSampler, uv, 0);
+  let mask = loadTile(selection, vec2i(position));
   return select(mask.a, mask.r, params.mode.w > 0.5) > 0.0;
 }
 
-@compute @workgroup_size(8, 8)
-fn matchPixels(@builtin(global_invocation_id) id: vec3u) {
-  if (any(id.xy >= params.size.xy)) { return; }
-  if (!inSelection(params.size.zw)) { return; }
-  let difference = abs(colorAt(id.xy) - colorAt(params.size.zw));
-  if (max(max(difference.r, difference.g), max(difference.b, difference.a)) > params.mode.x || !inSelection(id.xy)) { return; }
-  let index = id.y * params.size.x + id.x;
-  atomicOr(&matching[index >> 5u], 1u << (index & 31u));
+@compute @workgroup_size(1) fn sampleSeed() {
+  let position = vec2u(params.size.zw);
+  let color = colorAt(position);
+  for (var channel = 0u; channel < 4u; channel++) { atomicStore(&summary[channel], bitcast<u32>(color[channel])); }
+  atomicStore(&summary[4], select(0u, 1u, selected(position)));
+  let pixel = loadTile(source, vec2i(position));
+  for (var channel = 0u; channel < 4u; channel++) { atomicStore(&summary[5u + channel], bitcast<u32>(pixel[channel])); }
 }
 
-fn lowBits(count: u32) -> u32 {
-  if (count >= 32u) { return 0xffffffffu; }
-  return (1u << count) - 1u;
+@compute @workgroup_size(8, 8) fn initialize(@builtin(global_invocation_id) id: vec3u) {
+  let index = id.y * 256u + id.x;
+  var matches = false;
+  if (all(id.xy < vec2u(params.size.xy)) && selected(id.xy)) {
+    let difference = abs(colorAt(id.xy) - params.seedColor);
+    matches = all(loadTile(source, vec2i(id.xy)) == params.seedPixel) || max(max(difference.r, difference.g), max(difference.b, difference.a)) <= params.mode.x;
+  }
+  atomicStore(&parents[index], select(ABSENT, index, matches));
 }
 
-// Runs are maximal within a row, giving every run a unique claim bit at its start.
-fn expand(index: u32) -> Span {
-  let rowStart = index / params.size.x * params.size.x;
-  let rowEnd = rowStart + params.size.x - 1u;
-  var left = index;
+// Monotonically decreasing parent pointers cannot form cycles. Path halving bounds long chains.
+fn root(index: u32) -> u32 {
+  var current = index;
   loop {
-    let base = left & ~31u;
-    let first = max(base, rowStart);
-    let range = lowBits((left & 31u) + 1u) & (0xffffffffu << (first & 31u));
-    let gaps = ~atomicLoad(&matching[left >> 5u]) & range;
-    if (gaps != 0u) { left = base + firstLeadingBit(gaps) + 1u; break; }
-    left = first;
-    if (left == rowStart) { break; }
-    left--;
+    let parent = atomicLoad(&parents[current]);
+    if (parent == current) { return current; }
+    let grandparent = atomicLoad(&parents[parent]);
+    atomicMin(&parents[current], grandparent);
+    current = parent;
   }
-  var right = index;
+}
+
+fn unite(first: u32, second: u32) {
+  if (atomicLoad(&parents[second]) == ABSENT) { return; }
   loop {
-    let base = right & ~31u;
-    let last = min(base + 31u, rowEnd);
-    let range = (0xffffffffu << (right & 31u)) & lowBits((last & 31u) + 1u);
-    let gaps = ~atomicLoad(&matching[right >> 5u]) & range;
-    if (gaps != 0u) { right = base + firstTrailingBit(gaps) - 1u; break; }
-    right = last;
-    if (right == rowEnd) { break; }
-    right++;
-  }
-  return Span(left, right);
-}
-
-fn enqueue(span: Span) {
-  let bit = 1u << (span.start & 31u);
-  if ((atomicOr(&visited[span.start >> 5u], bit) & bit) != 0u) { return; }
-  // Only the owner of the run publishes it. Word operations also mark its full coverage.
-  for (var word = span.start >> 5u; word <= (span.end >> 5u); word++) {
-    let base = word * 32u;
-    let first = max(span.start, base) - base;
-    let last = min(span.end, base + 31u) - base;
-    atomicOr(&visited[word], (0xffffffffu << first) & lowBits(last + 1u));
-  }
-  let slot = atomicAdd(&state.tail, 1u);
-  queue[slot] = span;
-}
-
-@compute @workgroup_size(1)
-fn seed() {
-  let index = params.size.w * params.size.x + params.size.z;
-  if ((atomicLoad(&matching[index >> 5u]) & (1u << (index & 31u))) != 0u) { enqueue(expand(index)); }
-}
-
-fn scanNeighbor(first: u32, last: u32) {
-  var cursor = first;
-  loop {
-    if (cursor > last) { break; }
-    let word = cursor >> 5u;
-    let base = word * 32u;
-    let end = min(last, base + 31u);
-    let range = (0xffffffffu << (cursor & 31u)) & lowBits((end & 31u) + 1u);
-    let available = atomicLoad(&matching[word]) & ~atomicLoad(&visited[word]) & range;
-    if (available == 0u) { cursor = end + 1u; continue; }
-    let span = expand(base + firstTrailingBit(available));
-    enqueue(span);
-    cursor = span.end + 1u;
+    let a = root(first);
+    let b = root(second);
+    if (a == b) { return; }
+    let high = max(a, b);
+    let low = min(a, b);
+    if (atomicCompareExchangeWeak(&parents[high], high, low).exchanged) { return; }
   }
 }
 
-var<workgroup> batchStart: u32;
-var<workgroup> batchSize: u32;
+// Each matching pixel contributes its up/left edges. No waiting on another workgroup.
+@compute @workgroup_size(8, 8) fn connect(@builtin(global_invocation_id) id: vec3u) {
+  let index = id.y * 256u + id.x;
+  if (atomicLoad(&parents[index]) == ABSENT) { return; }
+  if (id.x > 0u) { unite(index, index - 1u); }
+  if (id.y > 0u) { unite(index, index - 256u); }
+}
 
-// One workgroup owns a bounded queue batch: no cross-workgroup waiting or barriers.
-// A nonempty dispatch consumes 512 runs or exhausts the entire reachable component.
-@compute @workgroup_size(64)
-fn advance(@builtin(local_invocation_index) lane: u32) {
-  var processed = 0u;
-  loop {
-    if (lane == 0u) {
-      batchStart = state.head;
-      batchSize = min(min(atomicLoad(&state.tail) - state.head, 64u), 512u - processed);
-      state.head += batchSize;
-    }
-    let count = workgroupUniformLoad(&batchSize);
-    let start = workgroupUniformLoad(&batchStart);
-    if (count == 0u) { break; }
-    if (lane < count) {
-      let span = queue[start + lane];
-      if (span.start >= params.size.x) { scanNeighbor(span.start - params.size.x, span.end - params.size.x); }
-      if (span.end + params.size.x < params.size.x * params.size.y) { scanNeighbor(span.start + params.size.x, span.end + params.size.x); }
-    }
-    storageBarrier();
-    processed += count;
-    if (processed == 512u) { break; }
+fn entered(edge: u32) -> bool { return (entries[edge >> 5u] & (1u << (edge & 31u))) != 0u; }
+
+@compute @workgroup_size(8, 8) fn seedComponents(@builtin(global_invocation_id) id: vec3u) {
+  let index = id.y * 256u + id.x;
+  if (atomicLoad(&parents[index]) == ABSENT) { return; }
+  let size = vec2u(params.size.xy);
+  var seeded = params.state.y < 0.5 || i32(index) == i32(params.state.x);
+  if (id.x == 0u && entered(id.y)) { seeded = true; }
+  if (id.x + 1u == size.x && entered(256u + id.y)) { seeded = true; }
+  if (id.y == 0u && entered(512u + id.x)) { seeded = true; }
+  if (id.y + 1u == size.y && entered(768u + id.x)) { seeded = true; }
+  if (seeded) {
+    let component = root(index);
+    atomicOr(&reached[component >> 5u], 1u << (component & 31u));
   }
+}
+
+fn emit(edge: u32) { atomicOr(&summary[edge >> 5u], 1u << (edge & 31u)); }
+
+@compute @workgroup_size(8, 8) fn coverage(@builtin(global_invocation_id) id: vec3u) {
+  let index = id.y * 256u + id.x;
+  var filled = false;
+  if (atomicLoad(&parents[index]) != ABSENT) {
+    let component = root(index);
+    filled = (atomicLoad(&reached[component >> 5u]) & (1u << (component & 31u))) != 0u;
+  }
+  textureStore(destination, id.xy, vec4f(select(0.0, 1.0, filled)));
+  if (!filled) { return; }
+  let size = vec2u(params.size.xy);
+  if (id.x == 0u) { emit(id.y); }
+  if (id.x + 1u == size.x) { emit(256u + id.y); }
+  if (id.y == 0u) { emit(512u + id.x); }
+  if (id.y + 1u == size.y) { emit(768u + id.x); }
+  atomicMin(&summary[32], id.x);
+  atomicMin(&summary[33], id.y);
+  atomicMax(&summary[34], id.x + 1u);
+  atomicMax(&summary[35], id.y + 1u);
+  atomicAdd(&summary[36], 1u);
 }

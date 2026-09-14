@@ -16,14 +16,14 @@ TXL is a lossless project container. All integer fields are unsigned little-endi
 | after JSON + 4 | 4 | Chunk type: ASCII BIN followed by NUL |
 | after JSON + 8 | variable | Binary buffers, with zero padding |
 
-The container version governs framing and binary interpretation. JSON has a separate schemaVersion, currently 2. The reader also accepts schema 1 documents. Unsupported container/schema versions are rejected explicitly; future breaking changes must increment the relevant version. Container version 1 requires exactly these two chunks.
+The container version governs framing and binary interpretation. JSON has a separate schemaVersion, currently 4. The reader also accepts schemas 1–3. Unsupported container/schema versions are rejected explicitly; future breaking changes must increment the relevant version. Container version 1 requires exactly these two chunks.
 
 ## JSON metadata
 
 The top-level object contains:
 
 - format: "texel"
-- schemaVersion: 2 (schema 1 remains readable)
+- schemaVersion: 4 (schemas 1–3 remain readable)
 - document: canonical width/height, root layer, selectedLayerIds, activeLayerId, activeSelectionId, generationLens, gridSize, and guides
 - buffers: descriptors for the binary pixel payloads
 
@@ -41,23 +41,27 @@ gridSize is a finite document-pixel spacing from 1 to 1,000,000. guides contains
 
 ## Binary pixels
 
-Each buffer descriptor contains byteOffset (relative to the BIN payload), byteLength (excluding padding), width, height, and format.
+Each buffer descriptor contains byteOffset (relative to the BIN payload), byteLength (excluding padding), logical width/height, format, and a tiles array. Tile coordinates are zero-based 256×256 chunk coordinates; omitted coordinates are zero.
 
 | Format | Bytes per pixel | Interpretation |
 | --- | --- | --- |
 | rgba16float | 8 | Four IEEE 754 binary16 channels in RGBA order; premultiplied linear-light color |
 | r16float | 2 | One IEEE 754 binary16 mask coverage channel |
 
-Pixels are tightly packed in row-major order, left to right and top to bottom. Each 16-bit value is little-endian. There is no compression, color conversion, or quantization. Each buffer begins on a four-byte boundary; odd-sized single-channel buffers need two padding bytes.
+Schema 4 tile records are either { x, y } for resident pixels or { x, y, color: [r, g, b, a] } for a solid chunk. Solid colors contain the exactly representable stored half-float values, in premultiplied linear light; scalar masks use red. They require no BIN bytes and restore shared immutable 1×1 backing.
 
-Source pixels and cached text pixels are stored. Filtered outputs, group composites, thumbnails, and undo snapshots are regenerated or discarded on opening. Each restored image or text layer owns its GPU texture, even if multiple layers refer to one buffer descriptor.
+Resident payloads follow tiles-array order, skipping solid records. Each is a complete 256×256 tile, tightly packed row-major with little-endian binary16 channels. Edge padding outside the logical image is zero. Each buffer begins on a four-byte boundary. Empty and all-solid buffers have byteLength 0.
+
+Schema 3 uses the same tile layout but has no solid-color records. Schemas 1–2 store dense row-major images; odd-sized single-channel buffers have two alignment padding bytes. Older dense or resident tiles that are uniformly colored can be restored as solid chunks without changing their stored values.
+
+Source pixels and cached text pixels are stored. Filtered outputs, group composites, thumbnails, and undo snapshots are regenerated or discarded on opening. Restored layers own their sparse records; immutable solid backing can be shared across layers.
 
 ## Loading and saving
 
 Readers check the total length, chunk types/lengths, UTF-8/JSON, buffer bounds and overlaps, dimensions, IDs, transforms, filter schemas, and layer dependency cycles. Missing mask targets retain their IDs, matching the editor's existing dangling-link behavior. Unknown layer types, filter kinds, pixel formats, or required versions fail instead of silently discarding content.
 
-The current implementation supports files and decoded source pixels smaller than 2 GiB, JSON up to 16 MiB, up to 10,000 layers and filters, and nesting depth up to 128. Texture and canvas dimensions must fit the current GPU's limits.
+The current implementation supports files and decoded source pixels smaller than 2 GiB, JSON up to 16 MiB, up to 10,000 layers and filters, and nesting depth up to 128. Logical image dimensions are limited to 1,048,576 pixels per axis, with at most 1,000,000 records per buffer; individual GPU image allocations remain chunk-sized.
 
-GPU readback strips WebGPU row padding in bands of at most 32 MiB. Loading uploads the raw bytes directly into GPU textures. The existing document stays alive until the new tree and GPU allocations have validated successfully.
+Resident GPU readback uses batches of at most 16 MiB. Saving solid records needs no GPU readback. Loading uploads resident data by chunk and restores solid records from metadata. The existing document stays alive until the new tree and GPU allocations have validated successfully.
 
 Saving writes and flushes a temporary file in the destination directory, then renames it over the target. The original file remains intact if writing or renaming fails. Opening starts a fresh undo history; save markers track undo states during the current session.

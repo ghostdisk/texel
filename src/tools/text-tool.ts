@@ -48,7 +48,7 @@ export class TextTool extends Tool {
       layer = new TextLayer('Text', source, properties);
       layer.setTransform(multiply(inverse(parent.worldTransform()), [1, 0, 0, 1, point.x, point.y]));
       this.editor.image.add(layer, parent, parent.children.length, true, 'Add text layer');
-    } catch (error) { if (!layer?.parent) source.texture.destroy(); throw error; }
+    } catch (error) { if (!layer?.parent) source.destroy(); throw error; }
     this.openEditor();
   }
 
@@ -89,7 +89,7 @@ export class TextTool extends Tool {
       this.defaults = properties;
       this.syncUI();
       this.editor.requestRender();
-    } catch (error) { if (layer.source !== source) source.texture.destroy(); throw error; }
+    } catch (error) { if (layer.source !== source) source.destroy(); throw error; }
   }
 
   private commit = (): void => {
@@ -99,7 +99,7 @@ export class TextTool extends Tool {
     if (this.editor.commitEdits === this.commit) this.editor.commitEdits = undefined;
     if (JSON.stringify(edit.text) === JSON.stringify(edit.layer.textProperties)) {
       edit.layer.restoreText(this.editor.gpu, edit.text, edit.snapshots.get(edit.before)!);
-      for (const snapshot of edit.snapshots.values()) snapshot.texture.destroy();
+      for (const snapshot of edit.snapshots.values()) snapshot.destroy();
       return;
     }
     try {
@@ -112,7 +112,7 @@ export class TextTool extends Tool {
       ));
     } catch (error) {
       edit.layer.restoreText(this.editor.gpu, edit.text, edit.snapshots.get(edit.before)!);
-      for (const snapshot of edit.snapshots.values()) snapshot.texture.destroy();
+      for (const snapshot of edit.snapshots.values()) snapshot.destroy();
       throw error;
     }
   };
@@ -127,7 +127,7 @@ export class TextTool extends Tool {
     if (this.editor.commitEdits === this.commit) this.editor.commitEdits = undefined;
     this.defaults = edit.text;
     try { edit.layer.restoreText(this.editor.gpu, edit.text, edit.snapshots.get(edit.before)!); }
-    finally { for (const snapshot of edit.snapshots.values()) snapshot.texture.destroy(); }
+    finally { for (const snapshot of edit.snapshots.values()) snapshot.destroy(); }
     this.editor.changed();
   }
   applyUndo(_operation: UndoOperation, _direction: UndoDirection): void { throw new Error('Text edits belong to their layer.'); }

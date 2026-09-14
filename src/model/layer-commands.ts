@@ -157,7 +157,7 @@ export class LayerCommands {
       for (const layer of roots) undo.push({
         action: 'add', parentId: layer.parent!.id, index: layer.parent!.children.indexOf(layer), layer: this.image.serializeLayer(layer, snapshots),
       });
-    } catch (error) { for (const surface of snapshots.values()) surface.texture.destroy(); throw error; }
+    } catch (error) { for (const surface of snapshots.values()) surface.destroy(); throw error; }
     const parent = this.commonParent(roots);
     const removed = new Set<Layer>();
     const visit = (layer: Layer) => { removed.add(layer); if (layer instanceof GroupLayer) layer.children.forEach(visit); };
@@ -235,9 +235,9 @@ export class LayerCommands {
         redo.push({ action: 'add', parentId: parent.id, index: parent.children.indexOf(original) + 1 + offset, layer: this.image.serializeLayer(copy, snapshots) });
         offsets.set(parent, offset + 1);
       }
-    } catch (error) { for (const surface of snapshots.values()) surface.texture.destroy(); throw error; }
+    } catch (error) { for (const surface of snapshots.values()) surface.destroy(); throw error; }
     finally {
-      for (const surface of originals.values()) surface.texture.destroy();
+      for (const surface of originals.values()) surface.destroy();
       for (const copy of copies) this.compositor.release(copy);
     }
     this.commit(layers.length > 1 ? 'Duplicate layers' : 'Duplicate layer',
@@ -264,7 +264,7 @@ export class LayerCommands {
         });
       }
     } catch (error) {
-      for (const snapshot of snapshots.values()) snapshot.texture.destroy();
+      for (const snapshot of snapshots.values()) snapshot.destroy();
       throw error;
     } finally { for (const copy of copies) this.compositor.release(copy); }
     this.commit(copies.length > 1 ? 'Paste layers' : 'Paste layer',
@@ -288,8 +288,8 @@ export class LayerCommands {
     const selectionRevision = selection.revision;
     const maskWorld = selection.worldTransform();
     const mask = this.compositor.resolve(selection, 1);
-    const masked = createSurface(this.gpu.device, cut ? 'Layer via cut' : 'Layer via copy', source.bounds);
-    const remaining = cut ? createSurface(this.gpu.device, 'Layer via cut remainder', source.bounds) : null;
+    const masked = createSurface(cut ? 'Layer via cut' : 'Layer via copy', source.bounds);
+    const remaining = cut ? createSurface('Layer via cut remainder', source.bounds) : null;
     const frame = this.gpu.beginFrame();
     let copy: ImageLayer | null = null;
     try {
@@ -319,7 +319,7 @@ export class LayerCommands {
           before = this.image.capturePixels(layer, snapshots);
           after = this.image.captureSurface(remaining, snapshots);
         }
-      } catch (error) { for (const snapshot of snapshots.values()) snapshot.texture.destroy(); throw error; }
+      } catch (error) { for (const snapshot of snapshots.values()) snapshot.destroy(); throw error; }
       const copyId = copy.id;
       this.compositor.release(copy);
       copy = null;
@@ -332,7 +332,7 @@ export class LayerCommands {
       const label = cut ? 'Layer via Cut' : 'Layer via Copy';
       this.commit(label, undo, redo, { ids: [copyId], active: copyId }, snapshots);
     } catch (error) { if (copy && !copy.parent) this.compositor.release(copy); throw error; }
-    finally { frame.release(); masked.texture.destroy(); remaining?.texture.destroy(); }
+    finally { frame.release(); masked.destroy(); remaining?.destroy(); }
   }
 
   get mergeTargets(): Layer[] {
@@ -361,7 +361,7 @@ export class LayerCommands {
         action: 'add', parentId: layer.parent!.id, index: layer.parent!.children.indexOf(layer), layer: this.image.serializeLayer(layer, snapshots),
       });
       serialized = this.image.serializeLayer(merged, snapshots);
-    } catch (error) { for (const surface of snapshots.values()) surface.texture.destroy(); throw error; }
+    } catch (error) { for (const surface of snapshots.values()) surface.destroy(); throw error; }
     finally { this.compositor.release(merged); }
     this.commit(layers.length === 1 ? 'Merge group' : 'Merge layers',
       [{ action: 'remove', layerId: merged.id }, ...undo],
@@ -379,7 +379,7 @@ export class LayerCommands {
     const next = layer.filters[1];
     const filtered = next ? this.compositor.filterInput(layer, next.id)! : resolved;
     const bounds = filtered.bounds;
-    const source = createSurface(this.gpu.device, 'Applied filter pixels', { x: 0, y: 0, width: bounds.width, height: bounds.height }, 1, layer.sourceTexture.format);
+    const source = createSurface('Applied filter pixels', { x: 0, y: 0, width: bounds.width, height: bounds.height }, 1, layer.source.format);
     const snapshots = new Map<string, Surface>();
     const frame = this.gpu.beginFrame();
     try {
@@ -404,8 +404,8 @@ export class LayerCommands {
         snapshots,
       ));
     } catch (error) {
-      if (layer.source !== source) source.texture.destroy();
-      for (const surface of snapshots.values()) surface.texture.destroy();
+      if (layer.source !== source) source.destroy();
+      for (const surface of snapshots.values()) surface.destroy();
       throw error;
     } finally { frame.release(); }
   }

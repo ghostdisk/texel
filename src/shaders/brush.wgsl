@@ -3,6 +3,7 @@ struct Params {
   row0: vec4f,
   row1: vec4f,
   maskBounds: vec4f,
+  origin: vec4f,
 }
 @group(0) @binding(0) var<uniform> params: Params;
 @group(0) @binding(1) var selectionImage: texture_2d<f32>;
@@ -25,7 +26,7 @@ struct VertexOutput {
   let corners = array<vec2f, 6>(vec2f(-1, -1), vec2f(1, -1), vec2f(-1, 1), vec2f(-1, 1), vec2f(1, -1), vec2f(1, 1));
   let local = corners[index];
   let pixel = stamp.xy + local * stamp.zw;
-  let clip = pixel / params.size.xy * 2 - 1;
+  let clip = (pixel - params.origin.xy) / params.size.xy * 2 - 1;
   return VertexOutput(vec4f(clip.x, -clip.y, 0, 1), local, color, shape.xy, pixel);
 }
 

@@ -141,7 +141,7 @@ export class DocumentFiles {
         const blob = await new Promise<Blob | null>((resolve) => canvas.toBlob(resolve, mime));
         if (!blob) throw new Error(`Could not encode the ${format.toUpperCase()} image.`);
         await window.desktop.writeImageExport(handle.token, new Uint8Array(await blob.arrayBuffer()));
-      } finally { source.texture.destroy(); }
+      } finally { source.destroy(); }
     });
   }
 

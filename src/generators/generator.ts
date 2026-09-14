@@ -208,7 +208,7 @@ export abstract class Generator {
     let mask = capture.mask;
     if (mask && this.feather > 0) {
       const feathered = this.masks.create(mask, frame, this.feather, capture.input);
-      if (feathered !== mask) { mask.texture.destroy(); mask = feathered; }
+      if (feathered !== mask) { mask.destroy(); mask = feathered; }
     }
     try {
       const [inputPixels, maskPixels] = await Promise.all([
@@ -221,8 +221,8 @@ export abstract class Generator {
       ]);
       return { input, mask: maskImage };
     } finally {
-      capture.input.texture.destroy();
-      mask?.texture.destroy();
+      capture.input.destroy();
+      mask?.destroy();
     }
   }
 
@@ -254,7 +254,7 @@ export abstract class Generator {
       run.mask = capture.mask;
       const sourceInput = capture.input;
       const feathered = run.mask ? this.masks.create(run.mask, run.frame, this.feather, sourceInput) : null;
-      if (feathered !== run.mask) { run.mask?.texture.destroy(); run.mask = feathered; }
+      if (feathered !== run.mask) { run.mask?.destroy(); run.mask = feathered; }
       const requestScale = model.task === 'remove' ? Math.min(1, 2048 / Math.max(run.frame.width, run.frame.height)) : 1;
       const requestFrame = requestScale < 1 ? this.lens.frame(this.scale * requestScale, model.capabilities.dimensionMultiple) : run.frame;
       let inputSurface = sourceInput;
@@ -308,8 +308,8 @@ export abstract class Generator {
         const steps = this.progress.steps || this.steps;
         this.progress = { phase: 'Complete', step: steps, steps };
       } finally {
-        if (inputSurface !== sourceInput) inputSurface.texture.destroy();
-        if (maskSurface !== run.mask) maskSurface?.texture.destroy();
+        if (inputSurface !== sourceInput) inputSurface.destroy();
+        if (maskSurface !== run.mask) maskSurface?.destroy();
       }
     } catch (error) {
       const cancelled = run.controller.signal.aborted || error instanceof DOMException && error.name === 'AbortError';
@@ -317,8 +317,8 @@ export abstract class Generator {
       if (!cancelled) this.error = error instanceof Error ? error.message : String(error);
     } finally {
       if (this.running === run) this.running = null;
-      run.mask?.texture.destroy();
-      run.input?.texture.destroy();
+      run.mask?.destroy();
+      run.input?.destroy();
       this.notify();
     }
   }
@@ -372,7 +372,7 @@ export abstract class Generator {
       const output = this.blend.apply(imported.source, run.frame, run.mask);
       this.installTransient(output, run.frame);
       this.setResultPreview(blob);
-    } finally { imported.sourceTexture.destroy(); }
+    } finally { imported.source.destroy(); }
   }
 
   private async drainPreviews(run: RunningRequest): Promise<void> {
@@ -386,7 +386,7 @@ export abstract class Generator {
         try {
           if (!this.valid(run) || run.finishing) continue;
           this.installTransient(this.blend.apply(imported.source, run.frame, run.mask), run.frame);
-        } finally { imported.sourceTexture.destroy(); }
+        } finally { imported.source.destroy(); }
       }
     } catch (error) {
       if (this.valid(run)) this.editor.report(error);

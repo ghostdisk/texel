@@ -1,11 +1,12 @@
 import shader from '../shaders/retouch.wgsl?raw';
-import { IDENTITY } from '../model/geometry';
+import { IDENTITY, inverse } from '../model/geometry';
 import type { Matrix } from '../model/geometry';
 import { SOURCE_OVER } from './quad';
-import { MASK_FORMAT, createSurface, isMaskSurface } from './surface';
+import { MASK_FORMAT, TILE_SIZE, createSurface, isMaskSurface, intersectBounds } from './surface';
 import type { Surface } from './surface';
 import type { MaskInput } from './mask';
 import type { Gpu } from './device';
+import { beginTilePaint } from './brush';
 import type { RenderOperation } from './brush';
 
 export interface RetouchStamp {
@@ -38,7 +39,7 @@ export class RetouchBrush {
 
   constructor(private readonly gpu: Gpu) {
     this.sampler = gpu.device.createSampler({ minFilter: 'linear', magFilter: 'linear' });
-    this.empty = createSurface(gpu.device, 'Unused retouch selection', { x: 0, y: 0, width: 1, height: 1 }, 1, MASK_FORMAT);
+    this.empty = createSurface('Unused retouch selection', { x: 0, y: 0, width: 1, height: 1 }, 1, MASK_FORMAT);
   }
 
   private pipeline(erase: boolean): GPURenderPipeline {
@@ -60,20 +61,26 @@ export class RetouchBrush {
   }
 
   operation(stamps: readonly RetouchStamp[], input: RetouchInput): RenderOperation {
-    return { encode: (pass, { frame, target }) => {
-      if (!stamps.length) return;
+    const bounds = (stamp: RetouchStamp) => ({ x: stamp.x - stamp.radius, y: stamp.y - stamp.radius, width: stamp.radius * 2, height: stamp.radius * 2 });
+    return { erase: input.erase, regions: () => stamps.map(bounds), encode: (context) => {
+      const { frame, target, quads } = context;
+      const visible = stamps.filter((stamp) => intersectBounds(bounds(stamp), target.bounds));
+      if (!visible.length) return;
       if (isMaskSurface(target)) throw new Error('Retouch tools require an RGBA pixel layer.');
       const pipeline = this.pipeline(input.erase);
-      const data = new Float32Array(stamps.length * 8);
-      stamps.forEach((stamp, index) => data.set([stamp.x, stamp.y, stamp.radius, stamp.hardness, stamp.flow, 0, 0, 0], index * 8));
-      const selection = input.selection?.surface ?? this.empty;
-      const [sa, sb, sc, sd, se, sf] = input.sourceTransform;
-      const [ma, mb, mc, md, me, mf] = input.selection?.transform ?? IDENTITY;
-      const sourceBounds = input.source.bounds;
-      const destinationBounds = input.destinationBlur?.bounds ?? target.bounds;
-      const selectionBounds = selection.bounds;
+      const data = new Float32Array(visible.length * 8);
+      visible.forEach((stamp, index) => data.set([stamp.x, stamp.y, stamp.radius, stamp.hardness, stamp.flow, 0, 0, 0], index * 8));
+      const source = quads.region(frame, input.source, target.bounds, target.scale, inverse(input.sourceTransform));
+      const sourceBlur = input.sourceBlur ? quads.region(frame, input.sourceBlur, target.bounds, target.scale, inverse(input.sourceTransform)) : source;
+      const destinationBlur = input.destinationBlur ? quads.region(frame, input.destinationBlur, target.bounds, target.scale) : source;
+      const selection = input.selection ? quads.region(frame, input.selection.surface, target.bounds, target.scale, inverse(input.selection.transform)) : this.empty;
+      const [sa, sb, sc, sd, se, sf] = IDENTITY;
+      const [ma, mb, mc, md, me, mf] = IDENTITY;
+      const sourceBounds = target.bounds;
+      const destinationBounds = target.bounds;
+      const selectionBounds = target.bounds;
       const params = frame.uniform([
-        target.texture.width, target.texture.height, 0, 0,
+        TILE_SIZE, TILE_SIZE, target.bounds.x, target.bounds.y,
         sa, sc, se, 0, sb, sd, sf, 0,
         sourceBounds.x, sourceBounds.y, sourceBounds.width, sourceBounds.height,
         destinationBounds.x, destinationBounds.y, destinationBounds.width, destinationBounds.height,
@@ -82,17 +89,19 @@ export class RetouchBrush {
         Number(!!input.selection), Number(isMaskSurface(selection)), Number(input.heal), Number(input.erase),
       ]);
       const instances = frame.upload(data, GPUBufferUsage.VERTEX);
+      const pass = beginTilePaint(context);
       pass.setPipeline(pipeline);
       pass.setBindGroup(0, this.gpu.device.createBindGroup({ layout: pipeline.getBindGroupLayout(0), entries: [
         { binding: 0, resource: params },
-        { binding: 1, resource: input.source.view },
-        { binding: 2, resource: (input.sourceBlur ?? input.source).view },
-        { binding: 3, resource: (input.destinationBlur ?? input.source).view },
-        { binding: 4, resource: selection.view },
+        { binding: 1, resource: source.view(target.x, target.y) },
+        { binding: 2, resource: sourceBlur.view(target.x, target.y) },
+        { binding: 3, resource: destinationBlur.view(target.x, target.y) },
+        { binding: 4, resource: selection.view(target.x, target.y) },
         { binding: 5, resource: this.sampler },
       ] }));
       pass.setVertexBuffer(0, instances);
-      pass.draw(6, stamps.length);
+      pass.draw(6, visible.length);
+      pass.end();
     } };
   }
 }

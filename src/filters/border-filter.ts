@@ -13,6 +13,7 @@ export class BorderFilter extends Filter {
   width = 4;
   color = '#ffffff';
   opacity = 1;
+  get supportRadius(): number { return this.opacity > 0 ? Math.ceil(this.width) : 0; }
 
   outputBounds(input: Rect): Rect { return this.width > 0 && this.opacity > 0 ? expandBounds(input, Math.ceil(this.width)) : input; }
   protected properties(): JsonObject { return { width: this.width, color: this.color, opacity: this.opacity }; }
@@ -29,12 +30,8 @@ export class BorderFilter extends Filter {
   render(context: FilterRenderContext, source: Surface): Surface {
     if (this.width === 0 || this.opacity === 0) return source;
     const bounds = this.outputBounds(source.bounds);
-    const reduction = Math.max(1, 2 ** Math.ceil(Math.log2(this.width * source.scale / 8)));
-    const scale = source.scale / reduction;
-    const input = context.surface('border-input', bounds, scale);
-    const mask = context.surface('border-mask', bounds, scale);
-    context.quads.copy(context.frame, source, input);
-    dilateAlpha(context, input, mask, this.width * scale);
+    const mask = context.surface('border-mask', bounds, source.scale);
+    dilateAlpha(context, source, mask, this.width * source.scale);
     return renderBehind(context, source, mask, bounds, this.color, this.opacity, { x: 0, y: 0 }, true);
   }
 

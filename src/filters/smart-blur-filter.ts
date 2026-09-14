@@ -12,6 +12,7 @@ export class SmartBlurFilter extends Filter {
   readonly label = 'Smart blur';
   radius = 4;
   threshold = 15;
+  get supportRadius(): number { return this.radius; }
 
   outputBounds(input: Rect): Rect { return input; }
   protected properties(): JsonObject { return { radius: this.radius, threshold: this.threshold }; }
@@ -25,7 +26,7 @@ export class SmartBlurFilter extends Filter {
 
   render(context: FilterRenderContext, input: Surface): Surface {
     if (this.radius === 0) return input;
-    return renderComputeFilter(context, input, shader, [this.radius * input.scale, this.threshold / 100, 0, 0], this.label);
+    return renderComputeFilter(context, input, shader, [this.radius * input.scale, this.threshold / 100, 0, 0], this.label, this.radius * input.scale);
   }
 
   protected drawParameters(container: HTMLElement, context: FilterUIContext): void {

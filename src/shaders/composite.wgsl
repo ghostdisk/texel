@@ -4,11 +4,10 @@ struct Params {
   source: vec4f,
   destinationBounds: vec4f,
   info: vec4f,
+  tile: vec4f,
 }
 
-@group(0) @binding(0) var image: texture_2d<f32>;
-@group(0) @binding(1) var imageSampler: sampler;
-@group(0) @binding(2) var<uniform> params: Params;
+@group(0) @binding(0) var<uniform> params: Params;
 
 struct VertexOutput {
   @builtin(position) position: vec4f,
@@ -25,7 +24,8 @@ struct VertexOutput {
 }
 
 @fragment fn fragmentMain(input: VertexOutput) -> @location(0) vec4f {
-  var color = textureSample(image, imageSampler, input.uv);
+  let position = (params.source.xy + input.uv * params.source.zw) * params.tile.z - params.tile.xy;
+  var color = sampleNeighborhood(position, params.tile.w > 0.5);
   if (params.info.z > 0.5) { color = vec4f(vec3f(clamp(color.r, 0.0, 1.0)), 1); }
   if (params.info.w > 0.5) { return vec4f(clamp(color.r, 0.0, 1.0) * params.info.x, 0, 0, 1); }
   let premultiplied = vec4f(color.rgb * select(1.0, color.a, params.info.y > 0.5), color.a);

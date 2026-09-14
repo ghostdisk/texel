@@ -3,6 +3,7 @@ import { drawFilterSliderInput } from './controls';
 import { icon } from '../ui/icons';
 import type { QuadRenderer } from '../gpu/quad';
 import type { Surface } from '../gpu/surface';
+import { TILE_SIZE } from '../gpu/surface';
 import type { MaskInput } from '../gpu/mask';
 import type { LayerChoice } from '../ui/layer-select';
 import type { Rect } from '../model/geometry';
@@ -38,6 +39,8 @@ export interface FilterUIContext {
 export abstract class Filter implements UndoTarget {
   abstract readonly kind: string;
   abstract readonly label: string;
+  /** Furthest dependency in layer pixels; pointwise filters have zero support. */
+  abstract readonly supportRadius: number;
   enabled = true;
   mix = 1;
   private collapsed = false;
@@ -48,6 +51,12 @@ export abstract class Filter implements UndoTarget {
   remapDependencies(_ids: ReadonlyMap<string, string>): void {}
 
   abstract render(context: FilterRenderContext, input: Surface): Surface;
+  renderLocal(context: FilterRenderContext, input: Surface): Surface {
+    if (!Number.isFinite(this.supportRadius) || this.supportRadius < 0 || Math.ceil(this.supportRadius * input.scale) > TILE_SIZE) {
+      throw new Error(`${this.label} exceeds the ${TILE_SIZE}px local-filter support radius at this resolution.`);
+    }
+    return this.render(context, input);
+  }
   abstract outputBounds(input: Rect): Rect;
   protected abstract properties(): JsonObject;
   protected abstract loadProperties(properties: JsonObject): void;

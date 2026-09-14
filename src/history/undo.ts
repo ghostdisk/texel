@@ -1,4 +1,5 @@
-import type { Surface } from '../gpu/surface';
+import { resourceBytes } from '../gpu/surface';
+import type { Surface, TileResource } from '../gpu/surface';
 
 export type Json = null | boolean | number | string | Json[] | JsonObject;
 export interface JsonObject {
@@ -44,13 +45,13 @@ export class UndoOperation {
   }
 
   get bytes(): number {
-    let bytes = 0;
-    for (const surface of this.snapshots.values()) bytes += surface.texture.width * surface.texture.height * (surface.texture.format === 'r16float' ? 2 : 8);
-    return bytes;
+    const resources = new Set<TileResource>();
+    for (const surface of this.snapshots.values()) for (const tile of surface.tiles.values()) resources.add(tile.resource);
+    return [...resources].reduce((bytes, resource) => bytes + resourceBytes(resource), 0);
   }
 
   dispose(): void {
-    for (const surface of this.snapshots.values()) surface.texture.destroy();
+    for (const surface of this.snapshots.values()) surface.destroy();
     this.snapshots.clear();
   }
 }
@@ -101,16 +102,29 @@ export class UndoStack {
     this.states.push(crypto.randomUUID());
     this.entries.push(operation);
     this.position = this.entries.length;
-    let bytes = this.entries.reduce((total, entry) => total + entry.bytes, 0);
+    let bytes = this.retainedBytes();
     while (this.entries.length > 1 && (this.entries.length > 100 || bytes > 256 * 1024 * 1024)) {
       const removed = this.entries.shift()!;
       this.initialLabel = removed.label;
       this.states.shift();
-      bytes -= removed.bytes;
       removed.dispose();
+      bytes = this.retainedBytes();
       this.position--;
     }
     this.onChange?.(operation, 'redo');
+  }
+
+  private retainedBytes(): number {
+    const references = new Map<TileResource, number>();
+    for (const entry of this.entries) for (const snapshot of entry.snapshots.values()) for (const tile of snapshot.tiles.values()) {
+      references.set(tile.resource, (references.get(tile.resource) ?? 0) + 1);
+    }
+    let bytes = 0;
+    for (const [resource, count] of references) {
+      // Shared live image pixels are not an additional history allocation.
+      if (resource.references <= count) bytes += resourceBytes(resource);
+    }
+    return bytes;
   }
 
   undo(): void {

@@ -416,13 +416,8 @@ export class Editor {
     if (!selection || layer === selection) return null;
     this.flushPaint();
     const source = this.compositor.resolve(selection, this.rasterDensity);
-    const surface = createSurface(this.gpu.device, 'Drawing selection snapshot', source.bounds, source.scale, source.texture.format);
-    const frame = this.gpu.beginFrame();
-    try {
-      frame.encoder.copyTextureToTexture({ texture: source.texture }, { texture: surface.texture }, [source.texture.width, source.texture.height]);
-      frame.submit();
-      return { surface, transform: multiply(inverse(selection.worldTransform()), layer.worldTransform()) };
-    } catch (error) { surface.texture.destroy(); frame.release(); throw error; }
+    const surface = source.snapshot('Drawing selection snapshot');
+    return { surface, transform: multiply(inverse(selection.worldTransform()), layer.worldTransform()) };
   }
 
   setSelectionMode(enabled: boolean): void {
@@ -489,9 +484,9 @@ export class Editor {
       try {
         this.flushPaint();
         if (before) layer.restorePixels(this.gpu, snapshots.get(before)!);
-      } finally { for (const snapshot of snapshots.values()) snapshot.texture.destroy(); }
+      } finally { for (const snapshot of snapshots.values()) snapshot.destroy(); }
       throw error;
-    } finally { selection?.surface.texture.destroy(); }
+    } finally { selection?.surface.destroy(); }
   }
 
   get selectionPixelTarget(): ImageLayer | null {
@@ -806,10 +801,7 @@ export class Editor {
       this.pendingRetouchStamps.set(layer, stamps);
       const batch = stamps;
       const operation = this.retouch.operation(batch, input);
-      this.compositor.enqueue(layer, { encode: (pass, context) => {
-        try { operation.encode(pass, context); }
-        finally { if (this.pendingRetouchStamps.get(layer) === batch) this.pendingRetouchStamps.delete(layer); }
-      } });
+      this.compositor.enqueue(layer, operation);
     }
     stamps.push(stamp);
   }

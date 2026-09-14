@@ -1,8 +1,9 @@
 import type { Gpu } from '../gpu/device';
 import type { Compositor } from '../gpu/compositor';
+import type { StoredTile } from '../gpu/pixel-storage';
 import { PixelStorage } from '../gpu/pixel-storage';
-import { createSurface } from '../gpu/surface';
-import type { Surface } from '../gpu/surface';
+import { createSurface, tileBytes, TILE_SIZE, MAX_IMAGE_SIZE } from '../gpu/surface';
+import type { Surface, TileColor } from '../gpu/surface';
 import type { FilterRegistry, SerializedFilter } from '../filters/filter';
 import type { JsonObject } from '../history/undo';
 import type { ImageDocument } from '../model/image-document';
@@ -24,6 +25,7 @@ const MAX_JSON_BYTES = 16 * 1024 * 1024;
 const align4 = (value: number) => Math.ceil(value / 4) * 4;
 
 interface TxlBuffer {
+  tiles?: StoredTile[];
   byteOffset: number;
   byteLength: number;
   width: number;
@@ -83,12 +85,13 @@ export class TxlFormat {
       let buffer: number | null = null;
       if (layer instanceof ImageLayer) {
         const source = layer.source;
-        const format = source.texture.format;
+        const format = source.format;
         if (format !== 'rgba16float' && format !== 'r16float') throw new Error('Unsupported source pixel format: ' + format);
         if (source.scale !== 1 || source.bounds.x !== 0 || source.bounds.y !== 0) throw new Error('Layer source must use native pixel coordinates.');
-        const byteLength = layer.width * layer.height * (format === 'r16float' ? 2 : 8);
+        const tiles = [...source.tiles.values()].map(({ x, y, resource }) => ({ x, y, color: resource.color ?? undefined }));
+        const byteLength = tiles.filter((tile) => !tile.color).length * tileBytes(format);
         buffer = buffers.length;
-        buffers.push({ byteOffset: binaryLength, byteLength, width: layer.width, height: layer.height, format });
+        buffers.push({ byteOffset: binaryLength, byteLength, width: layer.width, height: layer.height, format, tiles });
         sources.push(source);
         binaryLength = align4(binaryLength + byteLength);
       } else if (!(layer instanceof GroupLayer)) throw new Error('Unsupported layer type: ' + layer.kind);
@@ -100,7 +103,7 @@ export class TxlFormat {
       };
     };
     const manifest: TxlManifest = {
-      format: 'texel', schemaVersion: 2,
+      format: 'texel', schemaVersion: 4,
       document: {
         width: image.width, height: image.height, root: serialize(image.root),
         selectedLayerIds: image.selectedLayers.map((layer) => layer.id), activeLayerId: image.selected.id,
@@ -130,7 +133,7 @@ export class TxlFormat {
     const binaryStart = binaryHeader + 8;
     for (let index = 0; index < sources.length; index++) {
       const buffer = buffers[index];
-      await this.pixels.read(sources[index], bytes.subarray(binaryStart + buffer.byteOffset, binaryStart + buffer.byteOffset + buffer.byteLength));
+      await this.pixels.read(sources[index], bytes.subarray(binaryStart + buffer.byteOffset, binaryStart + buffer.byteOffset + buffer.byteLength), buffer.tiles);
     }
     return bytes;
   }
@@ -147,10 +150,10 @@ export class TxlFormat {
         let layer: Layer;
         if (data.kind === 'image' || data.kind === 'text') {
           const buffer = manifest.buffers[data.buffer!];
-          const surface = createSurface(this.gpu.device, data.properties.name + ': source', { x: 0, y: 0, width: buffer.width, height: buffer.height }, 1, buffer.format);
+          const surface = createSurface(data.properties.name + ': source', { x: 0, y: 0, width: buffer.width, height: buffer.height }, 1, buffer.format);
           layer = data.kind === 'text' ? new TextLayer(data.properties.name, surface, data.text!, data.id) : new ImageLayer(data.properties.name, surface, data.id);
           created.push(layer);
-          this.pixels.write(surface, binary.subarray(buffer.byteOffset, buffer.byteOffset + buffer.byteLength));
+          this.pixels.write(surface, binary.subarray(buffer.byteOffset, buffer.byteOffset + buffer.byteLength), buffer.tiles);
         } else {
           layer = new GroupLayer(data.properties.name, data.id);
           created.push(layer);
@@ -228,17 +231,29 @@ export class TxlFormat {
     };
     const manifest = object(value);
     if (manifest.format !== 'texel') return bad('unrecognized document format.');
-    if (manifest.schemaVersion !== 1 && manifest.schemaVersion !== 2) throw new Error('Unsupported Texel document schema version ' + String(manifest.schemaVersion) + '.');
-    const limit = this.gpu.device.limits.maxTextureDimension2D;
+    if (manifest.schemaVersion !== 1 && manifest.schemaVersion !== 2 && manifest.schemaVersion !== 3 && manifest.schemaVersion !== 4) throw new Error('Unsupported Texel document schema version ' + String(manifest.schemaVersion) + '.');
+    const limit = MAX_IMAGE_SIZE;
     const buffers = array(manifest.buffers).map((value): TxlBuffer => {
       const data = object(value);
       const width = integer(data.width, 1, limit), height = integer(data.height, 1, limit);
       const format = data.format;
       if (format !== 'rgba16float' && format !== 'r16float') return bad('unsupported pixel encoding.');
       const byteOffset = integer(data.byteOffset, 0, binaryLength);
-      const byteLength = integer(data.byteLength, 1, binaryLength);
-      if (byteOffset % 4 || byteLength !== width * height * (format === 'r16float' ? 2 : 8) || byteOffset + byteLength > binaryLength) return bad('pixel buffer exceeds its binary chunk.');
-      return { width, height, format, byteOffset, byteLength };
+      const byteLength = integer(data.byteLength, 0, binaryLength);
+      const tiles = Number(manifest.schemaVersion) >= 3 ? array(data.tiles, 1000000).map((value): StoredTile => {
+        const tile = object(value);
+        let color: TileColor | undefined;
+        if (manifest.schemaVersion === 4 && tile.color !== undefined) {
+          const channels = array(tile.color, 4);
+          if (channels.length !== 4 || channels.some((value) => typeof value !== 'number' || !Number.isFinite(value) || Math.abs(value) > 65504)) return bad('invalid solid tile color.');
+          color = channels as unknown as TileColor;
+        }
+        return { x: integer(tile.x, 0, Math.ceil(width / TILE_SIZE) - 1), y: integer(tile.y, 0, Math.ceil(height / TILE_SIZE) - 1), color };
+      }) : undefined;
+      if (tiles && new Set(tiles.map(({ x, y }) => `${x},${y}`)).size !== tiles.length) return bad('duplicate pixel tile.');
+      const expected = tiles ? tiles.filter((tile) => !tile.color).length * tileBytes(format) : width * height * (format === 'r16float' ? 2 : 8);
+      if (byteOffset % 4 || byteLength !== expected || byteOffset + byteLength > binaryLength) return bad('pixel buffer exceeds its binary chunk.');
+      return { width, height, format, byteOffset, byteLength, tiles };
     });
     let end = 0;
     for (const buffer of [...buffers].sort((a, b) => a.byteOffset - b.byteOffset)) {
@@ -254,7 +269,7 @@ export class TxlFormat {
       const id = text(data.id);
       if (ids.has(id)) return bad('duplicate layer ID.');
       ids.add(id);
-      if (data.kind !== 'image' && data.kind !== 'group' && !(manifest.schemaVersion === 2 && data.kind === 'text')) return bad('unsupported layer type.');
+      if (data.kind !== 'image' && data.kind !== 'group' && !(manifest.schemaVersion !== 1 && data.kind === 'text')) return bad('unsupported layer type.');
       const props = object(data.properties);
       const name = text(props.name, 4096), transform = matrix(props.transform);
       if (typeof props.opacity !== 'number' || !Number.isFinite(props.opacity) || props.opacity < 0 || props.opacity > 1) return bad('invalid opacity.');

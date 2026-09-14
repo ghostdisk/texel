@@ -1,7 +1,7 @@
 import type { Gpu } from '../gpu/device';
 import type { Compositor } from '../gpu/compositor';
 import { createImageLayer } from '../gpu/images';
-import { createSurface, rasterBounds, MASK_FORMAT, WORKING_FORMAT } from '../gpu/surface';
+import { createSurface, rasterBounds, MASK_FORMAT, WORKING_FORMAT, MAX_IMAGE_SIZE } from '../gpu/surface';
 import type { LayerReframer } from '../gpu/reframe';
 import type { MaskRenderer } from '../gpu/mask';
 import type { Surface } from '../gpu/surface';
@@ -86,7 +86,7 @@ export class ImageDocument implements UndoTarget {
   }
 
   setCanvasState(width: number, height: number, layers: readonly CanvasLayerState[], selection: JsonObject): void {
-    const limit = this.gpu.device.limits.maxTextureDimension2D;
+    const limit = MAX_IMAGE_SIZE;
     if (!Number.isSafeInteger(width) || !Number.isSafeInteger(height) || width < 1 || height < 1 || width > limit || height > limit) {
       throw new Error(`Canvas dimensions must be whole pixels from 1 to ${limit}.`);
     }
@@ -172,8 +172,8 @@ export class ImageDocument implements UndoTarget {
         snapshots,
       ));
     } catch (error) {
-      if (layer.source !== source) source.texture.destroy();
-      for (const snapshot of snapshots.values()) snapshot.texture.destroy();
+      if (layer.source !== source) source.destroy();
+      for (const snapshot of snapshots.values()) snapshot.destroy();
       throw error;
     }
   }
@@ -266,17 +266,8 @@ export class ImageDocument implements UndoTarget {
 
   captureSurface(source: Surface, snapshots: Map<string, Surface>): string {
     const id = crypto.randomUUID();
-    const snapshot = createSurface(this.gpu.device, 'Undo snapshot', source.bounds, source.scale, source.texture.format);
-    try {
-      const encoder = this.gpu.device.createCommandEncoder({ label: 'Snapshot layer pixels' });
-      encoder.copyTextureToTexture(
-        { texture: source.texture }, { texture: snapshot.texture },
-        { width: source.texture.width, height: source.texture.height },
-      );
-      this.gpu.device.queue.submit([encoder.finish()]);
-      snapshots.set(id, snapshot);
-      return id;
-    } catch (error) { snapshot.texture.destroy(); throw error; }
+    snapshots.set(id, source.snapshot('Undo snapshot'));
+    return id;
   }
 
   async reframe(layer: ImageLayer, mode: ReframeMode): Promise<void> {
@@ -321,8 +312,8 @@ export class ImageDocument implements UndoTarget {
         snapshots,
       );
     } catch (error) {
-      replacement.texture.destroy();
-      for (const snapshot of snapshots.values()) snapshot.texture.destroy();
+      replacement.destroy();
+      for (const snapshot of snapshots.values()) snapshot.destroy();
       throw error;
     }
     layer.replaceSource(replacement);
@@ -351,10 +342,10 @@ export class ImageDocument implements UndoTarget {
     let layer: Layer;
     if (data.kind === 'image' || data.kind === 'text') {
       const text = data.kind === 'text' ? validateText(data.text) : null;
-      const surface = createSurface(this.gpu.device, `${data.properties.name}: source`, { x: 0, y: 0, width: data.width, height: data.height }, 1, data.channels === 1 ? MASK_FORMAT : WORKING_FORMAT);
+      const surface = createSurface(`${data.properties.name}: source`, { x: 0, y: 0, width: data.width, height: data.height }, 1, data.channels === 1 ? MASK_FORMAT : WORKING_FORMAT);
       layer = text ? new TextLayer(data.properties.name, surface, text, id) : new ImageLayer(data.properties.name, surface, id);
       const snapshot = snapshots.get(data.snapshotId!);
-      if (!snapshot) { surface.texture.destroy(); throw new Error('Missing layer pixel snapshot.'); }
+      if (!snapshot) { surface.destroy(); throw new Error('Missing layer pixel snapshot.'); }
       (layer as ImageLayer).restorePixels(this.gpu, snapshot);
     } else if (data.kind === 'group') layer = new GroupLayer(data.properties.name, id);
     else throw new Error(`Unsupported layer kind: ${data.kind}`);
@@ -384,7 +375,7 @@ export class ImageDocument implements UndoTarget {
         { type: 'image', targetId: this.id, action: 'add-layer', data: { parentId: parent.id, index, layer: serialized, selection: this.selectionState() } },
         snapshots,
       ));
-    } catch (error) { for (const snapshot of snapshots.values()) snapshot.texture.destroy(); throw error; }
+    } catch (error) { for (const snapshot of snapshots.values()) snapshot.destroy(); throw error; }
   }
 
   deleteSelected(layer?: Layer): void { this.commands.delete(layer ? [layer] : this.selectedRoots); }

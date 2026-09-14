@@ -83,7 +83,7 @@ export class EditorClipboard {
     const snapshots = new Map<string, Surface>();
     let layers: SerializedLayer[];
     try { layers = selected.map((layer) => this.editor.image.serializeLayer(layer, snapshots)); }
-    catch (error) { for (const surface of snapshots.values()) surface.texture.destroy(); throw error; }
+    catch (error) { for (const surface of snapshots.values()) surface.destroy(); throw error; }
     const payload: LayerClipboardPayload = {
       id: crypto.randomUUID(), layers, snapshots, transforms: selected.map((layer) => [...layer.worldTransform()] as Matrix),
     };
@@ -92,7 +92,7 @@ export class EditorClipboard {
         metadata: JSON.stringify({ version: 1, type: 'layers', id: payload.id }), image: null,
       });
       if (!written) throw new Error('The system clipboard rejected the layer data.');
-    } catch (error) { for (const surface of snapshots.values()) surface.texture.destroy(); throw error; }
+    } catch (error) { for (const surface of snapshots.values()) surface.destroy(); throw error; }
     this.releaseLayers();
     this.layers = payload;
   }
@@ -104,14 +104,14 @@ export class EditorClipboard {
     const extracted = await this.extract(layer);
     try {
       const rgba = await this.editor.readback.rgba(extracted.surface, false, true);
-      const png = await rgbaToPng(rgba, extracted.surface.texture.width, extracted.surface.texture.height);
+      const png = await rgbaToPng(rgba, extracted.surface.width, extracted.surface.height);
       const image = new Uint8Array(await png.arrayBuffer());
       const written = await window.desktop.writeClipboard({
         metadata: JSON.stringify({ version: 1, type: 'pixels', transform: extracted.transform }), image,
       });
       if (!written) throw new Error('The system clipboard rejected the selected pixels.');
       this.releaseLayers();
-    } finally { extracted.surface.texture.destroy(); }
+    } finally { extracted.surface.destroy(); }
   }
 
   private async extract(layer: ImageLayer): Promise<{ surface: Surface; transform: Matrix }> {
@@ -128,8 +128,8 @@ export class EditorClipboard {
       return { surface, transform: multiply(layer.worldTransform(), [1, 0, 0, 1, bounds.x, bounds.y]) };
     } finally {
       frame.release();
-      selection.surface.texture.destroy();
-      masked.texture.destroy();
+      selection.surface.destroy();
+      masked.destroy();
     }
   }
 
@@ -147,7 +147,7 @@ export class EditorClipboard {
 
   private releaseLayers(): void {
     if (!this.layers) return;
-    for (const surface of this.layers.snapshots.values()) surface.texture.destroy();
+    for (const surface of this.layers.snapshots.values()) surface.destroy();
     this.layers = null;
   }
 }

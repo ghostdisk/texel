@@ -1,4 +1,4 @@
-import { createSurface, isMaskSurface } from '../gpu/surface';
+import { isMaskSurface } from '../gpu/surface';
 import type { Surface } from '../gpu/surface';
 import type { Gpu } from '../gpu/device';
 import type { Filter, FilterRegistry, SerializedFilter } from '../filters/filter';
@@ -61,7 +61,6 @@ export abstract class Layer implements UndoTarget {
   get visibleInStack(): boolean { return this.visible && !this.isSelection; }
   get blendMode(): BlendMode { return this.blending; }
   get filters(): readonly Filter[] { return this.effects; }
-  get outputTexture(): GPUTexture | null { return this.output?.texture ?? null; }
   abstract localBounds(): Rect;
 
   visualBounds(): Rect {
@@ -164,9 +163,8 @@ export class ImageLayer extends Layer {
   get pixelEditable(): boolean { return true; }
   override get visibleInStack(): boolean { return this.channels === 4 && super.visibleInStack; }
   get source(): Surface { return this.pixels; }
-  get sourceTexture(): GPUTexture { return this.source.texture; }
-  get width(): number { return this.source.texture.width; }
-  get height(): number { return this.source.texture.height; }
+  get width(): number { return this.source.width; }
+  get height(): number { return this.source.height; }
   localBounds(): Rect { return this.source.bounds; }
 
   replaceSource(source: Surface): void {
@@ -175,22 +173,11 @@ export class ImageLayer extends Layer {
     this.pixels = source;
     this.output = null;
     this.invalidate();
-    previous.texture.destroy();
+    previous.destroy();
   }
 
-  restorePixels(gpu: Gpu, snapshot: Surface): void {
-    const resized = this.width !== snapshot.texture.width || this.height !== snapshot.texture.height || this.sourceTexture.format !== snapshot.texture.format;
-    const destination = resized ? createSurface(gpu.device, `${this.name}: source`, snapshot.bounds, snapshot.scale, snapshot.texture.format) : this.source;
-    try {
-      const encoder = gpu.device.createCommandEncoder({ label: 'Restore layer pixels' });
-      encoder.copyTextureToTexture(
-        { texture: snapshot.texture }, { texture: destination.texture },
-        { width: snapshot.texture.width, height: snapshot.texture.height },
-      );
-      gpu.device.queue.submit([encoder.finish()]);
-    } catch (error) { if (resized) destination.texture.destroy(); throw error; }
-    if (resized) this.replaceSource(destination);
-    else this.invalidate();
+  restorePixels(_gpu: Gpu, snapshot: Surface): void {
+    this.replaceSource(snapshot.snapshot(`${this.name}: source`));
   }
 
   override applyUndo(operation: UndoOperation, direction: UndoDirection, context?: LayerUndoContext): void {

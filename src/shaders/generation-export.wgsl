@@ -7,8 +7,8 @@ struct Params {
 @group(0) @binding(2) var<uniform> params: Params;
 
 @compute @workgroup_size(8, 8) fn main(@builtin(global_invocation_id) id: vec3u) {
-  if (any(id.xy >= textureDimensions(source))) { return; }
-  let pixel = textureLoad(source, id.xy, 0);
+  if (any(id.xy >= textureDimensions(destination))) { return; }
+  let pixel = loadTile(source, vec2i(id.xy));
   var color = vec3f(clamp(pixel.r, 0.0, 1.0));
   var alpha = 1.0;
   if (params.mask < 0.5) {

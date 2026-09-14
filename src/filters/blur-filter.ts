@@ -1,5 +1,4 @@
-import { GaussianBlur } from '../gpu/blur';
-import type { Gpu } from '../gpu/device';
+import { gaussianBlur } from '../gpu/blur';
 import type { Surface } from '../gpu/surface';
 import { expandBounds } from '../model/geometry';
 import type { Rect } from '../model/geometry';
@@ -12,7 +11,7 @@ export class BlurFilter extends Filter {
   readonly kind = 'blur';
   readonly label = 'Gaussian blur';
   sigma = 6;
-  private static kernels = new WeakMap<Gpu, GaussianBlur>();
+  get supportRadius(): number { return Math.ceil(this.sigma * 3); }
 
   outputBounds(input: Rect): Rect { return expandBounds(input, Math.ceil(this.sigma * 3)); }
   protected properties(): JsonObject { return { sigma: this.sigma }; }
@@ -25,21 +24,11 @@ export class BlurFilter extends Filter {
 
   render(context: FilterRenderContext, content: Surface): Surface {
     if (this.sigma === 0) return content;
-    let blur = BlurFilter.kernels.get(context.gpu);
-    if (!blur) { blur = new GaussianBlur(context.gpu); BlurFilter.kernels.set(context.gpu, blur); }
-    const { frame, quads, surface } = context;
     const bounds = expandBounds(content.bounds, Math.ceil(this.sigma * 3 * content.scale) / content.scale);
-    const reduction = Math.max(1, 2 ** Math.ceil(Math.log2(this.sigma * content.scale / 32)));
-    const scale = content.scale / reduction;
-    const input = surface('input', bounds, scale);
-    const scratch = surface('scratch', bounds, scale);
-    const blurred = surface('blurred', bounds, scale);
-    quads.copy(frame, content, input);
-    blur.encode(frame, input, scratch, blurred, this.sigma * scale);
-    if (reduction === 1) return blurred;
-    const output = surface('output', bounds, content.scale);
-    quads.copy(frame, blurred, output);
-    return output;
+    const scratch = context.surface('scratch', bounds, content.scale);
+    const blurred = context.surface('blurred', bounds, content.scale);
+    gaussianBlur.encode(context.frame, content, scratch, blurred, this.sigma * content.scale);
+    return blurred;
   }
 
   protected drawParameters(container: HTMLElement, context: FilterUIContext): void {

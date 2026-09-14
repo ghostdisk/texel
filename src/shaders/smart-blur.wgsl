@@ -2,7 +2,6 @@ struct Params {
   settings: vec4f,
 }
 
-@group(0) @binding(0) var source: texture_2d<f32>;
 @group(0) @binding(1) var destination: texture_storage_2d<rgba16float, write>;
 @group(0) @binding(2) var<uniform> params: Params;
 
@@ -21,7 +20,7 @@ fn distanceColor(pixel: vec4f) -> vec4f {
   @builtin(workgroup_id) group: vec3u,
   @builtin(local_invocation_id) local: vec3u,
 ) {
-  let size = vec2i(textureDimensions(source));
+  let size = vec2i(textureDimensions(destination));
   let groupPosition = vec2i(group.xy);
   let pixelPosition = groupPosition * 8 + vec2i(local.xy);
   let inBounds = all(pixelPosition < size);
@@ -30,13 +29,13 @@ fn distanceColor(pixel: vec4f) -> vec4f {
   let extent = i32(ceil(radius));
   let radiusSquared = radius * radius;
   let tileRadius = i32(ceil(radius / 8));
-  let firstTile = max(groupPosition - vec2i(tileRadius), vec2i(0));
-  let lastTile = min(groupPosition + vec2i(tileRadius), (size - vec2i(1)) / vec2i(8));
+  let firstTile = max(groupPosition - vec2i(tileRadius), vec2i(floor(tileClip.xy / 8)));
+  let lastTile = min(groupPosition + vec2i(tileRadius), vec2i(ceil(tileClip.zw / 8)) - vec2i(1));
   let thresholdSquared = params.settings.y * params.settings.y;
   let sigma = max(radius * 0.5, 0.5);
   let inverseVariance = 1 / (2 * sigma * sigma);
   var centerColor = vec4f(0);
-  if (inBounds) { centerColor = distanceColor(textureLoad(source, pixelPosition, 0)); }
+  if (inBounds) { centerColor = distanceColor(loadSource(vec2i(pixelPosition))); }
   var sum = vec4f(0);
   var weightSum = 0.0;
 
@@ -46,14 +45,14 @@ fn distanceColor(pixel: vec4f) -> vec4f {
       let origin = vec2i(tileX, tileY) * 8;
       let loadPosition = origin + vec2i(local.xy);
       var neighborPixel = vec4f(0);
-      if (all(loadPosition < size)) { neighborPixel = textureLoad(source, loadPosition, 0); }
+      if (all(vec2f(loadPosition) >= tileClip.xy) && all(vec2f(loadPosition) < tileClip.zw)) { neighborPixel = loadSource(vec2i(loadPosition)); }
       tilePixels[localIndex] = neighborPixel;
       tileColors[localIndex] = distanceColor(neighborPixel);
       workgroupBarrier();
 
       if (inBounds) {
-        let first = max(origin, pixelPosition - vec2i(extent));
-        let last = min(min(origin + vec2i(7), pixelPosition + vec2i(extent)), size - vec2i(1));
+        let first = max(max(origin, pixelPosition - vec2i(extent)), vec2i(tileClip.xy));
+        let last = min(min(origin + vec2i(7), pixelPosition + vec2i(extent)), vec2i(tileClip.zw) - vec2i(1));
         for (var y = first.y; y <= last.y; y++) {
           for (var x = first.x; x <= last.x; x++) {
             let offset = vec2f(vec2i(x, y) - pixelPosition);
@@ -75,5 +74,5 @@ fn distanceColor(pixel: vec4f) -> vec4f {
     }
   }
   // The center pixel is always admitted, even when the threshold is zero.
-  if (inBounds) { textureStore(destination, pixelPosition, sum / max(weightSum, 0.000001)); }
+  if (inBounds) { storeDestination(vec2i(pixelPosition), sum / max(weightSum, 0.000001)); }
 }
