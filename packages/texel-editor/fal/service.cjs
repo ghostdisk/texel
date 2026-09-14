@@ -118,6 +118,10 @@ function arrayLimit(openapi, schema) {
   return variant?.maxItems;
 }
 
+function enumValues(openapi, schema) {
+  return [...new Set(schemaVariants(openapi, schema).flatMap((candidate) => candidate.enum ?? []))];
+}
+
 function discoverModel(record) {
   if (!record?.endpoint_id || !record.openapi) return null;
   const input = objectProperties(record.openapi, requestSchema(record));
@@ -132,6 +136,7 @@ function discoverModel(record) {
   const maskField = field(properties, ['mask_url', 'mask_image_url', 'mask_urls', 'mask_image', 'mask']);
   const required = new Set(input.required ?? []);
   const maximum = arrayLimit(record.openapi, properties[imageField]);
+  const imageSize = objectProperties(record.openapi, properties.image_size);
   const classification = classifyModel(record);
   if (objectRemovalCandidate(record)) {
     if (maskField) classification.types.push('object-removal-mask');
@@ -158,7 +163,16 @@ function discoverModel(record) {
       mask: maskField,
       outputFormat: field(properties, ['output_format']),
       imageSize: field(properties, ['image_size']),
+      width: field(properties, ['width']),
+      height: field(properties, ['height']),
+      aspectRatio: field(properties, ['aspect_ratio']),
+      resolution: field(properties, ['resolution']),
       numImages: field(properties, ['num_images']),
+    },
+    sizing: {
+      customImageSize: !!imageSize?.properties?.width && !!imageSize?.properties?.height,
+      aspectRatios: enumValues(record.openapi, properties.aspect_ratio),
+      resolutions: enumValues(record.openapi, properties.resolution),
     },
     capabilities: {
       maskRequired: required.has(maskField),
@@ -187,6 +201,41 @@ function mappedField(value) { return typeof value === 'string' ? value : null; }
 
 function assignFile(body, name, dataUrl) {
   body[name] = name.endsWith('urls') ? [dataUrl] : dataUrl;
+}
+
+function closestSize(values, target, measure) {
+  let closest = null, distance = Infinity;
+  for (const value of values) {
+    const size = measure(value);
+    if (!Number.isFinite(size) || size <= 0) continue;
+    const difference = Math.abs(Math.log(size / target));
+    if (difference < distance) { closest = value; distance = difference; }
+  }
+  return closest;
+}
+
+function assignSize(body, model, width, height) {
+  if (!Number.isInteger(width) || !Number.isInteger(height) || width < 1 || height < 1) {
+    throw new Error('fal generation dimensions must be positive whole numbers.');
+  }
+  const { fields, sizing } = model;
+  if (fields.imageSize && sizing.customImageSize) body[fields.imageSize] = { width, height };
+  else if (fields.width && fields.height) { body[fields.width] = width; body[fields.height] = height; }
+  else if (fields.aspectRatio) {
+    const ratio = closestSize(sizing.aspectRatios, width / height, (value) => {
+      const match = typeof value === 'string' && value.match(/^(\d+(?:\.\d+)?):(\d+(?:\.\d+)?)$/);
+      return match ? Number(match[1]) / Number(match[2]) : NaN;
+    });
+    if (ratio !== null) body[fields.aspectRatio] = ratio;
+  }
+  if (fields.resolution) {
+    // K presets describe approximate square-equivalent resolution, not the longest side.
+    const resolution = closestSize(sizing.resolutions, Math.sqrt(width * height), (value) => {
+      const match = String(value).match(/^(\d+(?:\.\d+)?)(K|px)?$/i);
+      return match ? Number(match[1]) * (match[2]?.toLowerCase() === 'k' ? 1024 : 1) : NaN;
+    });
+    if (resolution !== null) body[fields.resolution] = resolution;
+  }
 }
 
 function queueUrl(value, field) {
@@ -464,6 +513,7 @@ function registerFal({ app, ipcMain, safeStorage, keyStore, emit }, ownerOf) {
     }
     if (outputFormat) body[outputFormat] = 'png';
     if (numImages) body[numImages] = 1;
+    assignSize(body, model, generation.width, generation.height);
     const controller = new AbortController();
     const job = { controller, sender: event.sender, key, cancelUrl: '' };
     jobs.set(id, job);

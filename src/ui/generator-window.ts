@@ -53,6 +53,7 @@ export class GeneratorWindow {
     this.dragWindow(header);
     this.body.className = 'generation-window-body';
     this.settings.className = 'generation-settings';
+    this.settings.oninput = this.settings.onchange = () => this.manager.active?.settingsChanged();
     this.body.append(this.settings);
     this.window.append(header, this.body);
     document.body.append(this.window);
@@ -111,15 +112,17 @@ export class GeneratorWindow {
       if (document.activeElement !== control) control.value = String(Number(values[key].toFixed(2)));
     }
     const { width, height } = generator.frame;
-    this.generatedSize.textContent = `Output size: ${width} × ${height} px`;
+    this.generatedSize.textContent = `Requested size: ${width} × ${height} px`;
     const progress = generator.progress;
-    this.status.textContent = progress.phase + (progress.steps ? ` · ${progress.step}/${progress.steps}` : '') + ` · ${width} × ${height} px`;
+    const result = generator.resultSize;
+    this.status.textContent = progress.phase + (progress.steps ? ` · ${progress.step}/${progress.steps}` : '') +
+      (result ? ` · Returned ${result.width} × ${result.height} px` : '');
     this.progress.hidden = !generator.busy;
     if (progress.steps) this.progress.value = progress.step / progress.steps;
     else this.progress.removeAttribute('value');
     this.resultPreview.hidden = !generator.resultPreviewUrl;
     if (generator.resultPreviewUrl && this.resultPreview.src !== generator.resultPreviewUrl) this.resultPreview.src = generator.resultPreviewUrl;
-    this.error.textContent = generator.error || generator.sizeError || generator.requirementError || this.manager.service.error;
+    this.error.textContent = generator.error || generator.sizeError || generator.requirementError || (!models.length ? this.manager.service.error : '');
     this.error.hidden = !this.error.textContent;
     this.scheduleInputPreview(generator);
   }

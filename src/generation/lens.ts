@@ -10,6 +10,16 @@ export interface GenerationFrame {
   canonicalHeight: number;
 }
 
+/** Keep native result pixels and cover the lens uniformly, preserving its center and orientation. */
+export function generationResultFrame(target: GenerationFrame, width: number, height: number): GenerationFrame {
+  const scale = Math.max(target.canonicalWidth / width, target.canonicalHeight / height);
+  const sx = scale * target.width / target.canonicalWidth, sy = scale * target.height / target.canonicalHeight;
+  return {
+    width, height, canonicalWidth: width * scale, canonicalHeight: height * scale,
+    transform: multiply(target.transform, [sx, 0, 0, sy, (target.width - width * sx) / 2, (target.height - height * sy) / 2]),
+  };
+}
+
 export class GenerationLens implements TransformTarget {
   readonly parent = null;
   private matrix: Matrix = IDENTITY;

@@ -1,4 +1,4 @@
-import type { GenerationFrame } from '../generation/lens';
+import type { Matrix } from '../model/geometry';
 import { createSurface } from './surface';
 import type { Surface } from './surface';
 import type { Gpu } from './device';
@@ -17,13 +17,14 @@ const shader = `
 export class GenerationBlend {
   constructor(private readonly gpu: Gpu) {}
 
-  apply(generated: Surface, target: GenerationFrame, mask: Surface | null): Surface {
-    const output = createSurface('Generated layer pixels', { x: 0, y: 0, width: target.width, height: target.height });
+  apply(generated: Surface, mask: Surface | null, maskTransform: Matrix): Surface {
+    if (!mask) return generated.snapshot('Generated layer pixels');
+    const output = createSurface('Generated layer pixels', generated.bounds, generated.scale);
     const frame = this.gpu.beginFrame();
     try {
-      const sx = target.width / generated.bounds.width, sy = target.height / generated.bounds.height;
-      const resized = quads.region(frame, generated, output.bounds, 1, [sx, 0, 0, sy, -generated.bounds.x * sx, -generated.bounds.y * sy]);
-      dispatchLocal(frame, resized, output, { code: shader, label: 'Apply generated pixels', parameters: [Number(!!mask), 0, 0, 0], secondary: mask ?? resized });
+      // Align the selection to the native output grid; never resample the generated image.
+      const alignedMask = quads.region(frame, mask, output.bounds, output.scale, maskTransform);
+      dispatchLocal(frame, generated, output, { code: shader, label: 'Apply generated pixels', parameters: [1, 0, 0, 0], secondary: alignedMask });
       frame.submit();
       return output;
     } catch (error) { output.destroy(); frame.release(); throw error; }

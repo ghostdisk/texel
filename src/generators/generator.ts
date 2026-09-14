@@ -8,7 +8,7 @@ import { inverse, multiply } from '../model/geometry';
 import type { Matrix } from '../model/geometry';
 import { GroupLayer, ImageLayer } from '../model/layers';
 import { rgbaToPng } from '../generation/image-codec';
-import { GenerationLens } from '../generation/lens';
+import { GenerationLens, generationResultFrame } from '../generation/lens';
 import type { GenerationFrame } from '../generation/lens';
 import type { AIRequestService } from '../generation/service';
 import type { GenerationModel, GenerationModelType, GenerationProgress } from '../generation/provider';
@@ -63,7 +63,7 @@ export abstract class Generator {
   private transientParent: GroupLayer | null = null;
   private transientIndex = 0;
   private resolvingModel = '';
-  private modelError = '';
+  private modelRequest = 0;
   private selectionSignature = '';
   private autoTimer = 0;
   private readonly blend: GenerationBlend;
@@ -87,6 +87,10 @@ export abstract class Generator {
       (!this.requiresSelection || !!this.editor.image.selectionMask) && !this.sizeError && !this.requirementError;
   }
   get frame(): GenerationFrame { return this.lens.frame(this.scale, this.selectedModel?.capabilities.dimensionMultiple); }
+  get resultSize(): Pick<GenerationFrame, 'width' | 'height'> | null {
+    const source = this.transient?.source;
+    return source ? { width: source.width, height: source.height } : null;
+  }
   get visual(): GenerationVisual | null {
     const run = this.running;
     return run?.input && !run.controller.signal.aborted ? { frame: run.frame, mask: run.mask, reference: run.input } : null;
@@ -113,7 +117,6 @@ export abstract class Generator {
     return '';
   }
   get requirementError(): string {
-    if (this.modelError) return this.modelError;
     if (this.requiresSelection && !this.editor.image.selectionMask) return 'Create a selection before running this generator.';
     if (this.selectedModel?.capabilities.maskRequired && !this.editor.image.selectionMask) return 'This model requires a selection mask.';
     return '';
@@ -156,35 +159,43 @@ export abstract class Generator {
     const models = this.models;
     if (models.some((model) => model.id === this.model)) return;
     this.model = this.defaultModel(models)?.id ?? models[0]?.id ?? '';
-    this.modelError = '';
+    this.modelRequest++;
+    this.resolvingModel = '';
+    this.clearFailure();
   }
 
   protected defaultModel(models: readonly GenerationModel[]): GenerationModel | undefined { return models[0]; }
 
   async selectModel(id: string): Promise<boolean> {
+    const request = ++this.modelRequest;
     this.model = id;
-    this.modelError = '';
     this.resolvingModel = id;
-    this.notify();
+    this.settingsChanged();
     try {
       const resolved = await this.service.resolveModel(id);
-      if (this.model !== id) return false;
+      if (this.model !== id || this.modelRequest !== request) return false;
       if (!resolved.types?.some((type) => this.modelTypes.includes(type))) {
-        this.modelError = 'This model does not support this generator.';
+        this.error = 'This model does not support this generator.';
         return false;
       }
       if (this.requiresSelection && !resolved.capabilities.mask) {
-        this.modelError = 'This model does not accept a mask.';
+        this.error = 'This model does not accept a mask.';
         return false;
       }
       return true;
     } catch (error) {
-      if (this.model === id) this.modelError = error instanceof Error ? error.message : String(error);
+      if (this.model === id && this.modelRequest === request) this.error = error instanceof Error ? error.message : String(error);
       return false;
     } finally {
-      if (this.resolvingModel === id) this.resolvingModel = '';
-      this.notify();
+      if (this.modelRequest === request) { this.resolvingModel = ''; this.notify(); }
     }
+  }
+
+  settingsChanged(): void { this.clearFailure(); this.notify(); }
+
+  private clearFailure(): void {
+    this.error = '';
+    if (this.progress.phase === 'Generation failed') this.progress = { phase: 'Ready', step: 0, steps: 0 };
   }
 
   fitLens(): void {
@@ -369,8 +380,7 @@ export abstract class Generator {
     const imported = await importImage(this.editor.gpu, this.editor.compositor.quads, this.resultName, blob);
     try {
       if (!this.valid(run)) throw new DOMException('Generation cancelled.', 'AbortError');
-      const output = this.blend.apply(imported.source, run.frame, run.mask);
-      this.installTransient(output, run.frame);
+      this.installTransient(imported.source, run);
       this.setResultPreview(blob);
     } finally { imported.source.destroy(); }
   }
@@ -385,7 +395,7 @@ export abstract class Generator {
         const imported = await importImage(this.editor.gpu, this.editor.compositor.quads, this.resultName + ' preview', blob);
         try {
           if (!this.valid(run) || run.finishing) continue;
-          this.installTransient(this.blend.apply(imported.source, run.frame, run.mask), run.frame);
+          this.installTransient(imported.source, run);
         } finally { imported.source.destroy(); }
       }
     } catch (error) {
@@ -393,7 +403,9 @@ export abstract class Generator {
     } finally { run.previewReading = false; }
   }
 
-  private installTransient(output: Surface, frame: GenerationFrame): void {
+  private installTransient(generated: Surface, run: RunningRequest): void {
+    const frame = generationResultFrame(run.frame, generated.width, generated.height);
+    const output = this.blend.apply(generated, run.mask, multiply(inverse(frame.transform), run.frame.transform));
     if (!this.transientParent) {
       const target = this.target();
       this.transientParent = target.parent;

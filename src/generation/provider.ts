@@ -166,20 +166,23 @@ export class GenerationModelRegistry {
 
   async refresh(): Promise<readonly GenerationModel[]> {
     const results = await Promise.allSettled([...this.providers.values()].map(async (provider) => ({ provider, models: await provider.models() })));
-    this.entries.clear();
+    const entries = new Map<string, GenerationModel>();
     let failure: unknown = null;
     for (const result of results) {
       if (result.status === 'rejected') { failure ??= result.reason; continue; }
       for (const model of result.value.models) {
         if (model.platform !== result.value.provider.platform || !model.id.startsWith(model.platform + '/')) continue;
-        this.entries.set(model.id, this.registered(model, result.value.provider));
+        entries.set(model.id, this.registered(model, result.value.provider));
       }
     }
     for (const { model } of this.contributed.values()) {
       const provider = this.providers.get(model.platform);
-      if (provider) this.entries.set(model.id, this.registered(model, provider));
+      if (provider) entries.set(model.id, this.registered(model, provider));
     }
-    if (!this.entries.size && failure) throw failure;
+    if (!entries.size && failure) throw failure;
+    // Keep the last usable registry if discovery fails; the picker still references it.
+    this.entries.clear();
+    for (const [id, model] of entries) this.entries.set(id, model);
     return this.models();
   }
 
