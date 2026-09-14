@@ -10,14 +10,20 @@ import { tileLoadShader } from './tile-sampling';
 import { quads } from './quad';
 
 const EDGE_WORDS = TILE_SIZE * 4 / 32;
+const WORDS_PER_EDGE = TILE_SIZE / 32;
 const SUMMARY_WORDS = EDGE_WORDS + 5;
+const EMPTY_EDGES = new Uint32Array(EDGE_WORDS);
+// Shared with seedComponents: whole edges followed by individual corners.
+const LEFT = 1, RIGHT = 2, TOP = 4, BOTTOM = 8;
+const TOP_LEFT = 16, TOP_RIGHT = 32, BOTTOM_LEFT = 64, BOTTOM_RIGHT = 128;
 const WHITE: TileColor = [1, 1, 1, 1];
 
 interface FillTile {
   x: number;
   y: number;
-  incoming: Uint32Array<ArrayBuffer>;
-  outgoing: Uint32Array<ArrayBuffer>;
+  incoming: Uint32Array<ArrayBuffer> | null;
+  outgoing: Uint32Array | null;
+  entries: number;
   seed: boolean;
   queued: boolean;
   complete: boolean;
@@ -98,6 +104,7 @@ export class SpanFill {
     const seedX = Math.floor(point.x / TILE_SIZE), seedY = Math.floor(point.y / TILE_SIZE);
     const tiles = new Map<string, FillTile>(), order: FillTile[] = [];
     let scratch: FillScratch | null = null;
+    let yieldChannel: MessageChannel | null = null;
     let frame = this.gpu.beginFrame();
     const workspace = () => scratch ??= new FillScratch(this.gpu);
     const getTile = (x: number, y: number): FillTile | null => {
@@ -105,26 +112,59 @@ export class SpanFill {
       const key = tileKey(x, y);
       let tile = tiles.get(key);
       if (!tile) {
-        tile = { x, y, incoming: new Uint32Array(EDGE_WORDS), outgoing: new Uint32Array(EDGE_WORDS), seed: false, queued: false, complete: false };
+        tile = { x, y, incoming: null, outgoing: null, entries: 0, seed: false, queued: false, complete: false };
         tiles.set(key, tile);
       }
       return tile;
     };
     const schedule = (tile: FillTile) => { if (!tile.queued && !tile.complete) { tile.queued = true; order.push(tile); } };
-    const enter = (x: number, y: number, edge: number) => {
+    const enter = (x: number, y: number, entry: number) => {
       const tile = getTile(x, y);
-      if (!tile || tile.complete || bit(tile.outgoing, edge) || bit(tile.incoming, edge)) return;
-      setBit(tile.incoming, edge);
+      if (!tile || tile.complete || (tile.entries & entry) !== 0) return;
+      tile.entries |= entry;
       schedule(tile);
     };
-    const forward = (tile: FillTile, edges: Uint32Array) => {
-      for (let offset = 0; offset < TILE_SIZE; offset++) {
-        if (bit(edges, offset) && !bit(tile.outgoing, offset)) enter(tile.x - 1, tile.y, TILE_SIZE + offset);
-        if (bit(edges, TILE_SIZE + offset) && !bit(tile.outgoing, TILE_SIZE + offset)) enter(tile.x + 1, tile.y, offset);
-        if (bit(edges, 2 * TILE_SIZE + offset) && !bit(tile.outgoing, 2 * TILE_SIZE + offset)) enter(tile.x, tile.y - 1, 3 * TILE_SIZE + offset);
-        if (bit(edges, 3 * TILE_SIZE + offset) && !bit(tile.outgoing, 3 * TILE_SIZE + offset)) enter(tile.x, tile.y + 1, 2 * TILE_SIZE + offset);
+    const forwardSolid = (tile: FillTile) => {
+      enter(tile.x - 1, tile.y, RIGHT);
+      enter(tile.x + 1, tile.y, LEFT);
+      enter(tile.x, tile.y - 1, BOTTOM);
+      enter(tile.x, tile.y + 1, TOP);
+      enter(tile.x - 1, tile.y - 1, BOTTOM_RIGHT);
+      enter(tile.x + 1, tile.y - 1, BOTTOM_LEFT);
+      enter(tile.x - 1, tile.y + 1, TOP_RIGHT);
+      enter(tile.x + 1, tile.y + 1, TOP_LEFT);
+    };
+    const forwardEdge = (tile: FillTile, edges: Uint32Array, from: number, to: number, x: number, y: number) => {
+      const start = from * WORDS_PER_EDGE, targetStart = to * WORDS_PER_EDGE;
+      let target: FillTile | null = null;
+      for (let word = 0; word < WORDS_PER_EDGE; word++) {
+        const index = start + word;
+        const fresh = edges[index] & ~(tile.outgoing?.[index] ?? 0);
+        const previous = word > 0 ? edges[index - 1] & ~(tile.outgoing?.[index - 1] ?? 0) : 0;
+        const next = word + 1 < WORDS_PER_EDGE ? edges[index + 1] & ~(tile.outgoing?.[index + 1] ?? 0) : 0;
+        // Include diagonal pixel neighbors, carrying across 32-bit word boundaries.
+        const incoming = fresh | (fresh << 1) | (fresh >>> 1) | (previous >>> 31) | (next << 31);
+        if (incoming === 0) continue;
+        target ??= getTile(x, y);
+        if (!target || target.complete || (target.entries & (1 << to)) !== 0) return;
+        target.incoming ??= new Uint32Array(EDGE_WORDS);
+        const targetIndex = targetStart + word;
+        if ((incoming & ~target.incoming[targetIndex] & ~(target.outgoing?.[targetIndex] ?? 0)) === 0) continue;
+        target.incoming[targetIndex] |= incoming;
+        schedule(target);
       }
-      tile.outgoing.set(edges.subarray(0, EDGE_WORDS));
+    };
+    const forward = (tile: FillTile, edges: Uint32Array, height: number) => {
+      forwardEdge(tile, edges, 0, 1, tile.x - 1, tile.y);
+      forwardEdge(tile, edges, 1, 0, tile.x + 1, tile.y);
+      forwardEdge(tile, edges, 2, 3, tile.x, tile.y - 1);
+      forwardEdge(tile, edges, 3, 2, tile.x, tile.y + 1);
+      const fresh = (edge: number) => bit(edges, edge) && !bit(tile.outgoing ?? EMPTY_EDGES, edge);
+      if (fresh(0)) enter(tile.x - 1, tile.y - 1, BOTTOM_RIGHT);
+      if (fresh(TILE_SIZE)) enter(tile.x + 1, tile.y - 1, BOTTOM_LEFT);
+      if (fresh(height - 1)) enter(tile.x - 1, tile.y + 1, TOP_RIGHT);
+      if (fresh(TILE_SIZE + height - 1)) enter(tile.x + 1, tile.y + 1, TOP_LEFT);
+      tile.outgoing = edges.subarray(0, EDGE_WORDS);
     };
     try {
       signal.throwIfAborted();
@@ -137,6 +177,7 @@ export class SpanFill {
       else {
         for (let y = 0; y < Math.ceil(source.height / TILE_SIZE); y++) for (let x = 0; x < Math.ceil(source.width / TILE_SIZE); x++) schedule(getTile(x, y)!);
       }
+      let yieldAt = performance.now() + 8;
       for (let cursor = 0; cursor < order.length; cursor++) {
         signal.throwIfAborted();
         const tile = order[cursor];
@@ -151,7 +192,7 @@ export class SpanFill {
           const matches = exact || comparisonColor(color, isMaskSurface(source)).every((value, channel) => Math.abs(Math.fround(value - seed.color[channel])) <= Math.fround(tolerance));
           if (coverage > 0 && matches) {
             output.setColor(frame, tile.x, tile.y, WHITE);
-            if (contiguous) forward(tile, fullEdges(width, height));
+            if (contiguous) forwardSolid(tile);
           }
         } else {
           // Submit previous copies before the workspace texture is reused.
@@ -159,6 +200,7 @@ export class SpanFill {
           frame = this.gpu.beginFrame();
           const work = workspace();
           const summary = await this.fillTile(source, tile, point, seed, tolerance, contiguous, selection, work, signal);
+          yieldAt = performance.now() + 8;
           const count = summary[EDGE_WORDS + 4];
           if (count === width * height) { output.setColor(frame, tile.x, tile.y, WHITE); tile.complete = true; }
           else if (count > 0) {
@@ -167,16 +209,29 @@ export class SpanFill {
             const target = output.writable(frame, tile.x, tile.y, content, false, false);
             frame.encoder.copyTextureToTexture({ texture: work.coverage.texture }, { texture: target.texture }, [TILE_SIZE, TILE_SIZE]);
           }
-          if (contiguous) forward(tile, summary);
+          if (contiguous) {
+            if (tile.complete) forwardSolid(tile);
+            else forward(tile, summary, height);
+          }
         }
-        // Solid-only walks must also give input and cancellation a chance to run.
-        if (cursor % 32 === 31) await new Promise<void>((resolve) => setTimeout(resolve, 0));
+        // Yield only after a CPU time slice, without the nested-timer minimum delay.
+        if (cursor % 32 === 31 && performance.now() >= yieldAt) {
+          yieldChannel ??= new MessageChannel();
+          const channel = yieldChannel;
+          await new Promise<void>((resolve) => { channel.port1.onmessage = () => resolve(); channel.port2.postMessage(null); });
+          yieldAt = performance.now() + 8;
+        }
       }
       signal.throwIfAborted();
       frame.submit();
       return output;
     } catch (error) { output.destroy(); throw error; }
-    finally { frame.release(); (scratch as FillScratch | null)?.destroy(); }
+    finally {
+      frame.release();
+      (scratch as FillScratch | null)?.destroy();
+      yieldChannel?.port1.close();
+      yieldChannel?.port2.close();
+    }
   }
 
   private bindings(frame: GpuFrame, source: Surface, x: number, y: number, selection: MaskInput | null, scratch: FillScratch, values: readonly number[]): GPUBindGroup {
@@ -215,13 +270,13 @@ export class SpanFill {
     const initial = new Uint32Array(SUMMARY_WORDS);
     initial[EDGE_WORDS] = width;
     initial[EDGE_WORDS + 1] = height;
-    this.gpu.device.queue.writeBuffer(scratch.entries, 0, tile.incoming);
+    this.gpu.device.queue.writeBuffer(scratch.entries, 0, tile.incoming ?? EMPTY_EDGES);
     this.gpu.device.queue.writeBuffer(scratch.summary, 0, initial);
     const frame = this.gpu.beginFrame();
     try {
       const bindGroup = this.bindings(frame, source, tile.x, tile.y, selection, scratch, [
         width, height, 0, 0, tolerance, Number(isMaskSurface(source)), Number(!!selection), Number(!!selection && isMaskSurface(selection.surface)), ...seed.color,
-        tile.seed ? point.y % TILE_SIZE * TILE_SIZE + point.x % TILE_SIZE : -1, Number(contiguous), 0, 0, ...seed.pixel,
+        tile.seed ? point.y % TILE_SIZE * TILE_SIZE + point.x % TILE_SIZE : -1, Number(contiguous), tile.entries, 0, ...seed.pixel,
       ]);
       frame.encoder.clearBuffer(scratch.reached);
       const pass = frame.encoder.beginComputePass();
@@ -239,14 +294,6 @@ export class SpanFill {
 }
 
 function bit(words: Uint32Array, index: number): boolean { return ((words[index >>> 5] >>> (index & 31)) & 1) !== 0; }
-function setBit(words: Uint32Array, index: number): void { words[index >>> 5] |= 1 << (index & 31); }
-
-function fullEdges(width: number, height: number): Uint32Array<ArrayBuffer> {
-  const result = new Uint32Array(EDGE_WORDS);
-  for (let y = 0; y < height; y++) { setBit(result, y); setBit(result, TILE_SIZE + y); }
-  for (let x = 0; x < width; x++) { setBit(result, 2 * TILE_SIZE + x); setBit(result, 3 * TILE_SIZE + x); }
-  return result;
-}
 
 function comparisonColor(pixel: TileColor, scalar: boolean): TileColor {
   if (scalar) return [pixel[0], pixel[0], pixel[0], 1];

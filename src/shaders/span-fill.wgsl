@@ -74,12 +74,16 @@ fn unite(first: u32, second: u32) {
   }
 }
 
-// Each matching pixel contributes its up/left edges. No waiting on another workgroup.
+// Eight-connected pixels, matching the chunk graph. Each connection is visited once.
 @compute @workgroup_size(8, 8) fn connect(@builtin(global_invocation_id) id: vec3u) {
   let index = id.y * 256u + id.x;
   if (atomicLoad(&parents[index]) == ABSENT) { return; }
   if (id.x > 0u) { unite(index, index - 1u); }
-  if (id.y > 0u) { unite(index, index - 256u); }
+  if (id.y > 0u) {
+    unite(index, index - 256u);
+    if (id.x > 0u) { unite(index, index - 257u); }
+    if (id.x + 1u < u32(params.size.x)) { unite(index, index - 255u); }
+  }
 }
 
 fn entered(edge: u32) -> bool { return (entries[edge >> 5u] & (1u << (edge & 31u))) != 0u; }
@@ -88,11 +92,16 @@ fn entered(edge: u32) -> bool { return (entries[edge >> 5u] & (1u << (edge & 31u
   let index = id.y * 256u + id.x;
   if (atomicLoad(&parents[index]) == ABSENT) { return; }
   let size = vec2u(params.size.xy);
+  let entryFlags = u32(params.state.z);
   var seeded = params.state.y < 0.5 || i32(index) == i32(params.state.x);
-  if (id.x == 0u && entered(id.y)) { seeded = true; }
-  if (id.x + 1u == size.x && entered(256u + id.y)) { seeded = true; }
-  if (id.y == 0u && entered(512u + id.x)) { seeded = true; }
-  if (id.y + 1u == size.y && entered(768u + id.x)) { seeded = true; }
+  if (id.x == 0u && ((entryFlags & 1u) != 0u || entered(id.y))) { seeded = true; }
+  if (id.x + 1u == size.x && ((entryFlags & 2u) != 0u || entered(256u + id.y))) { seeded = true; }
+  if (id.y == 0u && ((entryFlags & 4u) != 0u || entered(512u + id.x))) { seeded = true; }
+  if (id.y + 1u == size.y && ((entryFlags & 8u) != 0u || entered(768u + id.x))) { seeded = true; }
+  if (id.x == 0u && id.y == 0u && (entryFlags & 16u) != 0u) { seeded = true; }
+  if (id.x + 1u == size.x && id.y == 0u && (entryFlags & 32u) != 0u) { seeded = true; }
+  if (id.x == 0u && id.y + 1u == size.y && (entryFlags & 64u) != 0u) { seeded = true; }
+  if (id.x + 1u == size.x && id.y + 1u == size.y && (entryFlags & 128u) != 0u) { seeded = true; }
   if (seeded) {
     let component = root(index);
     atomicOr(&reached[component >> 5u], 1u << (component & 31u));
