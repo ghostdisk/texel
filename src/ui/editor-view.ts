@@ -14,6 +14,7 @@ import { LayerPointerDrag } from './layer-pointer-drag';
 import type { LayerDragPosition } from './layer-pointer-drag';
 import type { Matrix } from '../model/geometry';
 import type { GuideAxis } from '../model/precision';
+import { BlendModeInput } from './blend-mode-input';
 
 export function element<T extends HTMLElement>(id: string): T {
   const node = document.getElementById(id);
@@ -39,6 +40,8 @@ export class EditorView {
   private rows = new Map<string, HTMLElement>();
   private optionsTool = '';
   private sizedLayerDialog = false;
+  private imageSizeAspect = 1;
+  private imageSizeSyncing = false;
   private draggedLayer: Layer | null = null;
   private draggedLayers: Layer[] = [];
   private readonly layerPointerDrag: LayerPointerDrag;
@@ -48,6 +51,8 @@ export class EditorView {
   private layerDropParent: HTMLElement | null = null;
   private paintedPreviews = new WeakMap<HTMLCanvasElement, ImageData>();
   private readonly opacityControl: SliderInput;
+  private readonly blendControl: BlendModeInput;
+  private blendPreviewLayers: Layer[] = [];
   private readonly panels: TabGroup;
   private readonly historyPanel: HistoryPanel;
   private draggedFilterId: string | null = null;
@@ -69,6 +74,7 @@ export class EditorView {
     };
     editor.onNewDocument = () => this.showSizeDialog();
     editor.onNewSizedLayer = () => this.showSizeDialog(true);
+    editor.onImageSize = () => this.showImageSizeDialog();
     editor.onRename = () => this.rename(editor.image.selected);
     editor.onGuideSettings = () => this.showPrecisionDialog();
     editor.onFrame = () => {
@@ -82,18 +88,27 @@ export class EditorView {
     input('secondary-color').oninput = () => editor.setColors(editor.primaryColor, input('secondary-color').value);
     this.opacityControl = this.createOpacityControl();
     element('layer-opacity-control').append(this.opacityControl.element);
-    element<HTMLSelectElement>('layer-blend').onchange = () => editor.run(() => {
-      editor.finishGesture();
-      const layers = editor.image.selectedLayers;
-      const before = layers.map((layer) => layer.properties());
-      const blend = element<HTMLSelectElement>('layer-blend').value as BlendMode;
-      for (const layer of layers) layer.setBlendMode(blend);
-      editor.recordLayerChanges(layers, before, 'Change blend mode');
+    this.blendControl = new BlendModeInput(element<HTMLSelectElement>('layer-blend'), {
+      preview: (mode) => this.previewBlendMode(mode),
+      change: (mode) => editor.run(() => {
+        editor.finishGesture();
+        const layers = this.blendPreviewLayers.length ? this.blendPreviewLayers : editor.image.selectedLayers;
+        const before = layers.map((layer) => layer.properties());
+        for (const layer of layers) layer.setBlendMode(mode);
+        this.blendPreviewLayers = [];
+        editor.recordLayerChanges(layers, before, 'Change blend mode');
+      }),
     });
     for (const id of ['layer-x', 'layer-y', 'layer-scale-x', 'layer-scale-y', 'layer-angle']) {
       input(id).onchange = () => editor.run(() => this.changeTransform(id));
     }
     element('cancel-size').onclick = () => element<HTMLDialogElement>('size-dialog').close();
+    element('cancel-image-size').onclick = () => element<HTMLDialogElement>('image-size-dialog').close();
+    input('image-width').oninput = () => this.syncImageSize('width');
+    input('image-height').oninput = () => this.syncImageSize('height');
+    input('image-keep-aspect').onchange = () => {
+      if (input('image-keep-aspect').checked) this.syncImageSize('width');
+    };
     element('close-precision').onclick = () => element<HTMLDialogElement>('precision-dialog').close();
     element('precision-form').onsubmit = (event) => event.preventDefault();
     input('grid-size').onchange = () => editor.run(() => {
@@ -113,6 +128,16 @@ export class EditorView {
         element<HTMLDialogElement>('size-dialog').close();
         if (this.sizedLayerDialog) editor.image.createPixelLayer(width, height);
         else await editor.files.newDocument(width, height);
+      });
+    };
+    element('image-size-form').onsubmit = (event) => {
+      event.preventDefault();
+      editor.run(() => {
+        const width = input('image-width').valueAsNumber;
+        const height = input('image-height').valueAsNumber;
+        if (!Number.isSafeInteger(width) || !Number.isSafeInteger(height)) return;
+        element<HTMLDialogElement>('image-size-dialog').close();
+        editor.resizeImage(width, height);
       });
     };
     this.attachImport();
@@ -167,9 +192,7 @@ export class EditorView {
     element('layer-size').textContent = editor.image.selectedLayers.length > 1 ? '' : layer instanceof ImageLayer ? `${layer.width} × ${layer.height} native pixels` : `${(layer as GroupLayer).children.length} children · isolated group`;
     element('selection-actions').hidden = !layer.isSelection;
     this.opacityControl.sync(!editor.commitEdits);
-    const blend = element<HTMLSelectElement>('layer-blend');
-    blend.value = layer.blendMode;
-    blend.disabled = !layer.parent;
+    this.blendControl.sync(layer.blendMode, !layer.parent);
     element('transform-fields').hidden = editor.activeTool.id !== 'transform' || !layer.parent || editor.image.selectedLayers.length > 1;
     this.updateTransformFields();
     input('brush-color').value = editor.primaryColor;
@@ -211,6 +234,14 @@ export class EditorView {
     element('cancel-generation').hidden = !editor.generators.busy;
     element('cancel-generation').textContent = 'Cancel generation';
     element('image-operation-status').textContent = editor.generators.active?.progress.phase ?? '';
+  }
+
+  private previewBlendMode(mode: BlendMode | null): void {
+    this.editor.run(() => {
+      if (mode && !this.blendPreviewLayers.length) this.blendPreviewLayers = this.editor.image.selectedLayers;
+      for (const layer of this.blendPreviewLayers) layer.setTemporaryBlendMode(mode);
+      if (!mode) this.blendPreviewLayers = [];
+    });
   }
 
   private renderDocumentTabs(): void {
@@ -771,6 +802,27 @@ export class EditorView {
     input('new-height').value = String(sizedLayer ? 512 : this.editor.image.frame.height);
     for (const id of ['new-width', 'new-height']) input(id).max = String(MAX_IMAGE_SIZE);
     element<HTMLDialogElement>('size-dialog').showModal();
+  }
+
+  private showImageSizeDialog(): void {
+    const { width, height } = this.editor.image;
+    this.imageSizeAspect = width / height;
+    input('image-width').value = String(width);
+    input('image-height').value = String(height);
+    input('image-keep-aspect').checked = true;
+    for (const id of ['image-width', 'image-height']) input(id).max = String(MAX_IMAGE_SIZE);
+    element<HTMLDialogElement>('image-size-dialog').showModal();
+  }
+
+  private syncImageSize(source: 'width' | 'height'): void {
+    if (this.imageSizeSyncing || !input('image-keep-aspect').checked) return;
+    const value = input(source === 'width' ? 'image-width' : 'image-height').valueAsNumber;
+    if (!Number.isFinite(value) || value < 1) return;
+    const ratio = source === 'width' ? 1 / this.imageSizeAspect : this.imageSizeAspect;
+    const other = Math.min(MAX_IMAGE_SIZE, Math.max(1, Math.round(value * ratio)));
+    this.imageSizeSyncing = true;
+    input(source === 'width' ? 'image-height' : 'image-width').value = String(other);
+    this.imageSizeSyncing = false;
   }
 
   private showPrecisionDialog(): void {

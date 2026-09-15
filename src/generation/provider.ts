@@ -193,11 +193,16 @@ export class GenerationModelRegistry {
 
   model(id: string): GenerationModel | undefined { return this.entries.get(id); }
 
+  private providerForModel(id: string): GenerationProvider | undefined {
+    const separator = id.indexOf('/');
+    return separator > 0 ? this.providers.get(id.slice(0, separator)) : undefined;
+  }
+
   async resolve(id: string): Promise<GenerationModel> {
     const current = this.entries.get(id);
-    const provider = current && this.providers.get(current.platform);
-    if (!current || !provider) throw new Error('Unknown image model: ' + id);
-    if (!provider.resolveModel) return current;
+    const provider = (current && this.providers.get(current.platform)) ?? this.providerForModel(id);
+    if (!provider || (!current && !provider.resolveModel)) throw new Error('Unknown image model: ' + id);
+    if (!provider.resolveModel) return current!;
     const resolved = await provider.resolveModel(id);
     if (resolved.id !== id || resolved.platform !== provider.platform) throw new Error('Image provider returned an invalid model.');
     const registered = this.registered(resolved, provider);

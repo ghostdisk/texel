@@ -125,6 +125,7 @@ export class Editor {
   onFrame?: (stats: RenderStats) => void;
   onNewDocument?: () => void;
   onNewSizedLayer?: () => void;
+  onImageSize?: () => void;
   onRename?: () => void;
   onGuideSettings?: () => void;
   onOpenSettings?: () => void;
@@ -788,6 +789,16 @@ export class Editor {
     this.changed();
   }
 
+  resizeImage(width: number, height: number): void {
+    this.finishGesture();
+    const beforeWidth = this.image.width;
+    const beforeHeight = this.image.height;
+    if (!this.image.resizeCanvas(width, height)) return;
+    this.generators.scaleLenses(width / beforeWidth, height / beforeHeight);
+    this.viewport.fit(this.image.frame);
+    this.changed();
+  }
+
   loadDocument(document: LoadedDocument): void {
     this.generators.documentChanging();
     this.finishGesture();
@@ -1115,6 +1126,8 @@ export class Editor {
     if (document !== this.currentDocument) throw new Error('Cannot edit the history of an inactive document.');
     this.flushPaint();
     const image = document.image;
+    const beforeWidth = image.width;
+    const beforeHeight = image.height;
     const payload = operation.payload(direction);
     if (payload.type === 'image') image.applyUndo(operation, direction);
     else if (payload.type === 'layer') {
@@ -1132,6 +1145,10 @@ export class Editor {
       const tool = this.tools.get(payload.targetId);
       if (!tool) throw new Error(`Unknown undo tool: ${payload.targetId}`);
       tool.applyUndo(operation, direction);
+    }
+    if (payload.type === 'image' && payload.action === 'canvas-size') {
+      this.generators.scaleLenses(image.width / beforeWidth, image.height / beforeHeight);
+      this.viewport.fit(image.frame);
     }
   }
 
@@ -1183,6 +1200,10 @@ export class Editor {
       const image = await window.desktop.openImage();
       if (image) await this.addImage(image.name, new Blob([image.bytes]));
     } });
+    register({
+      id: 'file.image-size', label: 'Image size…', menu: 'File',
+      enabled: () => !this.generators.busy && this.activeTool.id !== 'crop', execute: () => this.onImageSize?.(),
+    });
     register({ id: 'command.palette', label: 'Command palette…', menu: 'Edit', execute: () => this.onCommandPalette?.() });
     register({ id: 'settings.open', label: 'Settings…', menu: 'File', separatorBefore: true, execute: () => this.onOpenSettings?.() });
     register({ id: 'settings.canvas-background', label: 'Canvas background…', execute: () => this.onCanvasBackgroundSettings?.() });
@@ -1466,6 +1487,7 @@ export class Editor {
     this.actions.bind('Ctrl+Shift+Z', 'history.redo');
     this.actions.bind('Ctrl+Y', 'history.redo');
     this.actions.bind('Ctrl+N', 'file.new');
+    this.actions.bind('Ctrl+Alt+I', 'file.image-size');
     this.actions.bind('Ctrl+O', 'file.open');
     this.actions.bind('Ctrl+S', 'file.save');
     this.actions.bind('Ctrl+Shift+S', 'file.save-as');

@@ -27,6 +27,7 @@ interface RankedItem {
 
 const EXACT_ICONS: Readonly<Record<string, IconName>> = {
   'file.new': 'document',
+  'file.image-size': 'image',
   'file.open': 'folder',
   'file.save': 'document',
   'file.save-as': 'document',

@@ -189,6 +189,18 @@
         <div class="dialog-actions"><button id="cancel-size" type="button">Cancel</button><button class="primary" id="confirm-size" type="submit">Create document</button></div>
       </form>
     </dialog>
+    <dialog id="image-size-dialog">
+      <form id="image-size-form">
+        <h2>Image size</h2>
+        <p>Change the canonical canvas size without resampling layer pixels.</p>
+        <div class="field-pair">
+          <label class="field">Width <input id="image-width" type="number" min="1" step="1" required /></label>
+          <label class="field">Height <input id="image-height" type="number" min="1" step="1" required /></label>
+        </div>
+        <label class="dialog-checkbox"><input id="image-keep-aspect" type="checkbox" checked /> Keep aspect ratio</label>
+        <div class="dialog-actions"><button id="cancel-image-size" type="button">Cancel</button><button class="primary" id="confirm-image-size" type="submit">Resize</button></div>
+      </form>
+    </dialog>
     <dialog id="precision-dialog">
       <form id="precision-form">
         <h2>Grid and guides</h2>

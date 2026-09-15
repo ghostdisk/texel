@@ -153,7 +153,7 @@ export class Compositor {
         const world = group.worldTransform();
         const scale = density * maxScale(multiply(parentInverse, world));
         const bounds = unionBounds(children.map((child) => transformBounds(child.layer.transform, child.surface.bounds)));
-        const needsShader = children.some((child) => !isFixedBlendMode(child.layer.blendMode));
+        const needsShader = children.some((child) => !isFixedBlendMode(child.layer.effectiveBlendMode));
         const first = applyFilters ? temporary('Merge group contents', bounds, scale) : createSurface('Merged layers', bounds, scale);
         const second = needsShader ? applyFilters ? temporary('Merge group blend', bounds, scale) :
           createSurface('Merged layers blend', bounds, scale) : null;
@@ -321,9 +321,9 @@ export class Compositor {
     if (!second) {
       const pass = this.quads.begin(frame, first);
       for (const child of children) {
-        if (!isFixedBlendMode(child.layer.blendMode)) throw new Error('Shader blend requires a separate stage.');
+        if (!isFixedBlendMode(child.layer.effectiveBlendMode)) throw new Error('Shader blend requires a separate stage.');
         const magnified = maxScale(child.layer.transform) * first.scale > child.surface.scale;
-        this.quads.draw(pass, frame, child.surface, first, child.layer.transform, child.layer.opacity, child.layer.blendMode, false, magnified);
+        this.quads.draw(pass, frame, child.surface, first, child.layer.transform, child.layer.opacity, child.layer.effectiveBlendMode, false, magnified);
       }
       pass.end();
       return first;
@@ -337,12 +337,12 @@ export class Compositor {
       used.add(key);
       const output = index === children.length - 1 ? first : first.scratch(frame, key);
       const magnified = maxScale(child.layer.transform) * first.scale > child.surface.scale;
-      if (isFixedBlendMode(child.layer.blendMode)) {
+      if (isFixedBlendMode(child.layer.effectiveBlendMode)) {
         const pass = this.quads.begin(frame, output);
         this.quads.draw(pass, frame, current, output);
-        this.quads.draw(pass, frame, child.surface, output, child.layer.transform, child.layer.opacity, child.layer.blendMode, false, magnified);
+        this.quads.draw(pass, frame, child.surface, output, child.layer.transform, child.layer.opacity, child.layer.effectiveBlendMode, false, magnified);
         pass.end();
-      } else this.blender.encode(frame, current, child.surface, output, child.layer.transform, child.layer.opacity, child.layer.blendMode, magnified);
+      } else this.blender.encode(frame, current, child.surface, output, child.layer.transform, child.layer.opacity, child.layer.effectiveBlendMode, magnified);
       current = output;
     });
     first.retainScratch(frame, 'stack:', used);
@@ -377,7 +377,7 @@ export class Compositor {
       dependencies.set(id, dependency);
     }
     const signature = JSON.stringify([
-      children.map(({ layer: child }) => [child.id, child.outputRevision, child.transform, child.opacity, child.blendMode]),
+      children.map(({ layer: child }) => [child.id, child.outputRevision, child.transform, child.opacity, child.effectiveBlendMode]),
       [...dependencies.values()].map((item) => [item.id, item.outputRevision, item.worldTransform()]),
       dependencies.size ? world : null,
     ]);
@@ -405,7 +405,7 @@ export class Compositor {
       content = layer.source;
     }
     else if (layer instanceof GroupLayer) {
-      const needsShader = children.some((child) => !isFixedBlendMode(child.layer.blendMode));
+      const needsShader = children.some((child) => !isFixedBlendMode(child.layer.effectiveBlendMode));
       const first = surface(needsShader ? 'children-a' : 'children', groupBounds);
       const second = needsShader ? surface('children-b', groupBounds) : null;
       content = this.compositeChildren(frame, children, first, second);

@@ -46,6 +46,7 @@ export abstract class Layer implements UndoTarget {
   private alpha = 1;
   private shown = true;
   private blending: BlendMode = 'normal';
+  private temporaryBlending: BlendMode | null = null;
   private effects: Filter[] = [];
   private selection = false;
   outputRevision = 0;
@@ -60,6 +61,8 @@ export abstract class Layer implements UndoTarget {
   get visible(): boolean { return this.shown; }
   get visibleInStack(): boolean { return this.visible && !this.isSelection; }
   get blendMode(): BlendMode { return this.blending; }
+  get temporaryBlendMode(): BlendMode | null { return this.temporaryBlending; }
+  get effectiveBlendMode(): BlendMode { return this.temporaryBlending ?? this.blending; }
   get filters(): readonly Filter[] { return this.effects; }
   abstract localBounds(): Rect;
 
@@ -97,7 +100,18 @@ export abstract class Layer implements UndoTarget {
 
 
   setVisible(visible: boolean): void { this.shown = visible; this.placementChanged(); }
-  setBlendMode(mode: BlendMode): void { this.blending = mode; this.placementChanged(); }
+  setBlendMode(mode: BlendMode): void {
+    const previous = this.effectiveBlendMode;
+    this.blending = mode;
+    this.temporaryBlending = null;
+    if (previous !== this.effectiveBlendMode) this.placementChanged();
+  }
+
+  setTemporaryBlendMode(mode: BlendMode | null): void {
+    const previous = this.effectiveBlendMode;
+    this.temporaryBlending = mode;
+    if (this.parent && previous !== this.effectiveBlendMode) this.parent.invalidate();
+  }
 
   addFilter(filter: Filter, index = this.effects.length): void {
     if (this.effects.some((item) => item.id === filter.id)) throw new Error('Duplicate filter ID.');

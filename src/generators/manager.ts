@@ -10,6 +10,8 @@ import { ImageGenerator } from './image-generator';
 import { InpaintGenerator } from './inpaint-generator';
 import { ObjectRemovalGenerator } from './object-removal-generator';
 import type { GenerationLens } from '../generation/lens';
+import { multiply } from '../model/geometry';
+import type { Matrix } from '../model/geometry';
 
 export class GeneratorManager {
   readonly service = new AIRequestService();
@@ -77,6 +79,13 @@ export class GeneratorManager {
 
   resetLens(width: number, height: number): void {
     for (const generator of this.generators.values()) generator.lens.fit(width, height);
+  }
+
+  scaleLenses(widthScale: number, heightScale: number): void {
+    const scale: Matrix = [widthScale, 0, 0, heightScale, 0, 0];
+    for (const generator of this.generators.values()) {
+      generator.lens.setTransform(multiply(scale, generator.lens.transform));
+    }
   }
 
   validate(): void {

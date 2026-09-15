@@ -38,6 +38,13 @@ export interface CanvasLayerState {
   transform: Matrix;
 }
 
+export interface CanvasSizeState {
+  width: number;
+  height: number;
+  layers: CanvasLayerState[];
+  selection: JsonObject;
+}
+
 export class ImageDocument implements UndoTarget {
   id: string = crypto.randomUUID();
   root = new GroupLayer('Document');
@@ -92,13 +99,47 @@ export class ImageDocument implements UndoTarget {
     }
     const children = new Map(this.root.children.map((layer) => [layer.id, layer]));
     if (layers.length !== children.size || new Set(layers.map((entry) => entry.layerId)).size !== children.size || layers.some((entry) => !children.has(entry.layerId))) {
-      throw new Error('Crop layer state does not match the document.');
+      throw new Error('Canvas layer state does not match the document.');
     }
     this.canvasWidth = width;
     this.canvasHeight = height;
     for (const entry of layers) children.get(entry.layerId)!.setTransform(entry.transform);
     this.restoreSelection(selection);
     this.root.invalidate();
+  }
+
+  resizeCanvas(width: number, height: number): boolean {
+    const limit = MAX_IMAGE_SIZE;
+    if (!Number.isSafeInteger(width) || !Number.isSafeInteger(height) || width < 1 || height < 1 || width > limit || height > limit) {
+      throw new Error(`Canvas dimensions must be whole pixels from 1 to ${limit}.`);
+    }
+    if (width === this.width && height === this.height) return false;
+    const before = this.canvasSizeState();
+    const root = this.root.transform;
+    const scale: Matrix = [width / this.width, 0, 0, height / this.height, 0, 0];
+    const localScale = multiply(inverse(root), multiply(scale, root));
+    const after: CanvasSizeState = {
+      width,
+      height,
+      layers: before.layers.map((entry) => ({ layerId: entry.layerId, transform: multiply(localScale, entry.transform) })),
+      selection: structuredClone(before.selection),
+    };
+    this.setCanvasState(after.width, after.height, after.layers, after.selection);
+    this.history.push(new UndoOperation(
+      'Resize image',
+      { type: 'image', targetId: this.id, action: 'canvas-size', data: before as unknown as JsonObject },
+      { type: 'image', targetId: this.id, action: 'canvas-size', data: after as unknown as JsonObject },
+    ));
+    return true;
+  }
+
+  private canvasSizeState(): CanvasSizeState {
+    return {
+      width: this.width,
+      height: this.height,
+      layers: this.root.children.map((layer) => ({ layerId: layer.id, transform: [...layer.transform] as Matrix })),
+      selection: this.selectionState(),
+    };
   }
 
   allLayers(): Layer[] {
@@ -446,6 +487,8 @@ export class ImageDocument implements UndoTarget {
       this.restoreSelection(data.selection as JsonObject);
     } else if (payload.action === 'precision') {
       this.setPrecisionState(data as unknown as PrecisionState);
+    } else if (payload.action === 'canvas-size') {
+      this.setCanvasState(Number(data.width), Number(data.height), data.layers as unknown as CanvasLayerState[], data.selection as JsonObject);
     } else if (payload.action === 'layer-batch') {
       this.commands.apply(operation, direction);
     } else if (payload.action === 'add-layer') {

@@ -27,6 +27,8 @@ Every layer supports a name, affine transform, opacity, visibility, blend mode, 
 
 The document width and height define the canvas, not the dimensions of every layer. Content outside the canvas remains available but is clipped during presentation and export.
 
+**Image size** changes the canonical canvas dimensions without resampling pixels. Direct children of the document root are transformed to preserve their relative placement, while their native pixel buffers remain unchanged.
+
 ## Layer operations
 
 You can create, delete, duplicate, rename, group, reorder, reparent, align, distribute, rotate, flip, and merge layers. Multiple selected layers can be moved or transformed together. A group or the document root can carry filters, making root filters useful for whole-document adjustments.

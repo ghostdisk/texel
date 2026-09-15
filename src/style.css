@@ -160,7 +160,18 @@ h2 { display: flex; align-items: center; gap: 7px; font-weight: 600; font-size: 
 .tab[aria-selected="true"]::after { content: ''; position: absolute; bottom: -1px; left: 0; right: 0; height: 3px; background: var(--accent); }
 .tab-panel { display: flex; flex: 1; min-height: 0; flex-direction: column; }
 .layer-compositing { display: flex; gap: 9px; align-items: center; padding: 8px 7px; flex-shrink: 0; }
-#layer-blend { flex: 1; min-width: 95px; height: 28px; font-size: 11px; }
+#layer-blend { display: none; }
+.blend-mode-input { flex: 1; min-width: 95px; }
+.blend-mode-button { display: flex; align-items: center; justify-content: space-between; width: 100%; height: 28px; padding: 2px 6px 2px 8px; font-size: 11px; text-align: left; }
+.blend-mode-button .icon { width: 15px; height: 15px; color: var(--text-muted); }
+.blend-mode-button[aria-expanded="true"] { border-color: var(--accent); background: var(--accent-surface); }
+.blend-mode-menu { position: fixed; inset: auto; z-index: 1000; max-height: min(560px, calc(100vh - 24px)); overflow-y: auto; margin: 0; padding: 4px; border: 1px solid var(--border-strong); border-radius: 5px; color: var(--text); background: var(--surface-raised-bg); box-shadow: 0 10px 28px var(--shadow); font-size: 11px; }
+.blend-mode-menu::backdrop { background: transparent; }
+.blend-mode-group + .blend-mode-group { border-top: 1px solid var(--border); margin-top: 3px; padding-top: 3px; }
+.blend-mode-group-label { padding: 3px 7px 2px; color: var(--text-faint); font-size: 9px; font-weight: 600; letter-spacing: .45px; text-transform: uppercase; }
+.blend-mode-option { display: block; width: 100%; height: 24px; padding: 2px 7px; border: 0; border-radius: 3px; background: transparent; color: var(--text); font-size: 11px; text-align: left; }
+.blend-mode-option:hover, .blend-mode-option:focus-visible { background: var(--accent-soft); outline: none; }
+.blend-mode-option[aria-selected="true"] { color: var(--text-strong); font-weight: 600; }
 #layer-opacity-control { flex: 0 0 auto; }
 .layer-tree { flex: 1; min-height: 0; overflow-y: auto; padding: 0 5px 5px; }
 .layer-row { position: relative; display: flex; align-items: center; gap: 5px; min-height: 38px; margin: 2px 0; padding-right: 6px; border: 1px solid color-mix(in srgb, var(--border) 50%, transparent); border-radius: 4px; user-select: none; touch-action: none; }
@@ -408,6 +419,8 @@ dialog p { font-size: 11px; color: var(--text-muted); line-height: 1.6; margin-b
 .command-result kbd { min-width: 58px; color: var(--text-muted); font: 11px/1.4 "Segoe UI", sans-serif; text-align: right; }
 .command-empty { padding: 24px 10px; color: var(--text-muted); text-align: center; }
 .dialog-actions { display: flex; justify-content: flex-end; gap: 7px; margin-top: 12px; }
+.dialog-checkbox { display: flex; align-items: center; gap: 7px; margin-top: 4px; color: var(--text-muted); font-size: 11px; }
+.dialog-checkbox input { width: auto; }
 .precision-grid-size { display: flex; align-items: center; justify-content: space-between; margin: 12px 0; }
 .precision-grid-size input { width: 110px; }
 .precision-guide-add, .guide-row { display: grid; grid-template-columns: 1fr 1fr auto; align-items: end; gap: 7px; }
