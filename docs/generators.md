@@ -7,6 +7,7 @@ Available workflows are:
 - **Image generator** for prompted generation or image-to-image editing inside a generation lens
 - **Inpaint** for replacing an active selection
 - **Object removal** for removing selected content with a compatible model
+- **Remove background** for isolating the foreground into a transparent result layer
 
 Models can come from the local backend, OpenRouter, or fal. See [Backend integrations](backend-integrations.md) for configuration and provider details.
 

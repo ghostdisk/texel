@@ -5,6 +5,7 @@ import type { ToolPointer } from '../tools/tool';
 import { TransformControls } from '../tools/transform-controls';
 import { GeneratorWindow } from '../ui/generator-window';
 import { Generator } from './generator';
+import { BackgroundRemovalGenerator } from './background-removal-generator';
 import { ImageGenerator } from './image-generator';
 import { InpaintGenerator } from './inpaint-generator';
 import { ObjectRemovalGenerator } from './object-removal-generator';
@@ -20,6 +21,7 @@ export class GeneratorManager {
   constructor(private readonly editor: Editor) {
     for (const generator of [
       new ImageGenerator(editor, this.service),
+      new BackgroundRemovalGenerator(editor, this.service),
       new ObjectRemovalGenerator(editor, this.service),
       new InpaintGenerator(editor, this.service),
     ]) this.generators.set(generator.id, generator);

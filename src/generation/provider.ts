@@ -13,6 +13,7 @@ export type GenerationModelType =
   | 'general-editing'
   | 'generate-from-image'
   | 'fill-inpaint'
+  | 'background-removal'
   | 'object-removal-mask'
   | 'object-removal-prompt'
   | 'expand-reframe'

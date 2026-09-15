@@ -87,11 +87,26 @@ function classifyModel(record) {
   if (has('relight', 'lighting', 'colorize', 'colourize', 'white balance', 'color correction', 'reseason')) types.push('lighting-color');
   if (has('style', 'stylized', 'toon', 'anime', 'sketch', 'transfer', 'perspective', 'expression change', 'multiple angles')) types.push('style-transform');
   if (has('product', 'fashion', 'try-on', 'tryon', 'portrait', 'headshot', 'subject', 'face', 'age progression')) types.push('subject-product');
+  if (backgroundRemovalCandidate(record)) types.push('background-removal');
   if (has('segment', 'detect', 'caption', 'vision', 'classif', 'background removal', 'matting')) types.push('selection-analysis');
   if (has('depth', 'normal map', 'pose', 'edge', 'canny', 'lineart', 'structure', 'extract')) types.push('structure-extraction');
   if (!types.length && has('/edit', 'edit-image', 'image edit', 'image-edit', '/modify', '/remix')) types.push('general-editing');
   if (!types.length && has('image-to-image', 'img2img', 'reference-to-image', 'variation')) types.push('generate-from-image');
   return { tags, types: [...new Set(types)] };
+}
+
+function backgroundRemovalCandidate(record) {
+  const metadata = record.metadata ?? {};
+  const endpoint = String(record.endpoint_id ?? '').toLowerCase();
+  const tags = Array.isArray(metadata.tags) ? metadata.tags.map((tag) => String(tag).trim().toLowerCase()) : [];
+  const group = typeof metadata.group === 'string' ? metadata.group : [metadata.group?.key, metadata.group?.label].filter(Boolean).join(' ');
+  const text = [endpoint, metadata.display_name, metadata.description, group, ...tags].filter(Boolean).join(' ').toLowerCase();
+  if (/(replace|replacement)/.test(endpoint) || text.includes('replace background') || text.includes('background replacement')) return false;
+  if (tags.some((tag) => tag === 'background removal' || tag === 'background-removal')) return true;
+  return /(^|\/)(remove-background|background-removal)(\/|$)/.test(endpoint) ||
+    /(^|\/)(rembg(?:-|\/|$)|birefnet(?:-|\/|$)|feynobg(?:-|\/|$))/.test(endpoint) ||
+    text.includes('remove background') || text.includes('background remover') || text.includes('background removal') ||
+    text.includes('matting technology');
 }
 
 function objectRemovalCandidate(record) {

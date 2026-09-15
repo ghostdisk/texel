@@ -57,6 +57,7 @@ const EXACT_ICONS: Readonly<Record<string, IconName>> = {
   'tool.transform': 'transform',
   'tool.eyedropper': 'eyedropper',
   'generator.image': 'generate',
+  'generator.background-removal': 'remove',
   'generator.object-removal': 'remove',
   'generator.inpaint': 'fill',
   'generator.generate': 'generate',

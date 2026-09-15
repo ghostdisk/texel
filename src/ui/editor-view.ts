@@ -196,7 +196,7 @@ export class EditorView {
         button.classList.toggle('active', active);
         button.setAttribute('aria-pressed', String(active));
       }
-      if (button.dataset.action!.startsWith('generator.') && ['image', 'object-removal', 'inpaint'].includes(button.dataset.action!.slice('generator.'.length))) {
+      if (button.dataset.action!.startsWith('generator.') && ['image', 'background-removal', 'object-removal', 'inpaint'].includes(button.dataset.action!.slice('generator.'.length))) {
         const active = button.dataset.action === `generator.${editor.generators.active?.id}`;
         button.classList.toggle('active', active);
         button.setAttribute('aria-pressed', String(active));

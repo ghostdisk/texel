@@ -1318,6 +1318,7 @@ export class Editor {
       execute: () => this.setColors(this.secondaryColor, this.primaryColor),
     });
     register({ id: 'generator.image', label: 'Image generator', menu: 'Tools', submenu: 'Generators', execute: () => this.generators.open('image') });
+    register({ id: 'generator.background-removal', label: 'Remove background', menu: 'Tools', submenu: 'Generators', execute: () => this.generators.open('background-removal') });
     register({ id: 'generator.object-removal', label: 'Object removal', menu: 'Tools', submenu: 'Generators', execute: () => this.generators.open('object-removal') });
     register({ id: 'generator.inpaint', label: 'Inpaint', menu: 'Tools', submenu: 'Generators', execute: () => this.generators.open('inpaint') });
     register({

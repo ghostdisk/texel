@@ -19,6 +19,7 @@ const TYPE_LABELS: Record<GenerationModelType, string> = {
   'general-editing': 'General editing',
   'generate-from-image': 'Generate from image',
   'fill-inpaint': 'Fill and inpaint',
+  'background-removal': 'Background removal',
   'object-removal-mask': 'Object removal by mask',
   'object-removal-prompt': 'Object removal by prompt',
   'expand-reframe': 'Expand and reframe',
