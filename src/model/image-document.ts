@@ -182,11 +182,11 @@ export class ImageDocument implements UndoTarget {
     } catch (error) { if (!layer.parent) this.compositor.release(layer); throw error; }
   }
 
-  createMask(): void {
-    const parent = this.destination();
+  createMask(parent = this.destination()): ImageLayer {
     const mask = createImageLayer(this.gpu, 'Mask', this.width, this.height, 1, 1);
     mask.setTransform(inverse(parent.worldTransform()));
     this.add(mask, parent, 0);
+    return mask;
   }
 
   ensureSelection(fill = false): ImageLayer {

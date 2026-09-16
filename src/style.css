@@ -341,6 +341,15 @@ input[type="range"]::-webkit-slider-thumb { appearance: none; width: 11px; heigh
 .generation-window > header strong { font-size: 11px; }
 .generation-window > header .icon-button { width: 25px; height: 25px; }
 .generation-window-body { max-height: calc(100vh - 157px); padding: 11px; overflow-y: auto; }
+.tool-window { width: min(330px, calc(100vw - 24px)); }
+.tool-window-body { display: flex; flex-direction: column; gap: 10px; }
+.tool-window-target { display: grid; grid-template-columns: minmax(0, 1fr) auto; gap: 6px; }
+.tool-window-target select { width: 100%; }
+.tool-window-samples { color: var(--text-muted); font-size: 10px; }
+.point-editor-point { pointer-events: none; }
+.point-editor-point circle:first-child { fill: var(--panel-bg); stroke: var(--text-strong); stroke-width: 2; vector-effect: non-scaling-stroke; }
+.point-editor-point circle:last-child { fill: var(--accent-hover); stroke: none; }
+.point-editor-point.active circle:first-child { stroke: var(--accent-hover); }
 .generation-settings { display: flex; flex-direction: column; gap: 9px; min-width: 0; margin: 0; padding: 0; border: 0; }
 .generation-settings > .field, .generation-selectors .field { gap: 4px; }
 .generation-selectors { display: grid; grid-template-columns: minmax(0, 1fr); gap: 7px; }

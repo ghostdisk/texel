@@ -61,6 +61,7 @@ import { TextTool } from './tools/text-tool';
 import { CropTool } from './tools/crop-tool';
 import { TransformTool } from './tools/transform-tool';
 import { EyedropperTool } from './tools/eyedropper-tool';
+import { ColorRangeTool } from './tools/color-range-tool';
 import type { Tool, ToolPointer } from './tools/tool';
 import { Viewport } from './viewport';
 import { EditorDocument } from './editor-document';
@@ -103,6 +104,7 @@ export class Editor {
   private currentDocument: EditorDocument | null = null;
   readonly tools = new Map<string, Tool>();
   private baseTool: Tool;
+  private popupReturnTool: Tool | null = null;
   private altHeld = false;
   readonly readback: GpuReadback;
   readonly previews: LayerPreviews;
@@ -211,6 +213,7 @@ export class Editor {
     this.tools.set('crop', new CropTool(this));
     this.tools.set('transform', new TransformTool(this));
     this.tools.set('eyedropper', new EyedropperTool(this));
+    this.tools.set('color-range', new ColorRangeTool(this));
     this.generators = new GeneratorManager(this);
     this.files = new DocumentFiles(this);
     this.actions.beforeExecute = (action) => {
@@ -223,6 +226,7 @@ export class Editor {
       canSelectionLayer: !!this.currentDocument && !!this.selectionPixelTarget,
       isGenerating: this.generators.busy,
       isCropping: !!this.currentDocument && this.activeTool.id === 'crop',
+      hasToolPopup: !!this.currentDocument && this.baseTool.popup,
       hasPolygonPath: !!this.currentDocument && this.activeTool.id === 'polygon-lasso' && (this.activeTool as PolygonLassoTool).hasPath,
       canApplyPolygon: !!this.currentDocument && this.activeTool.id === 'polygon-lasso' && (this.activeTool as PolygonLassoTool).canApply,
       isTransforming: !!this.currentDocument && this.activeTool.id === 'transform' && this.image.selectedRoots.length > 0,
@@ -305,6 +309,11 @@ export class Editor {
     this.pickGeneration++;
     this.tools.get('eyedropper')?.cancel();
     this.activeTool.hover(null);
+    if (this.baseTool.popup) {
+      this.baseTool.deactivate();
+      this.baseTool = this.popupReturnTool ?? this.tools.get('brush')!;
+      this.popupReturnTool = null;
+    }
     this.previews.clear();
     this.previewsRequested = false;
     this.previewsReady = false;
@@ -861,17 +870,27 @@ export class Editor {
     const tool = this.tools.get(id);
     if (!tool || (tool === this.baseTool && !this.panMode && !this.selectionMode && !this.eraseMode)) return;
     const previous = this.activeTool;
+    const previousBase = this.baseTool;
     this.finishGesture();
     previous.hover(null);
     if (previous.id === 'crop' && tool !== previous) previous.cancel();
+    if (previousBase !== tool) previousBase.deactivate();
     this.pickGeneration++;
+    if (tool.popup && !previousBase.popup) this.popupReturnTool = previousBase;
+    else if (!tool.popup) this.popupReturnTool = null;
     this.baseTool = tool;
+    tool.activate();
     if (tool.id === 'crop' || tool.id === 'text') this.setMaskEditLayer(null);
     this.panMode = false;
     this.eraseMode = false;
     this.canvas.style.cursor = this.panHeld ? 'grab' : this.activeTool.cursor;
     if (this.selectionMode) this.setSelectionMode(false);
     else this.changed();
+  }
+
+  closeToolPopup(): void {
+    if (!this.baseTool.popup) return;
+    this.switchTool((this.popupReturnTool ?? this.tools.get('brush')!).id);
   }
 
   paint(layer: ImageLayer, stamp: BrushStamp, erase = false, selection: MaskInput | null = null): void {
@@ -1367,6 +1386,14 @@ export class Editor {
       },
     });
     register({ id: 'selection.mode', label: () => this.selectionMode ? 'Finish editing selection' : 'Edit selection', menu: 'Select', execute: () => this.setSelectionMode(!this.selectionMode) });
+    register({
+      id: 'selection.color-range', label: 'Color range…', menu: 'Select',
+      enabled: () => this.hasDocument, execute: () => this.switchTool('color-range'),
+    });
+    register({
+      id: 'tool.popup.close', label: 'Close active tool',
+      enabled: () => this.baseTool.popup, execute: () => this.closeToolPopup(),
+    });
     register({ id: 'selection.all', label: 'Select all', menu: 'Select', execute: () => {
       this.image.ensureSelection(true);
       this.changed();
@@ -1502,6 +1529,7 @@ export class Editor {
     this.actions.bind('C', 'tool.crop');
     this.actions.bind('Enter', 'crop.apply', { when: 'isCropping' });
     this.actions.bind('Escape', 'crop.cancel', { when: 'isCropping && !isGenerating' });
+    this.actions.bind('Escape', 'tool.popup.close', { when: 'hasToolPopup' });
     this.actions.bind('E', 'drawing.erase');
     this.actions.bind('S', 'selection.mode');
     this.actions.bind('Ctrl+A', 'selection.all');
@@ -1557,6 +1585,7 @@ export class Editor {
       const screen = screenPoint(event);
       return {
         screen, world: this.viewport.screenToWorld(screen),
+        button: event.button,
         pressure: event instanceof PointerEvent && event.pointerType === 'pen' ? event.pressure : 1,
         shift: event.shiftKey, ctrl: event.ctrlKey || event.metaKey, alt: event.altKey,
       };
@@ -1604,15 +1633,18 @@ export class Editor {
         return;
       }
       if (this.pointer?.mode !== 'tool') return;
-      const coalesced = event.getCoalescedEvents?.() ?? [];
+      const coalesced = this.activeTool.coalescedPointerMoves ? event.getCoalescedEvents?.() ?? [] : [];
       for (const sample of coalesced.length ? coalesced : [event]) this.activeTool.pointerMove(pointerData(sample));
       this.pointer.last = data.screen;
     }));
     this.canvas.addEventListener('pointerup', (event) => this.run(() => {
       if (this.pointer?.id !== event.pointerId) return;
       this.hoverPointer = pointerData(event);
-      if (this.pointer.mode === 'pan' && this.pointer.button === 2 && this.pointer.travel >= 3) this.suppressContextMenu = true;
-      if (this.pointer.mode === 'tool' && ['transform', 'rectangle', 'ellipse', 'freehand-lasso', 'crop', 'eyedropper', 'clone-stamp', 'healing-brush'].includes(this.activeTool.id)) {
+      if (this.pointer.mode === 'pan' && this.pointer.button === 2) {
+        if (this.pointer.travel >= 3) this.suppressContextMenu = true;
+        else if (this.activeTool.secondaryClick(this.hoverPointer!)) this.suppressContextMenu = true;
+      }
+      if (this.pointer.mode === 'tool' && ['transform', 'rectangle', 'ellipse', 'freehand-lasso', 'crop', 'eyedropper', 'clone-stamp', 'healing-brush', 'color-range'].includes(this.activeTool.id)) {
         this.activeTool.pointerMove(this.hoverPointer);
       }
       if (this.activeTool instanceof PolygonLassoTool && this.activeTool.hasPath) {

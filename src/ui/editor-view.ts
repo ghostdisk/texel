@@ -15,6 +15,7 @@ import type { LayerDragPosition } from './layer-pointer-drag';
 import type { Matrix } from '../model/geometry';
 import type { GuideAxis } from '../model/precision';
 import { BlendModeInput } from './blend-mode-input';
+import { ToolWindow } from './tool-window';
 
 export function element<T extends HTMLElement>(id: string): T {
   const node = document.getElementById(id);
@@ -58,8 +59,10 @@ export class EditorView {
   private draggedFilterId: string | null = null;
   private draggedFilterLayer: Layer | null = null;
   private documentSignature = '';
+  private readonly toolWindow: ToolWindow;
 
   constructor(private readonly editor: Editor) {
+    this.toolWindow = new ToolWindow(editor);
     this.panels = new TabGroup(element('document-panels'), [
       { id: 'layers', label: 'Layers', panel: element('layers-panel') },
       { id: 'history', label: 'History', panel: element('history-panel') },
@@ -192,6 +195,7 @@ export class EditorView {
     element('app').classList.toggle('no-document', !hasDocument);
     element('welcome-screen').hidden = hasDocument;
     if (!hasDocument) {
+      this.toolWindow.sync(null);
       this.renderWelcome();
       element('frame-label').textContent = '';
       element('image-operation-status').textContent = '';
@@ -202,6 +206,7 @@ export class EditorView {
     this.renderTree();
     this.historyPanel.render();
     const { editor } = this;
+    this.toolWindow.sync(editor.activeTool);
     const layer = editor.image.selected;
     element('frame-label').textContent = `${editor.image.width} × ${editor.image.height} px`;
     element('layer-kind').textContent = editor.image.selectedLayers.length > 1 ? editor.image.selectedLayers.length + ' LAYERS' : layer.isSelection ? 'SELECTION' : layer instanceof ImageLayer && layer.channels === 1 ? 'MASK' : layer === editor.image.root ? 'ROOT' : layer.kind.toUpperCase();
@@ -219,7 +224,7 @@ export class EditorView {
       const glyphs: Record<string, IconName> = {
         brush: 'brush', rectangle: 'rectangle', ellipse: 'ellipse', fill: 'fill', text: 'text',
         'clone-stamp': 'clone-stamp', 'healing-brush': 'healing-brush', 'freehand-lasso': 'freehand-lasso',
-        'polygon-lasso': 'polygon-lasso', crop: 'crop', transform: 'transform', eyedropper: 'eyedropper',
+        'polygon-lasso': 'polygon-lasso', crop: 'crop', transform: 'transform', eyedropper: 'eyedropper', 'color-range': 'selection',
       };
       element('active-tool-icon').replaceChildren(icon(glyphs[editor.activeTool.id] ?? 'brush'));
       element('tool-options').replaceChildren();
