@@ -1,5 +1,6 @@
 import type { Editor } from '../editor';
 import type { GenerationModelType } from '../generation/provider';
+import type { GenerationLens } from '../generation/lens';
 import type { AIRequestService } from '../generation/service';
 import { Generator } from './generator';
 
@@ -20,8 +21,8 @@ export class ModelTypeGenerator extends Generator {
   private readonly promptLabel: string | undefined;
   private readonly promptIsRequired: boolean;
 
-  constructor(editor: Editor, service: AIRequestService, options: ModelTypeGeneratorOptions) {
-    super(editor, service);
+  constructor(editor: Editor, service: AIRequestService, lens: GenerationLens, options: ModelTypeGeneratorOptions) {
+    super(editor, service, lens);
     this.id = options.id;
     this.label = options.label;
     this.resultName = options.resultName;

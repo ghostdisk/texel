@@ -842,7 +842,7 @@ export class Editor {
     const beforeWidth = this.image.width;
     const beforeHeight = this.image.height;
     if (!this.image.resizeCanvas(width, height)) return;
-    this.generators.scaleLenses(width / beforeWidth, height / beforeHeight);
+    this.generators.scaleLens(width / beforeWidth, height / beforeHeight);
     this.viewport.fit(this.image.frame);
     this.changed();
   }
@@ -1212,7 +1212,7 @@ export class Editor {
       tool.applyUndo(operation, direction);
     }
     if (payload.type === 'image' && payload.action === 'canvas-size') {
-      this.generators.scaleLenses(image.width / beforeWidth, image.height / beforeHeight);
+      this.generators.scaleLens(image.width / beforeWidth, image.height / beforeHeight);
       this.viewport.fit(image.frame);
     }
   }

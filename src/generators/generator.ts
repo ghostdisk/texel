@@ -9,8 +9,8 @@ import { inverse, multiply } from '../model/geometry';
 import type { Matrix } from '../model/geometry';
 import { GroupLayer, ImageLayer } from '../model/layers';
 import { rgbaToPng } from '../generation/image-codec';
-import { GenerationLens, generationResultFrame } from '../generation/lens';
-import type { GenerationFrame } from '../generation/lens';
+import { generationResultFrame } from '../generation/lens';
+import type { GenerationFrame, GenerationLens } from '../generation/lens';
 import type { AIRequestService } from '../generation/service';
 import type { GenerationModel, GenerationModelType, GenerationProgress } from '../generation/provider';
 
@@ -38,7 +38,6 @@ export abstract class Generator {
   abstract readonly label: string;
   abstract readonly modelTypes: readonly GenerationModelType[];
   abstract readonly resultName: string;
-  readonly lens: GenerationLens;
   model = '';
   prompt = '';
   negativePrompt = '';
@@ -64,17 +63,14 @@ export abstract class Generator {
   private result: ImageLayer | null = null;
   private resultSource: Surface | null = null;
   private resultFrame: GenerationFrame | null = null;
-  private resolvingModel = '';
-  private modelRequest = 0;
   private selectionSignature = '';
   private autoTimer = 0;
   private readonly blend: GenerationBlend;
   private readonly masks: GenerationMask;
 
-  constructor(protected readonly editor: Editor, protected readonly service: AIRequestService) {
+  constructor(protected readonly editor: Editor, protected readonly service: AIRequestService, readonly lens: GenerationLens) {
     this.blend = new GenerationBlend(editor.gpu);
     this.masks = new GenerationMask(editor.gpu);
-    this.lens = new GenerationLens(1, 1, () => this.notify());
   }
 
   get models(): readonly GenerationModel[] {
@@ -86,7 +82,9 @@ export abstract class Generator {
   get resultLayer(): ImageLayer | null { return this.result; }
   get canApply(): boolean { return !this.busy && !!this.result; }
   get canGenerate(): boolean {
-    return !this.busy && !this.resolvingModel && !!this.model && (!this.requiresPrompt || !!this.prompt.trim()) &&
+    const model = this.selectedModel;
+    return !this.busy && !!model && (!this.requiresSelection || !!model.capabilities.mask) &&
+      (!this.requiresPrompt || !!this.prompt.trim()) &&
       (!this.requiresSelection || !!this.editor.image.selectionMask) && !this.sizeError && !this.requirementError;
   }
   get frame(): GenerationFrame { return this.lens.frame(this.scale, this.selectedModel?.capabilities.size); }
@@ -122,7 +120,6 @@ export abstract class Generator {
   renderBeforeModel(_container: HTMLElement): void {}
 
   open(): void {
-    this.fitLens();
     this.chooseDefaultModel();
     this.selectionSignature = this.currentSelectionSignature();
     this.notify();
@@ -156,36 +153,26 @@ export abstract class Generator {
     const models = this.models;
     if (models.some((model) => model.id === this.model)) return;
     this.model = this.defaultModel(models)?.id ?? models[0]?.id ?? '';
-    this.modelRequest++;
-    this.resolvingModel = '';
     this.clearFailure();
   }
 
   protected defaultModel(models: readonly GenerationModel[]): GenerationModel | undefined { return models[0]; }
 
-  async selectModel(id: string): Promise<boolean> {
-    const request = ++this.modelRequest;
-    this.model = id;
-    this.resolvingModel = id;
-    this.settingsChanged();
-    try {
-      const resolved = await this.service.resolveModel(id);
-      if (this.model !== id || this.modelRequest !== request) return false;
-      if (!resolved.types?.some((type) => this.modelTypes.includes(type))) {
-        this.error = 'This model does not support this generator.';
-        return false;
-      }
-      if (this.requiresSelection && !resolved.capabilities.mask) {
-        this.error = 'This model does not accept a mask.';
-        return false;
-      }
-      return true;
-    } catch (error) {
-      if (this.model === id && this.modelRequest === request) this.error = error instanceof Error ? error.message : String(error);
+  selectModel(id: string): boolean {
+    const model = this.models.find((candidate) => candidate.id === id);
+    if (!model) {
+      this.error = 'The selected model is no longer available.';
+      this.notify();
       return false;
-    } finally {
-      if (this.modelRequest === request) { this.resolvingModel = ''; this.notify(); }
     }
+    if (this.requiresSelection && !model.capabilities.mask) {
+      this.error = 'This model does not accept a mask.';
+      this.notify();
+      return false;
+    }
+    this.model = id;
+    this.settingsChanged();
+    return true;
   }
 
   settingsChanged(): void { this.clearFailure(); this.notify(); }
@@ -237,9 +224,10 @@ export abstract class Generator {
 
   protected async generate(): Promise<void> {
     if (this.busy || !this.model || this.requiresPrompt && !this.prompt.trim()) return;
-    if (!await this.selectModel(this.model) || !this.canGenerate) return;
+    if (!this.canGenerate) return;
     this.editor.finishGesture();
     const model = this.selectedModel!;
+    const provider = this.service.provider(model);
     const run: RunningRequest = {
       id: crypto.randomUUID(),
       documentId: this.editor.image.id,
@@ -276,7 +264,7 @@ export abstract class Generator {
       if (this.requiresSelection && (!mask || !mask.some((value, index) => index % 4 === 0 && value > 0))) {
         throw new Error('The selection does not cover the generator lens.');
       }
-      const result = await this.service.request({
+      const result = await provider.generate({
         id: run.id,
         model: model.id,
         operation: this.operation,

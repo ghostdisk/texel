@@ -1,6 +1,4 @@
-import type { Editor } from '../editor';
 import type { GenerationModelType } from '../generation/provider';
-import type { AIRequestService } from '../generation/service';
 import { Generator } from './generator';
 
 export class InpaintGenerator extends Generator {
@@ -10,8 +8,6 @@ export class InpaintGenerator extends Generator {
   readonly modelTypes: readonly GenerationModelType[] = ['fill-inpaint'];
   protected override get requiresSelection(): boolean { return true; }
   protected override readonly supportsAutoRun = true;
-
-  constructor(editor: Editor, service: AIRequestService) { super(editor, service); }
 
   run(): Promise<void> { return this.generate(); }
 

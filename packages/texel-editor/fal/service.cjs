@@ -287,10 +287,6 @@ function registerFal({ app, ipcMain, safeStorage, keyStore, emit }, ownerOf) {
     return { configured: !!key };
   });
   ipcMain.handle('fal:models', async (event) => ownerOf(event) ? { data: (await discoverModels()).map(publicModel) } : null);
-  ipcMain.handle('fal:model', async (event, id) => {
-    if (!ownerOf(event) || typeof id !== 'string') return null;
-    return publicModel(await resolveModel(id));
-  });
   ipcMain.handle('fal:cancel', (event, id) => {
     const owner = ownerOf(event);
     const job = typeof id === 'string' ? jobs.get(id) : null;

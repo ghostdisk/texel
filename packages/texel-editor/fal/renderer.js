@@ -8,7 +8,6 @@ export default class FalPackage {
       platform: 'fal',
       label: 'Fal.ai',
       models: () => this.models(),
-      resolveModel: (id) => this.resolveModel(id),
       generate: (request, events, signal) => this.generate(request, events, signal),
     };
   }
@@ -32,14 +31,6 @@ export default class FalPackage {
       this.entries.set(model.id, model);
     }
     return [...this.entries.values()];
-  }
-
-  async resolveModel(id) {
-    const entry = await this.api.messages.invoke('model', id);
-    if (!entry) throw new Error('Fal.ai returned no model definition.');
-    const model = { ...entry, platform: 'fal' };
-    this.entries.set(model.id, model);
-    return model;
   }
 
   async generate(request, events, signal) {

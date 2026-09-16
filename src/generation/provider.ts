@@ -111,7 +111,6 @@ export interface GenerationProvider {
   readonly platform: string;
   readonly label: string;
   models(): Promise<readonly GenerationModel[]>;
-  resolveModel?(id: string): Promise<GenerationModel>;
   generate(request: GenerationRequest, events: GenerationEvents, signal: AbortSignal): Promise<Blob>;
 }
 
@@ -199,7 +198,6 @@ export class GenerationModelRegistry {
       if (provider) entries.set(model.id, this.registered(model, provider));
     }
     if (!entries.size && failure) throw failure;
-    // Keep the last usable registry if discovery fails; the picker still references it.
     this.entries.clear();
     for (const [id, model] of entries) this.entries.set(id, model);
     return this.models();
@@ -216,21 +214,9 @@ export class GenerationModelRegistry {
     return separator > 0 ? this.providers.get(id.slice(0, separator)) : undefined;
   }
 
-  async resolve(id: string): Promise<GenerationModel> {
-    const current = this.entries.get(id);
-    if (current) return current;
-    const provider = this.providerForModel(id);
-    if (!provider?.resolveModel) throw new Error('Unknown image model: ' + id);
-    const resolved = await provider.resolveModel(id);
-    if (resolved.id !== id || resolved.platform !== provider.platform) throw new Error('Image provider returned an invalid model.');
-    const registered = this.registered(resolved, provider);
-    this.entries.set(id, registered);
-    return registered;
-  }
-
   provider(model: string): GenerationProvider {
     const entry = this.entries.get(model);
-    const provider = entry && this.providers.get(entry.platform);
+    const provider = entry ? this.providerForModel(entry.id) : undefined;
     if (!provider) throw new Error('Unknown image model: ' + model);
     return provider;
   }

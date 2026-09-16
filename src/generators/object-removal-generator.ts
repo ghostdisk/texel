@@ -1,6 +1,4 @@
-import type { Editor } from '../editor';
 import type { GenerationModel, GenerationModelType } from '../generation/provider';
-import type { AIRequestService } from '../generation/service';
 import { Generator } from './generator';
 
 export class ObjectRemovalGenerator extends Generator {
@@ -18,8 +16,6 @@ export class ObjectRemovalGenerator extends Generator {
   }
   protected override get requiresPrompt(): boolean { return this.mode === 'prompt'; }
   protected override get requiresSelection(): boolean { return this.mode === 'mask'; }
-
-  constructor(editor: Editor, service: AIRequestService) { super(editor, service); }
 
   run(): Promise<void> { return this.generate(); }
 

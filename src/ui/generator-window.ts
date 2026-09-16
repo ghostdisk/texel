@@ -37,7 +37,7 @@ export class GeneratorWindow {
   constructor(private readonly editor: Editor, private readonly manager: GeneratorManager) {
     this.modelPicker = new ModelPicker((id) => {
       const generator = this.manager.active;
-      if (generator) void generator.selectModel(id);
+      if (generator) generator.selectModel(id);
     });
     this.window.className = 'generation-window generator-window';
     this.window.hidden = true;

@@ -10,29 +10,32 @@ import { ImageGenerator } from './image-generator';
 import { InpaintGenerator } from './inpaint-generator';
 import { ObjectRemovalGenerator } from './object-removal-generator';
 import { ModelTypeGenerator } from './model-type-generator';
-import type { GenerationLens } from '../generation/lens';
+import { GenerationLens } from '../generation/lens';
 import { multiply, transformPoint } from '../model/geometry';
 import type { Matrix } from '../model/geometry';
 
 export class GeneratorManager {
   readonly service = new AIRequestService();
   readonly generators = new Map<string, Generator>();
+  readonly lens: GenerationLens;
   private current: Generator | null = null;
   private readonly controls: TransformControls;
   private readonly window: GeneratorWindow;
 
   constructor(private readonly editor: Editor) {
+    this.lens = new GenerationLens(1, 1, () => this.editor.changed());
     for (const generator of [
-      new ImageGenerator(editor, this.service),
-      new BackgroundRemovalGenerator(editor, this.service),
-      new ObjectRemovalGenerator(editor, this.service),
-      new InpaintGenerator(editor, this.service),
-      new ModelTypeGenerator(editor, this.service, { id: 'enhance', label: 'Upscale / Enhance', resultName: 'Enhanced image', modelTypes: ['restore', 'upscale'] }),
-      new ModelTypeGenerator(editor, this.service, { id: 'expand', label: 'Outpaint / Expand', resultName: 'Expanded image', modelTypes: ['expand-reframe'], prompt: 'Prompt' }),
-      new ModelTypeGenerator(editor, this.service, { id: 'extract-structure', label: 'Extract Structure', resultName: 'Extracted structure', modelTypes: ['structure-extraction'] }),
-      new ModelTypeGenerator(editor, this.service, { id: 'relight-recolor', label: 'Relight / Recolor', resultName: 'Relit image', modelTypes: ['lighting-color'], prompt: 'Prompt' }),
+      new ImageGenerator(editor, this.service, this.lens),
+      new BackgroundRemovalGenerator(editor, this.service, this.lens),
+      new ObjectRemovalGenerator(editor, this.service, this.lens),
+      new InpaintGenerator(editor, this.service, this.lens),
+      new ModelTypeGenerator(editor, this.service, this.lens, { id: 'enhance', label: 'Upscale / Enhance', resultName: 'Enhanced image', modelTypes: ['restore', 'upscale'] }),
+      new ModelTypeGenerator(editor, this.service, this.lens, { id: 'expand', label: 'Outpaint / Expand', resultName: 'Expanded image', modelTypes: ['expand-reframe'], prompt: 'Prompt' }),
+      new ModelTypeGenerator(editor, this.service, this.lens, { id: 'extract-structure', label: 'Extract Structure', resultName: 'Extracted structure', modelTypes: ['structure-extraction'] }),
+      new ModelTypeGenerator(editor, this.service, this.lens, { id: 'relight-recolor', label: 'Relight / Recolor', resultName: 'Relit image', modelTypes: ['lighting-color'], prompt: 'Prompt' }),
     ]) this.generators.set(generator.id, generator);
-    this.controls = new TransformControls(editor, () => this.active!.lens, () => !!this.active && !this.active.busy, undefined, false);
+    this.controls = new TransformControls(editor, () => this.lens, () => !!this.active && !this.active.busy,
+      undefined, { interiorHit: false, preserveAspectByDefault: false });
     this.window = new GeneratorWindow(editor, this);
     this.service.onChange = () => {
       for (const generator of this.generators.values()) generator.chooseDefaultModel();
@@ -42,7 +45,6 @@ export class GeneratorManager {
   }
 
   get active(): Generator | null { return this.current; }
-  get lens(): GenerationLens { return this.generators.get('image')!.lens; }
   get busy(): boolean { return !!this.current?.busy; }
   get visual(): GenerationVisual | null { return this.current?.visual ?? null; }
 
@@ -83,14 +85,12 @@ export class GeneratorManager {
   fitLens(): void { this.current?.fitLens(); }
 
   resetLens(width: number, height: number): void {
-    for (const generator of this.generators.values()) generator.lens.fit(width, height);
+    this.lens.fit(width, height);
   }
 
-  scaleLenses(widthScale: number, heightScale: number): void {
+  scaleLens(widthScale: number, heightScale: number): void {
     const scale: Matrix = [widthScale, 0, 0, heightScale, 0, 0];
-    for (const generator of this.generators.values()) {
-      generator.lens.setTransform(multiply(scale, generator.lens.transform));
-    }
+    this.lens.setTransform(multiply(scale, this.lens.transform));
   }
 
   validate(): void {

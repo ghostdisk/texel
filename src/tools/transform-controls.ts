@@ -21,6 +21,11 @@ export interface TransformChange {
   mode: 'move' | 'resize' | 'rotate';
 }
 
+export interface TransformControlOptions {
+  interiorHit?: boolean;
+  preserveAspectByDefault?: boolean;
+}
+
 interface TransformGesture {
   layer: TransformTarget;
   before: Matrix;
@@ -49,7 +54,7 @@ export class TransformControls {
     private readonly target: () => TransformTarget,
     private readonly enabled: () => boolean,
     private readonly snapMove?: (target: TransformTarget, matrix: Matrix, pointer: ToolPointer, axis: 'x' | 'y' | null) => Matrix,
-    private readonly interiorHit = true,
+    private readonly options: TransformControlOptions = {},
   ) {}
 
   private contains(layer: TransformTarget, world: Point): boolean {
@@ -110,7 +115,7 @@ export class TransformControls {
 
   private hitBody(layer: TransformTarget, pointer: ToolPointer): boolean {
     if (!this.contains(layer, pointer.world)) return false;
-    if (this.interiorHit) return true;
+    if (this.options.interiorHit ?? true) return true;
     const bounds = layer.localBounds();
     const point = transformPoint(inverse(layer.worldTransform()), pointer.world);
     const scale = Math.max(0.0001, this.editor.viewport.scale);
@@ -146,17 +151,15 @@ export class TransformControls {
     } else if (gesture.mode === 'resize') {
       const currentLocal = transformPoint(gesture.worldInverse, pointer.world);
       const { bounds, handle } = gesture;
-      const point = {
-        x: bounds.x + (handle.x + 1) * bounds.width / 2 + currentLocal.x - gesture.startLocal.x,
-        y: bounds.y + (handle.y + 1) * bounds.height / 2 + currentLocal.y - gesture.startLocal.y,
-      };
-      const anchor = { x: bounds.x + (1 - handle.x) * bounds.width / 2, y: bounds.y + (1 - handle.y) * bounds.height / 2 };
-      let sx = handle.x ? (point.x - anchor.x) / (bounds.width * handle.x) : 1;
-      let sy = handle.y ? (point.y - anchor.y) / (bounds.height * handle.y) : 1;
-      if (pointer.shift && handle.x && handle.y) {
-        const size = Math.max(Math.abs(sx), Math.abs(sy));
-        sx = Math.sign(sx || 1) * size;
-        sy = Math.sign(sy || 1) * size;
+      const factor = pointer.alt ? 2 : 1;
+      const anchor = pointer.alt ? { x: bounds.x + bounds.width / 2, y: bounds.y + bounds.height / 2 } :
+        { x: bounds.x + (1 - handle.x) * bounds.width / 2, y: bounds.y + (1 - handle.y) * bounds.height / 2 };
+      let sx = handle.x ? 1 + (currentLocal.x - gesture.startLocal.x) * factor / (bounds.width * handle.x) : 1;
+      let sy = handle.y ? 1 + (currentLocal.y - gesture.startLocal.y) * factor / (bounds.height * handle.y) : 1;
+      if ((this.options.preserveAspectByDefault ?? true) !== pointer.shift && handle.x && handle.y) {
+        const scale = Math.abs(sx - 1) >= Math.abs(sy - 1) ? sx : sy;
+        sx = scale;
+        sy = scale;
       }
       sx = Math.sign(sx || 1) * Math.max(0.001, Math.abs(sx));
       sy = Math.sign(sy || 1) * Math.max(0.001, Math.abs(sy));

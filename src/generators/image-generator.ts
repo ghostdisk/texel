@@ -1,5 +1,3 @@
-import type { Editor } from '../editor';
-import type { AIRequestService } from '../generation/service';
 import type { GenerationModelType } from '../generation/provider';
 import { Generator } from './generator';
 
@@ -8,8 +6,6 @@ export class ImageGenerator extends Generator {
   readonly label = 'Generate image';
   readonly resultName = 'Generated image';
   readonly modelTypes: readonly GenerationModelType[] = ['general-editing', 'generate-from-image'];
-
-  constructor(editor: Editor, service: AIRequestService) { super(editor, service); }
 
   run(): Promise<void> { return this.generate(); }
 

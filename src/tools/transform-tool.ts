@@ -43,7 +43,8 @@ export class TransformTool extends Tool {
   readonly id = 'transform';
   readonly label = 'Move / transform';
   readonly cursor = 'default';
-  readonly hint = 'Drag to move · Drag bounds to resize · Shift constrains · Hold Space to pan';
+  readonly hint = 'Drag to move · Corners preserve aspect · Shift unlocks · Alt resizes from center · Space pans';
+  readonly coalescedPointerMoves = false;
   private readonly controls: TransformControls;
   private multiple: LayerSelectionTransform | null = null;
   private preparation = 0;

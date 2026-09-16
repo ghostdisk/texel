@@ -893,12 +893,13 @@ export class EditorView {
 
   private showSizeDialog(sizedLayer = false): void {
     this.sizedLayerDialog = sizedLayer;
+    const frame = this.editor.activeDocument?.image.frame;
     element('dialog-title').textContent = sizedLayer ? 'New sized layer' : 'New document';
     element('dialog-description').textContent = sizedLayer ? 'Choose the new layer’s pixel dimensions.' :
       'Create a new document tab. These dimensions set the canonical canvas size and initial layer pixels.';
     element('confirm-size').textContent = sizedLayer ? 'Create layer' : 'Create document';
-    input('new-width').value = String(sizedLayer ? 512 : this.editor.image.frame.width);
-    input('new-height').value = String(sizedLayer ? 512 : this.editor.image.frame.height);
+    input('new-width').value = String(sizedLayer ? 512 : frame?.width ?? 1000);
+    input('new-height').value = String(sizedLayer ? 512 : frame?.height ?? 750);
     for (const id of ['new-width', 'new-height']) input(id).max = String(MAX_IMAGE_SIZE);
     element<HTMLDialogElement>('size-dialog').showModal();
   }
