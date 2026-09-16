@@ -9,6 +9,7 @@ export class RectangleTool extends DrawingTool {
   readonly label = 'Rectangle';
   readonly cursor = 'crosshair';
   readonly hint = '';
+  override readonly coalescedPointerMoves = false;
   opacity = 1;
   private start: Point = { x: 0, y: 0 };
 

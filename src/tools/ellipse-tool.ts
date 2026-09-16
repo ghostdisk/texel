@@ -9,6 +9,7 @@ export class EllipseTool extends DrawingTool {
   readonly label = 'Ellipse';
   readonly cursor = 'crosshair';
   readonly hint = 'Drag an ellipse · Hold Shift for a circle';
+  override readonly coalescedPointerMoves = false;
   opacity = 1;
   private start: Point = { x: 0, y: 0 };
 
