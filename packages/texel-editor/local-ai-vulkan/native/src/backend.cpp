@@ -352,7 +352,12 @@ public:
                         const auto task = model.value("task", std::string{"generate"});
                         if (task == "remove") model_path(model, "weights");
                         else { model_path(model, "diffusion"); model_path(model, "llm"); model_path(model, "vae"); }
-                        available.push_back({{"id", model.at("id")}, {"label", model.value("label", model.at("id"))}, {"source", "local"}, {"task", task}});
+                        Json definition = {{"id", model.at("id")}, {"label", model.value("label", model.at("id"))}, {"source", "local"}, {"task", task}};
+                        if (model.contains("tags")) definition["tags"] = model.at("tags");
+                        if (model.contains("types")) definition["types"] = model.at("types");
+                        if (model.contains("ratings")) definition["ratings"] = model.at("ratings");
+                        if (model.contains("capabilities")) definition["capabilities"] = model.at("capabilities");
+                        available.push_back(std::move(definition));
                     } catch (const std::exception& error) { std::cerr << error.what() << '\n'; }
                 }
                 send_json(session, {{"type", "models"}, {"models", available}, {"protocol", 1}});

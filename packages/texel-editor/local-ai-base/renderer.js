@@ -40,39 +40,42 @@ export default class LocalAiBasePackage {
               const message = JSON.parse(data);
               if (message.type === 'models') {
                 clearTimeout(timer);
-                resolve(message.models.map((model) => ({
-                  id: model.id,
-                  label: model.label.startsWith('local/') ? model.label.slice('local/'.length) : model.label,
-                  platform: 'local',
-                  task: model.task,
-                  tags: model.task === 'remove' ? ['inpainting', 'object-removal', 'local'] : ['image-to-image', 'local'],
-                  types: model.task === 'remove' ? ['object-removal-mask'] : ['general-editing', 'generate-from-image', 'fill-inpaint'],
-                  ratings: model.task === 'remove' ? { affordability: 5, speed: 5, quality: 2 } : undefined,
-                  capabilities: model.task === 'remove' ? {
-                    inputImages: 1,
-                    minimumInputImages: 1,
-                    mask: true,
-                    negativePrompt: false,
-                    steps: false,
-                    guidance: false,
-                    seed: false,
-                    denoiseStrength: false,
-                    partialPreview: true,
-                    maxDimension: 2048,
-                  } : {
-                    inputImages: 1,
-                    prompt: true,
-                    mask: true,
-                    negativePrompt: true,
-                    steps: true,
-                    guidance: true,
-                    seed: true,
-                    denoiseStrength: true,
-                    partialPreview: true,
-                    dimensionMultiple: 16,
-                    maxDimension: 2048,
-                  },
-                })));
+                resolve(message.models.map((model) => {
+                  const removal = model.task === 'remove';
+                  return {
+                    id: model.id,
+                    label: model.label.startsWith('local/') ? model.label.slice('local/'.length) : model.label,
+                    platform: 'local',
+                    task: model.task,
+                    tags: model.tags ?? (removal ? ['inpainting', 'object-removal', 'local'] : ['image-to-image', 'local']),
+                    types: model.types ?? (removal ? ['object-removal-mask'] : ['general-editing', 'generate-from-image', 'fill-inpaint']),
+                    ratings: model.ratings,
+                    capabilities: model.capabilities ?? (removal ? {
+                      inputImages: 1,
+                      minimumInputImages: 1,
+                      mask: true,
+                      negativePrompt: false,
+                      steps: false,
+                      guidance: false,
+                      seed: false,
+                      denoiseStrength: false,
+                      partialPreview: true,
+                      maxDimension: 2048,
+                    } : {
+                      inputImages: 1,
+                      prompt: true,
+                      mask: true,
+                      negativePrompt: true,
+                      steps: true,
+                      guidance: true,
+                      seed: true,
+                      denoiseStrength: true,
+                      partialPreview: true,
+                      dimensionMultiple: 16,
+                      maxDimension: 2048,
+                    }),
+                  };
+                }));
                 return;
               }
               if (!this.pending || message.id !== this.pending.id) return;

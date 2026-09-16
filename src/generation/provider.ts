@@ -1,6 +1,3 @@
-import modelRatings from './model-ratings.json';
-import falModelRatings from './fal-model-ratings.json';
-
 export interface GenerationModelRatings {
   affordability: number | null;
   speed: number | null;
@@ -46,7 +43,6 @@ export interface GenerationModelCapabilities {
 
 export interface GenerationModel {
   id: string;
-  ratingId?: string;
   label: string;
   displayName?: string;
   platform: string;
@@ -149,8 +145,7 @@ export class GenerationModelRegistry {
   }
 
   private registered(model: GenerationModel, provider: GenerationProvider): GenerationModel {
-    const ratings = (modelRatings as Record<string, GenerationModelRatings>)[model.id] ??
-      (falModelRatings as Record<string, GenerationModelRatings>)[model.ratingId ?? ''] ?? model.ratings;
+    const ratings = model.ratings;
     const parts = model.id.split('/');
     const publisher = parts.length > 2 ? parts[1] : model.platform;
     return {

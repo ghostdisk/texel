@@ -3,7 +3,7 @@
   "name": "texel-editor/openrouter",
   "displayName": "OpenRouter",
   "version": "0.1.0",
-  "description": "OpenRouter image model catalog and generation backend.",
+  "description": "OpenRouter image catalog and generation backend backed by shipped model definitions.",
   "dependencies": [],
   "node": "node.cjs",
   "renderer": "renderer.js"

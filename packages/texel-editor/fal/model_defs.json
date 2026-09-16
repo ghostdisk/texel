@@ -1,0 +1,1642 @@
+{
+  "schemaVersion": 1,
+  "tagTypes": {
+    "background-removal": ["background-removal"],
+    "image-to-image": ["generate-from-image"],
+    "image-editing": ["general-editing"],
+    "inpaint": ["fill-inpaint"],
+    "inpainting": ["fill-inpaint"],
+    "object-removal": ["object-removal-prompt"],
+    "outpaint": ["expand-reframe"],
+    "outpainting": ["expand-reframe"],
+    "reframe": ["expand-reframe"],
+    "restoration": ["restore"],
+    "upscale": ["upscale"],
+    "upscaling": ["upscale"],
+    "relighting": ["lighting-color"],
+    "color-correction": ["lighting-color"],
+    "style-transfer": ["style-transform"],
+    "segmentation": ["selection-analysis"],
+    "detection": ["selection-analysis"],
+    "structure-extraction": ["structure-extraction"]
+  },
+  "models": {
+    "fal-ai/image-editing/object-removal": {
+      "displayName": "Object Removal",
+      "description": "Remove unwanted objects or people from an image.",
+      "tags": [
+        "image-to-image",
+        "object-removal"
+      ],
+      "types": [
+        "object-removal-prompt"
+      ],
+      "imageField": "image_url",
+      "outputField": "images",
+      "inputImages": 1,
+      "minimumInputImages": 1,
+      "promptField": "prompt",
+      "fields": {
+        "steps": "num_inference_steps",
+        "guidance": "guidance_scale",
+        "seed": "seed",
+        "outputFormat": "output_format",
+        "aspectRatio": "aspect_ratio"
+      },
+      "sizing": {
+        "aspectRatios": [
+          "21:9",
+          "16:9",
+          "4:3",
+          "3:2",
+          "1:1",
+          "2:3",
+          "3:4",
+          "9:16",
+          "9:21"
+        ],
+        "resolutions": []
+      },
+      "capabilities": {
+        "dimensionMultiple": 32
+      }
+    },
+    "fal-ai/bagel/edit": {
+      "ratings": {
+        "affordability": 3,
+        "speed": 2,
+        "quality": 1,
+        "provisional": [
+          "speed",
+          "quality"
+        ],
+        "inferred": [],
+        "qualityScope": "general_editing",
+        "realtimeCandidate": false
+      }
+    },
+    "fal-ai/boogu-image/edit": {
+      "ratings": {
+        "affordability": 4,
+        "speed": 3,
+        "quality": 3,
+        "provisional": [
+          "speed",
+          "quality"
+        ],
+        "inferred": [],
+        "qualityScope": "general_editing",
+        "realtimeCandidate": false
+      }
+    },
+    "fal-ai/chrono-edit": {
+      "ratings": {
+        "affordability": 5,
+        "speed": 4,
+        "quality": 3,
+        "provisional": [
+          "speed",
+          "quality"
+        ],
+        "inferred": [],
+        "qualityScope": "general_editing",
+        "realtimeCandidate": false
+      }
+    },
+    "fal-ai/chrono-edit-lora": {
+      "ratings": {
+        "affordability": 4,
+        "speed": 4,
+        "quality": 3,
+        "provisional": [
+          "speed",
+          "quality"
+        ],
+        "inferred": [],
+        "qualityScope": "general_editing",
+        "realtimeCandidate": false
+      }
+    },
+    "fal-ai/dreamomni2/edit": {
+      "ratings": {
+        "affordability": 4,
+        "speed": 2,
+        "quality": 2,
+        "provisional": [
+          "speed",
+          "quality"
+        ],
+        "inferred": [],
+        "qualityScope": "general_editing",
+        "realtimeCandidate": false
+      }
+    },
+    "fal-ai/emu-3.5-image/edit-image": {
+      "ratings": {
+        "affordability": 1,
+        "speed": 1,
+        "quality": 3,
+        "provisional": [
+          "speed",
+          "quality"
+        ],
+        "inferred": [],
+        "qualityScope": "general_editing",
+        "realtimeCandidate": false
+      }
+    },
+    "bria/fibo-edit/rewrite_text": {
+      "ratings": {
+        "affordability": 4,
+        "speed": 3,
+        "quality": 4,
+        "provisional": [
+          "speed",
+          "quality"
+        ],
+        "inferred": [],
+        "qualityScope": "in_image_text_rewriting",
+        "realtimeCandidate": false
+      }
+    },
+    "fal-ai/firered-image-edit": {
+      "ratings": {
+        "affordability": 4,
+        "speed": 3,
+        "quality": 3,
+        "provisional": [
+          "speed",
+          "quality"
+        ],
+        "inferred": [],
+        "qualityScope": "general_editing",
+        "realtimeCandidate": false
+      }
+    },
+    "fal-ai/firered-image-edit-v1.1": {
+      "ratings": {
+        "affordability": 4,
+        "speed": 3,
+        "quality": 3,
+        "provisional": [
+          "speed",
+          "quality"
+        ],
+        "inferred": [],
+        "qualityScope": "general_editing",
+        "realtimeCandidate": false
+      }
+    },
+    "fal-ai/flowedit": {
+      "ratings": {
+        "affordability": 4,
+        "speed": 2,
+        "quality": 2,
+        "provisional": [
+          "affordability",
+          "speed",
+          "quality"
+        ],
+        "inferred": [
+          "affordability"
+        ],
+        "qualityScope": "general_editing",
+        "realtimeCandidate": false
+      }
+    },
+    "fal-ai/flux-2/edit": {
+      "ratings": {
+        "affordability": 4,
+        "speed": 3,
+        "quality": 3,
+        "provisional": [
+          "speed",
+          "quality"
+        ],
+        "inferred": [],
+        "qualityScope": "general_editing",
+        "realtimeCandidate": false
+      }
+    },
+    "fal-ai/flux-2/flash/edit": {
+      "ratings": {
+        "affordability": 5,
+        "speed": 5,
+        "quality": 3,
+        "provisional": [
+          "speed",
+          "quality"
+        ],
+        "inferred": [],
+        "qualityScope": "general_editing",
+        "realtimeCandidate": false
+      }
+    },
+    "fal-ai/flux-2-flex/edit": {
+      "ratings": {
+        "affordability": 3,
+        "speed": 4,
+        "quality": 3,
+        "provisional": [
+          "affordability",
+          "speed",
+          "quality"
+        ],
+        "inferred": [],
+        "qualityScope": "general_editing",
+        "realtimeCandidate": false
+      }
+    },
+    "fal-ai/flux-2-max/edit": {
+      "ratings": {
+        "affordability": 3,
+        "speed": 3,
+        "quality": 3,
+        "provisional": [
+          "speed",
+          "quality"
+        ],
+        "inferred": [],
+        "qualityScope": "general_editing",
+        "realtimeCandidate": false
+      }
+    },
+    "fal-ai/flux-2-pro/edit": {
+      "ratings": {
+        "affordability": 4,
+        "speed": 4,
+        "quality": 3,
+        "provisional": [
+          "speed",
+          "quality"
+        ],
+        "inferred": [],
+        "qualityScope": "general_editing",
+        "realtimeCandidate": false
+      }
+    },
+    "fal-ai/flux-2/turbo/edit": {
+      "ratings": {
+        "affordability": 5,
+        "speed": 5,
+        "quality": 3,
+        "provisional": [
+          "speed",
+          "quality"
+        ],
+        "inferred": [],
+        "qualityScope": "general_editing",
+        "realtimeCandidate": false
+      }
+    },
+    "fal-ai/flux-kontext/dev": {
+      "ratings": {
+        "affordability": 4,
+        "speed": 4,
+        "quality": 2,
+        "provisional": [
+          "speed",
+          "quality"
+        ],
+        "inferred": [],
+        "qualityScope": "general_editing",
+        "realtimeCandidate": false
+      }
+    },
+    "fal-ai/flux-2/klein/4b/edit": {
+      "ratings": {
+        "affordability": 5,
+        "speed": 5,
+        "quality": 2,
+        "provisional": [
+          "affordability",
+          "speed",
+          "quality"
+        ],
+        "inferred": [],
+        "qualityScope": "general_editing",
+        "realtimeCandidate": false
+      }
+    },
+    "fal-ai/flux-2/klein/4b/base/edit": {
+      "ratings": {
+        "affordability": 5,
+        "speed": 4,
+        "quality": 2,
+        "provisional": [
+          "speed",
+          "quality"
+        ],
+        "inferred": [],
+        "qualityScope": "general_editing",
+        "realtimeCandidate": false
+      }
+    },
+    "fal-ai/flux-2/klein/4b/edit/lora": {
+      "ratings": {
+        "affordability": 5,
+        "speed": 5,
+        "quality": 2,
+        "provisional": [
+          "speed",
+          "quality"
+        ],
+        "inferred": [],
+        "qualityScope": "general_editing",
+        "realtimeCandidate": false
+      }
+    },
+    "fal-ai/flux-2/klein/9b/edit": {
+      "ratings": {
+        "affordability": 4,
+        "speed": 5,
+        "quality": 3,
+        "provisional": [
+          "speed",
+          "quality"
+        ],
+        "inferred": [],
+        "qualityScope": "general_editing",
+        "realtimeCandidate": false
+      }
+    },
+    "fal-ai/flux-2/klein/9b/base/edit": {
+      "ratings": {
+        "affordability": 4,
+        "speed": 3,
+        "quality": 3,
+        "provisional": [
+          "speed",
+          "quality"
+        ],
+        "inferred": [],
+        "qualityScope": "general_editing",
+        "realtimeCandidate": false
+      }
+    },
+    "fal-ai/flux-2/klein/9b/edit/lora": {
+      "ratings": {
+        "affordability": 4,
+        "speed": 5,
+        "quality": 3,
+        "provisional": [
+          "speed",
+          "quality"
+        ],
+        "inferred": [],
+        "qualityScope": "general_editing",
+        "realtimeCandidate": false
+      }
+    },
+    "fal-ai/gemini-25-flash-image/edit": {
+      "ratings": {
+        "affordability": 4,
+        "speed": 4,
+        "quality": 3,
+        "provisional": [
+          "speed",
+          "quality"
+        ],
+        "inferred": [],
+        "qualityScope": "general_editing",
+        "realtimeCandidate": false
+      }
+    },
+    "fal-ai/gemini-3-pro-image-preview/edit": {
+      "ratings": {
+        "affordability": 2,
+        "speed": 3,
+        "quality": 4,
+        "provisional": [
+          "speed",
+          "quality"
+        ],
+        "inferred": [],
+        "qualityScope": "general_editing",
+        "realtimeCandidate": false
+      }
+    },
+    "fal-ai/gemini-3.1-flash-image-preview/edit": {
+      "ratings": {
+        "affordability": 3,
+        "speed": 4,
+        "quality": 4,
+        "provisional": [
+          "speed",
+          "quality"
+        ],
+        "inferred": [],
+        "qualityScope": "general_editing",
+        "realtimeCandidate": false
+      }
+    },
+    "fal-ai/gpt-image-1-mini/edit": {
+      "ratings": {
+        "affordability": 4,
+        "speed": 3,
+        "quality": 2,
+        "provisional": [
+          "affordability",
+          "speed",
+          "quality"
+        ],
+        "inferred": [],
+        "qualityScope": "general_editing",
+        "realtimeCandidate": false
+      }
+    },
+    "openai/gpt-image-2/edit": {
+      "ratings": {
+        "affordability": 1,
+        "speed": 3,
+        "quality": 5,
+        "provisional": [
+          "affordability",
+          "speed",
+          "quality"
+        ],
+        "inferred": [],
+        "qualityScope": "general_editing",
+        "realtimeCandidate": false
+      }
+    },
+    "fal-ai/gpt-image-1/edit-image": {
+      "ratings": {
+        "affordability": 2,
+        "speed": 2,
+        "quality": 2,
+        "provisional": [
+          "affordability",
+          "speed",
+          "quality"
+        ],
+        "inferred": [],
+        "qualityScope": "general_editing",
+        "realtimeCandidate": false
+      }
+    },
+    "xai/grok-imagine-image/edit": {
+      "ratings": {
+        "affordability": 4,
+        "speed": 4,
+        "quality": 4,
+        "provisional": [
+          "speed",
+          "quality"
+        ],
+        "inferred": [],
+        "qualityScope": "general_editing",
+        "realtimeCandidate": false
+      }
+    },
+    "xai/grok-imagine-image/v2.0/edit": {
+      "ratings": {
+        "affordability": 3,
+        "speed": 3,
+        "quality": 5,
+        "provisional": [
+          "speed",
+          "quality"
+        ],
+        "inferred": [],
+        "qualityScope": "general_editing",
+        "realtimeCandidate": false
+      }
+    },
+    "fal-ai/hunyuan-image/v3/instruct/edit": {
+      "ratings": {
+        "affordability": 3,
+        "speed": 2,
+        "quality": 3,
+        "provisional": [
+          "speed",
+          "quality"
+        ],
+        "inferred": [],
+        "qualityScope": "general_editing",
+        "realtimeCandidate": false
+      }
+    },
+    "fal-ai/ideogram/v3/remix": {
+      "ratings": {
+        "affordability": 3,
+        "speed": 3,
+        "quality": 3,
+        "provisional": [
+          "speed",
+          "quality"
+        ],
+        "inferred": [],
+        "qualityScope": "general_editing",
+        "realtimeCandidate": false
+      }
+    },
+    "fal-ai/ideogram/v2/edit": {
+      "ratings": {
+        "affordability": 3,
+        "speed": 3,
+        "quality": 3,
+        "provisional": [
+          "speed",
+          "quality"
+        ],
+        "inferred": [],
+        "qualityScope": "masked_inpainting",
+        "realtimeCandidate": false
+      }
+    },
+    "fal-ai/ideogram/v2/remix": {
+      "ratings": {
+        "affordability": 3,
+        "speed": 3,
+        "quality": 3,
+        "provisional": [
+          "speed",
+          "quality"
+        ],
+        "inferred": [],
+        "qualityScope": "general_editing",
+        "realtimeCandidate": false
+      }
+    },
+    "fal-ai/ideogram/v2/turbo/edit": {
+      "ratings": {
+        "affordability": 4,
+        "speed": 4,
+        "quality": 2,
+        "provisional": [
+          "speed",
+          "quality"
+        ],
+        "inferred": [],
+        "qualityScope": "masked_inpainting",
+        "realtimeCandidate": false
+      }
+    },
+    "fal-ai/ideogram/v2/turbo/remix": {
+      "ratings": {
+        "affordability": 4,
+        "speed": 4,
+        "quality": 2,
+        "provisional": [
+          "speed",
+          "quality"
+        ],
+        "inferred": [],
+        "qualityScope": "general_editing",
+        "realtimeCandidate": false
+      }
+    },
+    "fal-ai/ideogram/v2a/remix": {
+      "ratings": {
+        "affordability": 4,
+        "speed": 3,
+        "quality": 3,
+        "provisional": [
+          "speed",
+          "quality"
+        ],
+        "inferred": [],
+        "qualityScope": "general_editing",
+        "realtimeCandidate": false
+      }
+    },
+    "fal-ai/ideogram/v2a/turbo/remix": {
+      "ratings": {
+        "affordability": 4,
+        "speed": 4,
+        "quality": 2,
+        "provisional": [
+          "speed",
+          "quality"
+        ],
+        "inferred": [],
+        "qualityScope": "general_editing",
+        "realtimeCandidate": false
+      }
+    },
+    "fal-ai/ideogram/v3/edit": {
+      "ratings": {
+        "affordability": 3,
+        "speed": 3,
+        "quality": 3,
+        "provisional": [
+          "speed",
+          "quality"
+        ],
+        "inferred": [],
+        "qualityScope": "masked_inpainting",
+        "realtimeCandidate": false
+      }
+    },
+    "fal-ai/joyai-image-edit": {
+      "ratings": {
+        "affordability": 3,
+        "speed": 1,
+        "quality": 3,
+        "provisional": [
+          "speed",
+          "quality"
+        ],
+        "inferred": [],
+        "qualityScope": "general_editing",
+        "realtimeCandidate": false
+      }
+    },
+    "fal-ai/kling-image/o3/image-to-image": {
+      "ratings": {
+        "affordability": 4,
+        "speed": 3,
+        "quality": 2,
+        "provisional": [
+          "speed",
+          "quality"
+        ],
+        "inferred": [],
+        "qualityScope": "general_editing",
+        "realtimeCandidate": false
+      }
+    },
+    "fal-ai/kling-image/v3/image-to-image": {
+      "ratings": {
+        "affordability": 4,
+        "speed": 3,
+        "quality": 3,
+        "provisional": [
+          "speed",
+          "quality"
+        ],
+        "inferred": [],
+        "qualityScope": "general_editing",
+        "realtimeCandidate": false
+      }
+    },
+    "fal-ai/longcat-image/edit": {
+      "ratings": {
+        "affordability": 2,
+        "speed": 3,
+        "quality": 2,
+        "provisional": [
+          "speed",
+          "quality"
+        ],
+        "inferred": [],
+        "qualityScope": "general_editing",
+        "realtimeCandidate": false
+      }
+    },
+    "fal-ai/luma-photon/flash/modify": {
+      "ratings": {
+        "affordability": 5,
+        "speed": 5,
+        "quality": 2,
+        "provisional": [
+          "speed",
+          "quality"
+        ],
+        "inferred": [],
+        "qualityScope": "image_conditioned_generation",
+        "realtimeCandidate": false
+      }
+    },
+    "fal-ai/luma-photon/modify": {
+      "ratings": {
+        "affordability": 5,
+        "speed": 4,
+        "quality": 3,
+        "provisional": [
+          "speed",
+          "quality"
+        ],
+        "inferred": [],
+        "qualityScope": "image_conditioned_generation",
+        "realtimeCandidate": false
+      }
+    },
+    "microsoft/mai-image-2.5-pro/edit": {
+      "ratings": {
+        "affordability": 1,
+        "speed": 2,
+        "quality": 4,
+        "provisional": [
+          "affordability",
+          "speed",
+          "quality"
+        ],
+        "inferred": [],
+        "qualityScope": "general_editing",
+        "realtimeCandidate": false
+      }
+    },
+    "fal-ai/nano-banana/edit": {
+      "ratings": {
+        "affordability": 4,
+        "speed": 4,
+        "quality": 3,
+        "provisional": [
+          "speed",
+          "quality"
+        ],
+        "inferred": [],
+        "qualityScope": "general_editing",
+        "realtimeCandidate": false
+      }
+    },
+    "fal-ai/nano-banana-2/edit": {
+      "ratings": {
+        "affordability": 3,
+        "speed": 4,
+        "quality": 4,
+        "provisional": [
+          "speed",
+          "quality"
+        ],
+        "inferred": [],
+        "qualityScope": "general_editing",
+        "realtimeCandidate": false
+      }
+    },
+    "google/nano-banana-lite/edit": {
+      "ratings": {
+        "affordability": 4,
+        "speed": 5,
+        "quality": 3,
+        "provisional": [
+          "affordability",
+          "speed",
+          "quality"
+        ],
+        "inferred": [
+          "affordability"
+        ],
+        "qualityScope": "general_editing",
+        "realtimeCandidate": false
+      }
+    },
+    "fal-ai/nano-banana-pro/edit": {
+      "ratings": {
+        "affordability": 2,
+        "speed": 3,
+        "quality": 4,
+        "provisional": [
+          "speed",
+          "quality"
+        ],
+        "inferred": [],
+        "qualityScope": "general_editing",
+        "realtimeCandidate": false
+      }
+    },
+    "fal-ai/phota/edit": {
+      "ratings": {
+        "affordability": 3,
+        "speed": 3,
+        "quality": 3,
+        "provisional": [
+          "speed",
+          "quality"
+        ],
+        "inferred": [],
+        "qualityScope": "general_editing",
+        "realtimeCandidate": false
+      }
+    },
+    "fal-ai/qwen-image-edit": {
+      "ratings": {
+        "affordability": 4,
+        "speed": 3,
+        "quality": 2,
+        "provisional": [
+          "speed",
+          "quality"
+        ],
+        "inferred": [],
+        "qualityScope": "general_editing",
+        "realtimeCandidate": false
+      }
+    },
+    "fal-ai/qwen-image-edit-2509": {
+      "ratings": {
+        "affordability": 4,
+        "speed": 3,
+        "quality": 3,
+        "provisional": [
+          "speed",
+          "quality"
+        ],
+        "inferred": [],
+        "qualityScope": "general_editing",
+        "realtimeCandidate": false
+      }
+    },
+    "fal-ai/qwen-image-edit-2509-lora": {
+      "ratings": {
+        "affordability": 4,
+        "speed": 3,
+        "quality": 3,
+        "provisional": [
+          "speed",
+          "quality"
+        ],
+        "inferred": [],
+        "qualityScope": "general_editing",
+        "realtimeCandidate": false
+      }
+    },
+    "fal-ai/qwen-image-edit-lora": {
+      "ratings": {
+        "affordability": 4,
+        "speed": 3,
+        "quality": 2,
+        "provisional": [
+          "speed",
+          "quality"
+        ],
+        "inferred": [],
+        "qualityScope": "general_editing",
+        "realtimeCandidate": false
+      }
+    },
+    "fal-ai/qwen-image-edit-plus": {
+      "ratings": {
+        "affordability": 4,
+        "speed": 3,
+        "quality": 3,
+        "provisional": [
+          "speed",
+          "quality"
+        ],
+        "inferred": [],
+        "qualityScope": "general_editing",
+        "realtimeCandidate": false
+      }
+    },
+    "fal-ai/qwen-image-edit-plus-lora": {
+      "ratings": {
+        "affordability": 4,
+        "speed": 3,
+        "quality": 3,
+        "provisional": [
+          "speed",
+          "quality"
+        ],
+        "inferred": [],
+        "qualityScope": "general_editing",
+        "realtimeCandidate": false
+      }
+    },
+    "fal-ai/qwen-image-max/edit": {
+      "ratings": {
+        "affordability": 3,
+        "speed": 2,
+        "quality": 3,
+        "provisional": [
+          "speed",
+          "quality"
+        ],
+        "inferred": [],
+        "qualityScope": "general_editing",
+        "realtimeCandidate": false
+      }
+    },
+    "bytedance/seedream/v5/lite/edit": {
+      "ratings": {
+        "affordability": 4,
+        "speed": 2,
+        "quality": 4,
+        "provisional": [
+          "speed",
+          "quality"
+        ],
+        "inferred": [],
+        "qualityScope": "general_editing",
+        "realtimeCandidate": false
+      }
+    },
+    "fal-ai/wan/v2.7/edit": {
+      "ratings": {
+        "affordability": 4,
+        "speed": 3,
+        "quality": 3,
+        "provisional": [
+          "speed",
+          "quality"
+        ],
+        "inferred": [],
+        "qualityScope": "general_editing",
+        "realtimeCandidate": false
+      }
+    },
+    "fal-ai/wan/v2.7/pro/edit": {
+      "ratings": {
+        "affordability": 3,
+        "speed": 2,
+        "quality": 3,
+        "provisional": [
+          "speed",
+          "quality"
+        ],
+        "inferred": [],
+        "qualityScope": "general_editing",
+        "realtimeCandidate": false
+      }
+    },
+    "fal-ai/flux-2/klein/realtime": {
+      "ratings": {
+        "affordability": 5,
+        "speed": 5,
+        "quality": 2,
+        "provisional": [
+          "affordability",
+          "speed",
+          "quality"
+        ],
+        "inferred": [
+          "affordability"
+        ],
+        "qualityScope": "general_editing",
+        "realtimeCandidate": true
+      }
+    },
+    "fal-ai/flux-1/dev/image-to-image": {
+      "ratings": {
+        "affordability": 4,
+        "speed": 4,
+        "quality": 2,
+        "provisional": [
+          "speed",
+          "quality"
+        ],
+        "inferred": [],
+        "qualityScope": "image_conditioned_generation",
+        "realtimeCandidate": false
+      }
+    },
+    "fal-ai/flux-1/krea/image-to-image": {
+      "ratings": {
+        "affordability": 4,
+        "speed": 4,
+        "quality": 3,
+        "provisional": [
+          "speed",
+          "quality"
+        ],
+        "inferred": [],
+        "qualityScope": "image_conditioned_generation",
+        "realtimeCandidate": false
+      }
+    },
+    "fal-ai/flux/krea/image-to-image": {
+      "ratings": {
+        "affordability": 4,
+        "speed": 4,
+        "quality": 3,
+        "provisional": [
+          "speed",
+          "quality"
+        ],
+        "inferred": [],
+        "qualityScope": "image_conditioned_generation",
+        "realtimeCandidate": false
+      }
+    },
+    "fal-ai/flux-1/srpo/image-to-image": {
+      "ratings": {
+        "affordability": 4,
+        "speed": 4,
+        "quality": 3,
+        "provisional": [
+          "speed",
+          "quality"
+        ],
+        "inferred": [],
+        "qualityScope": "image_conditioned_generation",
+        "realtimeCandidate": false
+      }
+    },
+    "fal-ai/flux/srpo/image-to-image": {
+      "ratings": {
+        "affordability": 4,
+        "speed": 4,
+        "quality": 3,
+        "provisional": [
+          "speed",
+          "quality"
+        ],
+        "inferred": [],
+        "qualityScope": "image_conditioned_generation",
+        "realtimeCandidate": false
+      }
+    },
+    "fal-ai/hidream-i1-full/image-to-image": {
+      "ratings": {
+        "affordability": 4,
+        "speed": 2,
+        "quality": 3,
+        "provisional": [
+          "speed",
+          "quality"
+        ],
+        "inferred": [],
+        "qualityScope": "image_conditioned_generation",
+        "realtimeCandidate": false
+      }
+    },
+    "fal-ai/ideogram/v3/replace-background": {
+      "ratings": {
+        "affordability": 3,
+        "speed": 3,
+        "quality": 3,
+        "provisional": [
+          "speed",
+          "quality"
+        ],
+        "inferred": [],
+        "qualityScope": "background_replacement",
+        "realtimeCandidate": false
+      }
+    },
+    "rundiffusion-fal/juggernaut-flux/base/image-to-image": {
+      "ratings": {
+        "affordability": 4,
+        "speed": 3,
+        "quality": 3,
+        "provisional": [
+          "speed",
+          "quality"
+        ],
+        "inferred": [],
+        "qualityScope": "image_conditioned_generation",
+        "realtimeCandidate": false
+      }
+    },
+    "rundiffusion-fal/juggernaut-flux/pro/image-to-image": {
+      "ratings": {
+        "affordability": 3,
+        "speed": 3,
+        "quality": 3,
+        "provisional": [
+          "speed",
+          "quality"
+        ],
+        "inferred": [],
+        "qualityScope": "image_conditioned_generation",
+        "realtimeCandidate": false
+      }
+    },
+    "fal-ai/kolors/image-to-image": {
+      "ratings": {
+        "affordability": 4,
+        "speed": 3,
+        "quality": 2,
+        "provisional": [
+          "affordability",
+          "speed",
+          "quality"
+        ],
+        "inferred": [
+          "affordability"
+        ],
+        "qualityScope": "image_conditioned_generation",
+        "realtimeCandidate": false
+      }
+    },
+    "fal-ai/fast-lcm-diffusion/image-to-image": {
+      "ratings": {
+        "affordability": 5,
+        "speed": 5,
+        "quality": 2,
+        "provisional": [
+          "affordability",
+          "speed",
+          "quality"
+        ],
+        "inferred": [
+          "affordability"
+        ],
+        "qualityScope": "image_conditioned_generation",
+        "realtimeCandidate": true
+      }
+    },
+    "fal-ai/sdxl-controlnet-union/image-to-image": {
+      "ratings": {
+        "affordability": 5,
+        "speed": 4,
+        "quality": 2,
+        "provisional": [
+          "affordability",
+          "speed",
+          "quality"
+        ],
+        "inferred": [
+          "affordability"
+        ],
+        "qualityScope": "image_conditioned_generation",
+        "realtimeCandidate": false
+      }
+    },
+    "fal-ai/lora/image-to-image": {
+      "ratings": {
+        "affordability": 5,
+        "speed": 4,
+        "quality": 2,
+        "provisional": [
+          "affordability",
+          "speed",
+          "quality"
+        ],
+        "inferred": [
+          "affordability"
+        ],
+        "qualityScope": "image_conditioned_generation",
+        "realtimeCandidate": false
+      }
+    },
+    "fal-ai/fast-sdxl/image-to-image": {
+      "ratings": {
+        "affordability": 5,
+        "speed": 4,
+        "quality": 2,
+        "provisional": [
+          "affordability",
+          "speed",
+          "quality"
+        ],
+        "inferred": [
+          "affordability"
+        ],
+        "qualityScope": "image_conditioned_generation",
+        "realtimeCandidate": false
+      }
+    },
+    "fal-ai/fast-lightning-sdxl/image-to-image": {
+      "ratings": {
+        "affordability": 5,
+        "speed": 5,
+        "quality": 2,
+        "provisional": [
+          "affordability",
+          "speed",
+          "quality"
+        ],
+        "inferred": [
+          "affordability"
+        ],
+        "qualityScope": "image_conditioned_generation",
+        "realtimeCandidate": false
+      }
+    },
+    "fal-ai/uno": {
+      "ratings": {
+        "affordability": 4,
+        "speed": 3,
+        "quality": 3,
+        "provisional": [
+          "speed",
+          "quality"
+        ],
+        "inferred": [],
+        "qualityScope": "image_conditioned_generation",
+        "realtimeCandidate": false
+      }
+    },
+    "fal-ai/vidu/q2/reference-to-image": {
+      "ratings": {
+        "affordability": 3,
+        "speed": 2,
+        "quality": 2,
+        "provisional": [
+          "speed",
+          "quality"
+        ],
+        "inferred": [],
+        "qualityScope": "image_conditioned_generation",
+        "realtimeCandidate": false
+      }
+    },
+    "fal-ai/vidu/reference-to-image": {
+      "ratings": {
+        "affordability": 3,
+        "speed": 2,
+        "quality": 2,
+        "provisional": [
+          "speed",
+          "quality"
+        ],
+        "inferred": [],
+        "qualityScope": "image_conditioned_generation",
+        "realtimeCandidate": false
+      }
+    },
+    "fal-ai/wan/v2.2-a14b/image-to-image": {
+      "ratings": {
+        "affordability": 4,
+        "speed": 3,
+        "quality": 2,
+        "provisional": [
+          "speed",
+          "quality"
+        ],
+        "inferred": [],
+        "qualityScope": "image_conditioned_generation",
+        "realtimeCandidate": false
+      }
+    },
+    "fal-ai/wan-25-preview/image-to-image": {
+      "ratings": {
+        "affordability": 4,
+        "speed": 3,
+        "quality": 3,
+        "provisional": [
+          "speed",
+          "quality"
+        ],
+        "inferred": [],
+        "qualityScope": "image_conditioned_generation",
+        "realtimeCandidate": false
+      }
+    },
+    "wan/v2.6/image-to-image": {
+      "ratings": {
+        "affordability": 4,
+        "speed": 3,
+        "quality": 3,
+        "provisional": [
+          "speed",
+          "quality"
+        ],
+        "inferred": [],
+        "qualityScope": "image_conditioned_generation",
+        "realtimeCandidate": false
+      }
+    },
+    "fal-ai/z-image/turbo/image-to-image": {
+      "ratings": {
+        "affordability": 5,
+        "speed": 5,
+        "quality": 3,
+        "provisional": [
+          "speed",
+          "quality"
+        ],
+        "inferred": [],
+        "qualityScope": "image_conditioned_generation",
+        "realtimeCandidate": false
+      }
+    },
+    "fal-ai/z-image/turbo/image-to-image/lora": {
+      "ratings": {
+        "affordability": 5,
+        "speed": 5,
+        "quality": 3,
+        "provisional": [
+          "speed",
+          "quality"
+        ],
+        "inferred": [],
+        "qualityScope": "image_conditioned_generation",
+        "realtimeCandidate": false
+      }
+    },
+    "fal-ai/bria/genfill": {
+      "ratings": {
+        "affordability": 4,
+        "speed": 4,
+        "quality": 3,
+        "provisional": [
+          "speed",
+          "quality"
+        ],
+        "inferred": [],
+        "qualityScope": "masked_inpainting",
+        "realtimeCandidate": false
+      }
+    },
+    "fal-ai/fast-sdxl-controlnet-canny/inpainting": {
+      "ratings": {
+        "affordability": 5,
+        "speed": 4,
+        "quality": 2,
+        "provisional": [
+          "affordability",
+          "speed",
+          "quality"
+        ],
+        "inferred": [
+          "affordability"
+        ],
+        "qualityScope": "masked_inpainting",
+        "realtimeCandidate": false
+      }
+    },
+    "fal-ai/finegrain-eraser": {
+      "ratings": {
+        "affordability": 1,
+        "speed": 2,
+        "quality": 4,
+        "provisional": [
+          "speed",
+          "quality"
+        ],
+        "inferred": [],
+        "qualityScope": "object_removal",
+        "realtimeCandidate": false
+      }
+    },
+    "fal-ai/flux-kontext-lora/inpaint": {
+      "ratings": {
+        "affordability": 4,
+        "speed": 3,
+        "quality": 2,
+        "provisional": [
+          "speed",
+          "quality"
+        ],
+        "inferred": [],
+        "qualityScope": "masked_inpainting",
+        "realtimeCandidate": false
+      }
+    },
+    "fal-ai/flux-lora-fill": {
+      "ratings": {
+        "affordability": 4,
+        "speed": 3,
+        "quality": 3,
+        "provisional": [
+          "speed",
+          "quality"
+        ],
+        "inferred": [],
+        "qualityScope": "masked_inpainting",
+        "realtimeCandidate": false
+      }
+    },
+    "fal-ai/flux-general/inpainting": {
+      "ratings": {
+        "affordability": 3,
+        "speed": 3,
+        "quality": 3,
+        "provisional": [
+          "speed",
+          "quality"
+        ],
+        "inferred": [],
+        "qualityScope": "masked_inpainting",
+        "realtimeCandidate": false
+      }
+    },
+    "fal-ai/flux-pro/v1/fill": {
+      "ratings": {
+        "affordability": 4,
+        "speed": 3,
+        "quality": 4,
+        "provisional": [
+          "speed",
+          "quality"
+        ],
+        "inferred": [],
+        "qualityScope": "masked_inpainting",
+        "realtimeCandidate": false
+      }
+    },
+    "fal-ai/flux-pro/v1/fill-finetuned": {
+      "ratings": {
+        "affordability": 3,
+        "speed": 3,
+        "quality": 4,
+        "provisional": [
+          "speed",
+          "quality"
+        ],
+        "inferred": [],
+        "qualityScope": "masked_inpainting",
+        "realtimeCandidate": false
+      }
+    },
+    "fal-ai/flux-krea-lora/inpainting": {
+      "ratings": {
+        "affordability": 4,
+        "speed": 3,
+        "quality": 3,
+        "provisional": [
+          "speed",
+          "quality"
+        ],
+        "inferred": [],
+        "qualityScope": "masked_inpainting",
+        "realtimeCandidate": false
+      }
+    },
+    "bria/genfill/v2": {
+      "ratings": {
+        "affordability": 4,
+        "speed": 3,
+        "quality": 3,
+        "provisional": [
+          "speed",
+          "quality"
+        ],
+        "inferred": [],
+        "qualityScope": "masked_inpainting",
+        "realtimeCandidate": false
+      }
+    },
+    "fal-ai/inpaint": {
+      "ratings": {
+        "affordability": 5,
+        "speed": 4,
+        "quality": 2,
+        "provisional": [
+          "affordability",
+          "speed",
+          "quality"
+        ],
+        "inferred": [
+          "affordability"
+        ],
+        "qualityScope": "masked_inpainting",
+        "realtimeCandidate": false
+      }
+    },
+    "rundiffusion-fal/juggernaut-flux-lora/inpainting": {
+      "ratings": {
+        "affordability": 4,
+        "speed": 3,
+        "quality": 3,
+        "provisional": [
+          "speed",
+          "quality"
+        ],
+        "inferred": [],
+        "qualityScope": "masked_inpainting",
+        "realtimeCandidate": false
+      }
+    },
+    "fal-ai/fast-lcm-diffusion/inpainting": {
+      "ratings": {
+        "affordability": 5,
+        "speed": 5,
+        "quality": 2,
+        "provisional": [
+          "affordability",
+          "speed",
+          "quality"
+        ],
+        "inferred": [
+          "affordability"
+        ],
+        "qualityScope": "masked_inpainting",
+        "realtimeCandidate": true
+      }
+    },
+    "fal-ai/playground-v25/inpainting": {
+      "ratings": {
+        "affordability": 5,
+        "speed": 4,
+        "quality": 3,
+        "provisional": [
+          "affordability",
+          "speed",
+          "quality"
+        ],
+        "inferred": [
+          "affordability"
+        ],
+        "qualityScope": "masked_inpainting",
+        "realtimeCandidate": false
+      }
+    },
+    "fal-ai/qwen-image-edit/inpaint": {
+      "ratings": {
+        "affordability": 4,
+        "speed": 3,
+        "quality": 3,
+        "provisional": [
+          "speed",
+          "quality"
+        ],
+        "inferred": [],
+        "qualityScope": "masked_inpainting",
+        "realtimeCandidate": false
+      }
+    },
+    "fal-ai/sdxl-controlnet-union/inpainting": {
+      "ratings": {
+        "affordability": 5,
+        "speed": 4,
+        "quality": 2,
+        "provisional": [
+          "affordability",
+          "speed",
+          "quality"
+        ],
+        "inferred": [
+          "affordability"
+        ],
+        "qualityScope": "masked_inpainting",
+        "realtimeCandidate": false
+      }
+    },
+    "fal-ai/lora/inpaint": {
+      "ratings": {
+        "affordability": 5,
+        "speed": 4,
+        "quality": 2,
+        "provisional": [
+          "affordability",
+          "speed",
+          "quality"
+        ],
+        "inferred": [
+          "affordability"
+        ],
+        "qualityScope": "masked_inpainting",
+        "realtimeCandidate": false
+      }
+    },
+    "fal-ai/fast-sdxl/inpainting": {
+      "ratings": {
+        "affordability": 5,
+        "speed": 4,
+        "quality": 2,
+        "provisional": [
+          "affordability",
+          "speed",
+          "quality"
+        ],
+        "inferred": [
+          "affordability"
+        ],
+        "qualityScope": "masked_inpainting",
+        "realtimeCandidate": false
+      }
+    },
+    "fal-ai/fast-lightning-sdxl/inpainting": {
+      "ratings": {
+        "affordability": 5,
+        "speed": 5,
+        "quality": 2,
+        "provisional": [
+          "affordability",
+          "speed",
+          "quality"
+        ],
+        "inferred": [
+          "affordability"
+        ],
+        "qualityScope": "masked_inpainting",
+        "realtimeCandidate": false
+      }
+    },
+    "fal-ai/z-image/turbo/inpaint": {
+      "ratings": {
+        "affordability": 5,
+        "speed": 5,
+        "quality": 3,
+        "provisional": [
+          "speed",
+          "quality"
+        ],
+        "inferred": [],
+        "qualityScope": "masked_inpainting",
+        "realtimeCandidate": false
+      }
+    },
+    "fal-ai/z-image/turbo/inpaint/lora": {
+      "ratings": {
+        "affordability": 5,
+        "speed": 5,
+        "quality": 3,
+        "provisional": [
+          "speed",
+          "quality"
+        ],
+        "inferred": [],
+        "qualityScope": "masked_inpainting",
+        "realtimeCandidate": false
+      }
+    },
+    "fal-ai/bria/eraser": {
+      "ratings": {
+        "affordability": 3,
+        "speed": null,
+        "quality": 5,
+        "provisional": [],
+        "inferred": [],
+        "qualityScope": "object_removal",
+        "realtimeCandidate": false
+      }
+    },
+    "fal-ai/ideogram/object-removal": {
+      "ratings": {
+        "affordability": 3,
+        "speed": null,
+        "quality": 5,
+        "provisional": [],
+        "inferred": [],
+        "qualityScope": "object_removal",
+        "realtimeCandidate": false
+      }
+    }
+  }
+}

@@ -26,35 +26,8 @@ export default class OpenRouterPackage {
     const response = await this.api.messages.invoke('models');
     if (!response?.data) throw new Error('OpenRouter model discovery failed.');
     this.entries.clear();
-    for (const remote of response.data) {
-      if (!remote.id || !remote.architecture?.output_modalities?.includes('image')) continue;
-      const parameters = remote.supported_parameters ?? {};
-      const references = parameters.input_references;
-      const arbitraryOpenAiSize = remote.id === 'openai/gpt-image-2' ||
-        remote.id.startsWith('openai/gpt-image-2-') || remote.id.startsWith('openai/gpt-image-2.5-');
-      const model = {
-        id: `openrouter/${remote.id}`,
-        label: remote.name || remote.id,
-        platform: 'openrouter',
-        tags: remote.architecture.input_modalities?.includes('image') ? ['image-to-image'] : ['text-to-image'],
-        types: remote.architecture.input_modalities?.includes('image') ? ['general-editing', 'generate-from-image'] : ['generate-from-image'],
-        capabilities: {
-          inputImages: remote.architecture.input_modalities?.includes('image') ? Math.max(1, references?.max ?? 1) : 0,
-          minimumInputImages: references?.min,
-          mask: false,
-          negativePrompt: false,
-          steps: false,
-          guidance: false,
-          seed: !!parameters.seed,
-          denoiseStrength: false,
-          partialPreview: !!remote.supports_streaming,
-          dimensionMultiple: arbitraryOpenAiSize ? 16 : undefined,
-          maxDimension: arbitraryOpenAiSize ? 3840 : undefined,
-          maxShortDimension: arbitraryOpenAiSize ? 2160 : undefined,
-          minAspectRatio: arbitraryOpenAiSize ? 1 / 3 : undefined,
-          maxAspectRatio: arbitraryOpenAiSize ? 3 : undefined,
-        },
-      };
+    for (const entry of response.data) {
+      const model = { ...entry, platform: 'openrouter' };
       this.entries.set(model.id, model);
     }
     return [...this.entries.values()];

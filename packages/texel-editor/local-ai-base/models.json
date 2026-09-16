@@ -2,15 +2,51 @@
   "models": [
     {
       "id": "local/miaomiaoHarem_anima16",
+      "label": "miaomiaoHarem_anima16",
+      "task": "generate",
       "diffusion": "diffusion_models/miaomiaoHarem_anima16.safetensors",
       "llm": "text_encoders/qwen_3_06b_base.safetensors",
-      "vae": "vae/qwen_image_vae.safetensors"
+      "vae": "vae/qwen_image_vae.safetensors",
+      "tags": ["image-to-image", "local"],
+      "types": ["general-editing", "generate-from-image", "fill-inpaint"],
+      "capabilities": {
+        "inputImages": 1,
+        "prompt": true,
+        "mask": true,
+        "negativePrompt": true,
+        "steps": true,
+        "guidance": true,
+        "seed": true,
+        "denoiseStrength": true,
+        "partialPreview": true,
+        "dimensionMultiple": 16,
+        "maxDimension": 2048
+      }
     },
     {
       "id": "local/migan-512-places2",
       "label": "MI-GAN removal",
       "task": "remove",
-      "weights": "inpaint/MIGAN-512-places2-F16.gguf"
+      "weights": "inpaint/MIGAN-512-places2-F16.gguf",
+      "tags": ["inpainting", "object-removal", "local"],
+      "types": ["object-removal-mask"],
+      "ratings": {
+        "affordability": 5,
+        "speed": 5,
+        "quality": 2
+      },
+      "capabilities": {
+        "inputImages": 1,
+        "minimumInputImages": 1,
+        "mask": true,
+        "negativePrompt": false,
+        "steps": false,
+        "guidance": false,
+        "seed": false,
+        "denoiseStrength": false,
+        "partialPreview": true,
+        "maxDimension": 2048
+      }
     }
   ]
 }

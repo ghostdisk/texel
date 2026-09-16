@@ -1,0 +1,564 @@
+{
+  "schemaVersion": 1,
+  "profiles": {
+    "openaiArbitrarySize": {
+      "capabilities": {
+        "dimensionMultiple": 16,
+        "maxDimension": 3840,
+        "maxShortDimension": 2160,
+        "minAspectRatio": 0.3333333333333333,
+        "maxAspectRatio": 3
+      }
+    }
+  },
+  "models": {
+    "black-forest-labs/flux.2-flex": {
+      "ratings": {
+        "affordability": 3,
+        "speed": 4,
+        "quality": 3,
+        "provisional": [],
+        "qualityScope": "general_editing"
+      }
+    },
+    "black-forest-labs/flux.2-klein-4b": {
+      "ratings": {
+        "affordability": 5,
+        "speed": 5,
+        "quality": 2,
+        "provisional": [],
+        "qualityScope": "general_editing"
+      }
+    },
+    "black-forest-labs/flux.2-max": {
+      "ratings": {
+        "affordability": 3,
+        "speed": 3,
+        "quality": 3,
+        "provisional": [],
+        "qualityScope": "general_editing"
+      }
+    },
+    "black-forest-labs/flux.2-pro": {
+      "ratings": {
+        "affordability": 4,
+        "speed": 4,
+        "quality": 3,
+        "provisional": [],
+        "qualityScope": "general_editing"
+      }
+    },
+    "bytedance-seed/seedream-4.5": {
+      "ratings": {
+        "affordability": 4,
+        "speed": 3,
+        "quality": 3,
+        "provisional": [],
+        "qualityScope": "general_editing"
+      }
+    },
+    "bytedance-seed/seedream-5-0-lite": {
+      "ratings": {
+        "affordability": 4,
+        "speed": 2,
+        "quality": 4,
+        "provisional": [],
+        "qualityScope": "general_editing"
+      }
+    },
+    "bytedance-seed/seedream-5-0-pro": {
+      "ratings": {
+        "affordability": 4,
+        "speed": 1,
+        "quality": 4,
+        "provisional": [],
+        "qualityScope": "general_editing"
+      }
+    },
+    "google/gemini-2.5-flash-image": {
+      "ratings": {
+        "affordability": 4,
+        "speed": 4,
+        "quality": 3,
+        "provisional": [],
+        "qualityScope": "general_editing"
+      }
+    },
+    "google/gemini-3.1-flash-image-preview": {
+      "ratings": {
+        "affordability": 3,
+        "speed": 3,
+        "quality": 4,
+        "provisional": [],
+        "qualityScope": "general_editing"
+      }
+    },
+    "google/gemini-3.1-flash-image": {
+      "ratings": {
+        "affordability": 3,
+        "speed": 4,
+        "quality": 4,
+        "provisional": [],
+        "qualityScope": "general_editing"
+      }
+    },
+    "google/gemini-3.1-flash-lite-image": {
+      "ratings": {
+        "affordability": 4,
+        "speed": 4,
+        "quality": 3,
+        "provisional": [],
+        "qualityScope": "general_editing"
+      }
+    },
+    "google/gemini-3-pro-image-preview": {
+      "ratings": {
+        "affordability": 2,
+        "speed": 3,
+        "quality": 4,
+        "provisional": [],
+        "qualityScope": "general_editing"
+      }
+    },
+    "google/gemini-3-pro-image": {
+      "ratings": {
+        "affordability": 2,
+        "speed": 3,
+        "quality": 4,
+        "provisional": [],
+        "qualityScope": "general_editing"
+      }
+    },
+    "krea/krea-2-large": {
+      "ratings": {
+        "affordability": 3,
+        "speed": 2,
+        "quality": 3,
+        "provisional": [
+          "quality"
+        ],
+        "qualityScope": "artistic_generation"
+      }
+    },
+    "krea/krea-2-medium": {
+      "ratings": {
+        "affordability": 4,
+        "speed": 3,
+        "quality": 3,
+        "provisional": [
+          "quality"
+        ],
+        "qualityScope": "artistic_generation"
+      }
+    },
+    "krea/krea-2-medium-turbo": {
+      "ratings": {
+        "affordability": 5,
+        "speed": 4,
+        "quality": 3,
+        "provisional": [
+          "quality"
+        ],
+        "qualityScope": "artistic_generation"
+      }
+    },
+    "meta/muse-image": {
+      "ratings": {
+        "affordability": 5,
+        "speed": 3,
+        "quality": 5,
+        "provisional": [],
+        "qualityScope": "general_editing"
+      }
+    },
+    "microsoft/mai-image-2.5": {
+      "ratings": {
+        "affordability": 4,
+        "speed": 2,
+        "quality": 4,
+        "provisional": [],
+        "qualityScope": "general_editing"
+      }
+    },
+    "microsoft/mai-image-2.5-pro": {
+      "ratings": {
+        "affordability": 2,
+        "speed": 2,
+        "quality": 4,
+        "provisional": [
+          "speed"
+        ],
+        "qualityScope": "general_editing"
+      }
+    },
+    "microsoft/mai-image-2.6": {
+      "ratings": {
+        "affordability": 4,
+        "speed": 3,
+        "quality": 5,
+        "provisional": [],
+        "qualityScope": "general_editing"
+      }
+    },
+    "microsoft/mai-image-2.6-flash": {
+      "ratings": {
+        "affordability": 5,
+        "speed": 3,
+        "quality": 5,
+        "provisional": [],
+        "qualityScope": "general_editing"
+      }
+    },
+    "openai/gpt-image-1": {
+      "ratings": {
+        "affordability": 2,
+        "speed": 2,
+        "quality": 2,
+        "provisional": [
+          "speed"
+        ],
+        "qualityScope": "general_editing"
+      }
+    },
+    "openai/gpt-image-1-mini": {
+      "ratings": {
+        "affordability": 4,
+        "speed": 3,
+        "quality": 2,
+        "provisional": [
+          "speed",
+          "quality"
+        ],
+        "qualityScope": "general_editing"
+      }
+    },
+    "openai/gpt-image-2": {
+      "profile": "openaiArbitrarySize",
+      "ratings": {
+        "affordability": 1,
+        "speed": 3,
+        "quality": 5,
+        "provisional": [],
+        "qualityScope": "general_editing"
+      }
+    },
+    "openai/gpt-image-2.5-flare": {
+      "profile": "openaiArbitrarySize",
+      "ratings": {
+        "affordability": 3,
+        "speed": 3,
+        "quality": 5,
+        "provisional": [
+          "affordability"
+        ],
+        "qualityScope": "general_editing"
+      }
+    },
+    "openai/gpt-image-2.5-sunburst": {
+      "profile": "openaiArbitrarySize",
+      "ratings": {
+        "affordability": 3,
+        "speed": 3,
+        "quality": 5,
+        "provisional": [
+          "affordability"
+        ],
+        "qualityScope": "general_editing"
+      }
+    },
+    "openai/gpt-5-image": {
+      "ratings": {
+        "affordability": 2,
+        "speed": 2,
+        "quality": 2,
+        "provisional": [
+          "affordability",
+          "speed",
+          "quality"
+        ],
+        "qualityScope": "general_editing"
+      }
+    },
+    "openai/gpt-5-image-mini": {
+      "ratings": {
+        "affordability": 4,
+        "speed": 2,
+        "quality": 2,
+        "provisional": [
+          "affordability",
+          "quality"
+        ],
+        "qualityScope": "general_editing"
+      }
+    },
+    "openai/gpt-5.4-image-2": {
+      "ratings": {
+        "affordability": 1,
+        "speed": 1,
+        "quality": 5,
+        "provisional": [
+          "affordability",
+          "quality"
+        ],
+        "qualityScope": "general_editing"
+      }
+    },
+    "qwen/qwen-image-3": {
+      "ratings": {
+        "affordability": 4,
+        "speed": 1,
+        "quality": 3,
+        "provisional": [],
+        "qualityScope": "general_editing"
+      }
+    },
+    "qwen/qwen-image-3-pro": {
+      "ratings": {
+        "affordability": 4,
+        "speed": 1,
+        "quality": 4,
+        "provisional": [],
+        "qualityScope": "general_editing"
+      }
+    },
+    "recraft/recraft-v3": {
+      "ratings": {
+        "affordability": 4,
+        "speed": 4,
+        "quality": 2,
+        "provisional": [
+          "speed",
+          "quality"
+        ],
+        "qualityScope": "raster_design"
+      }
+    },
+    "recraft/recraft-v4": {
+      "ratings": {
+        "affordability": 4,
+        "speed": 4,
+        "quality": 3,
+        "provisional": [
+          "quality"
+        ],
+        "qualityScope": "raster_design"
+      }
+    },
+    "recraft/recraft-v4-pro": {
+      "ratings": {
+        "affordability": 1,
+        "speed": 2,
+        "quality": 3,
+        "provisional": [
+          "speed",
+          "quality"
+        ],
+        "qualityScope": "raster_design"
+      }
+    },
+    "recraft/recraft-v4-pro-vector": {
+      "ratings": {
+        "affordability": 1,
+        "speed": 2,
+        "quality": 4,
+        "provisional": [
+          "speed",
+          "quality"
+        ],
+        "qualityScope": "vector_design"
+      }
+    },
+    "recraft/recraft-v4-styles": {
+      "ratings": {
+        "affordability": 4,
+        "speed": 3,
+        "quality": 4,
+        "provisional": [
+          "speed",
+          "quality"
+        ],
+        "qualityScope": "style_reference_generation"
+      }
+    },
+    "recraft/recraft-v4-styles-pro": {
+      "ratings": {
+        "affordability": 2,
+        "speed": 3,
+        "quality": 4,
+        "provisional": [
+          "quality"
+        ],
+        "qualityScope": "style_reference_generation"
+      }
+    },
+    "recraft/recraft-v4-styles-pro-vector": {
+      "ratings": {
+        "affordability": 2,
+        "speed": 2,
+        "quality": 4,
+        "provisional": [
+          "speed",
+          "quality"
+        ],
+        "qualityScope": "style_reference_vector_generation"
+      }
+    },
+    "recraft/recraft-v4-styles-vector": {
+      "ratings": {
+        "affordability": 3,
+        "speed": 3,
+        "quality": 4,
+        "provisional": [
+          "speed",
+          "quality"
+        ],
+        "qualityScope": "style_reference_vector_generation"
+      }
+    },
+    "recraft/recraft-v4-vector": {
+      "ratings": {
+        "affordability": 3,
+        "speed": 3,
+        "quality": 4,
+        "provisional": [
+          "speed",
+          "quality"
+        ],
+        "qualityScope": "vector_design"
+      }
+    },
+    "recraft/recraft-v4.1": {
+      "ratings": {
+        "affordability": 4,
+        "speed": 3,
+        "quality": 3,
+        "provisional": [
+          "quality"
+        ],
+        "qualityScope": "raster_design"
+      }
+    },
+    "recraft/recraft-v4.1-pro": {
+      "ratings": {
+        "affordability": 1,
+        "speed": 3,
+        "quality": 3,
+        "provisional": [
+          "speed",
+          "quality"
+        ],
+        "qualityScope": "raster_design"
+      }
+    },
+    "recraft/recraft-v4.1-pro-vector": {
+      "ratings": {
+        "affordability": 1,
+        "speed": 2,
+        "quality": 4,
+        "provisional": [
+          "speed",
+          "quality"
+        ],
+        "qualityScope": "vector_design"
+      }
+    },
+    "recraft/recraft-v4.1-utility": {
+      "ratings": {
+        "affordability": 4,
+        "speed": 3,
+        "quality": 3,
+        "provisional": [
+          "quality"
+        ],
+        "qualityScope": "raster_design"
+      }
+    },
+    "recraft/recraft-v4.1-utility-pro": {
+      "ratings": {
+        "affordability": 1,
+        "speed": 2,
+        "quality": 3,
+        "provisional": [
+          "quality"
+        ],
+        "qualityScope": "raster_design"
+      }
+    },
+    "recraft/recraft-v4.1-vector": {
+      "ratings": {
+        "affordability": 3,
+        "speed": 3,
+        "quality": 4,
+        "provisional": [
+          "speed",
+          "quality"
+        ],
+        "qualityScope": "vector_design"
+      }
+    },
+    "sourceful/riverflow-v2-fast": {
+      "ratings": {
+        "affordability": 5,
+        "speed": 1,
+        "quality": 3,
+        "provisional": [
+          "quality"
+        ],
+        "qualityScope": "general_editing"
+      }
+    },
+    "sourceful/riverflow-v2-pro": {
+      "ratings": {
+        "affordability": 2,
+        "speed": 1,
+        "quality": 4,
+        "provisional": [
+          "quality"
+        ],
+        "qualityScope": "general_editing"
+      }
+    },
+    "sourceful/riverflow-v2.5-fast": {
+      "ratings": {
+        "affordability": 5,
+        "speed": 2,
+        "quality": 4,
+        "provisional": [
+          "affordability",
+          "quality"
+        ],
+        "qualityScope": "general_editing"
+      }
+    },
+    "sourceful/riverflow-v2.5-pro": {
+      "ratings": {
+        "affordability": 2,
+        "speed": 1,
+        "quality": 5,
+        "provisional": [
+          "affordability",
+          "quality"
+        ],
+        "qualityScope": "general_editing"
+      }
+    },
+    "x-ai/grok-imagine-image-quality": {
+      "ratings": {
+        "affordability": 4,
+        "speed": 4,
+        "quality": 4,
+        "provisional": [],
+        "qualityScope": "general_editing"
+      }
+    },
+    "x-ai/grok-imagine-image-2.0": {
+      "ratings": {
+        "affordability": 4,
+        "speed": 3,
+        "quality": 5,
+        "provisional": [],
+        "qualityScope": "general_editing"
+      }
+    }
+  }
+}

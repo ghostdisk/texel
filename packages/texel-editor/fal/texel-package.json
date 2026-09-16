@@ -3,7 +3,7 @@
   "name": "texel-editor/fal",
   "displayName": "Fal.ai",
   "version": "0.1.0",
-  "description": "Fal.ai model discovery, schema adaptation, and generation backend.",
+  "description": "Fal.ai model discovery and generation backend backed by shipped model definitions.",
   "dependencies": [],
   "node": "node.cjs",
   "renderer": "renderer.js"

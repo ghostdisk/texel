@@ -1,214 +1,53 @@
 const { mkdir, readFile, rm, writeFile } = require('node:fs/promises');
 const path = require('node:path');
+const MODEL_DATABASE = require('./model_defs.json');
 
 const QUEUE_API = 'https://queue.fal.run';
 const CATALOG_API = 'https://api.fal.ai/v1/models';
-function resolveSchema(openapi, schema) {
-  const seen = new Set();
-  while (schema?.$ref?.startsWith('#/')) {
-    if (seen.has(schema.$ref)) return null;
-    seen.add(schema.$ref);
-    schema = schema.$ref.slice(2).split('/').reduce((value, key) => value?.[key.replace(/~1/g, '/').replace(/~0/g, '~')], openapi);
-  }
-  return schema ?? null;
+const MODEL_DEFS = MODEL_DATABASE.models ?? {};
+const TAG_MODEL_TYPES = new Map(Object.entries(MODEL_DATABASE.tagTypes ?? {}));
+
+function normalizeTag(value) { return String(value).trim().toLowerCase().replace(/[_\s]+/g, '-'); }
+
+function catalogTags(record) {
+  return [...new Set((Array.isArray(record.metadata?.tags) ? record.metadata.tags : []).map(normalizeTag).filter(Boolean))];
 }
 
-function schemaVariants(openapi, schema) {
-  const resolved = resolveSchema(openapi, schema);
-  if (!resolved) return [];
-  const branches = resolved.anyOf ?? resolved.oneOf ?? [];
-  return [resolved, ...branches.map((branch) => resolveSchema(openapi, branch)).filter(Boolean)];
+function fallbackTypes(tags) {
+  const types = [...new Set(tags.flatMap((tag) => TAG_MODEL_TYPES.get(tag) ?? []))];
+  return types.length ? types : ['general-editing'];
 }
 
-function objectProperties(openapi, schema) {
-  for (const candidate of schemaVariants(openapi, schema)) {
-    if (candidate.type === 'object' || candidate.properties) return candidate;
-  }
-  return null;
+function fallbackPromptField(types) {
+  const prompted = new Set([
+    'general-editing', 'generate-from-image', 'fill-inpaint', 'object-removal-prompt', 'expand-reframe',
+    'lighting-color', 'style-transform', 'subject-product',
+  ]);
+  return types.some((type) => prompted.has(type)) ? 'prompt' : null;
 }
 
-function requestSchema(record) {
-  const pathItem = record.openapi?.paths?.[`/${record.endpoint_id}`];
-  return pathItem?.post?.requestBody?.content?.['application/json']?.schema ?? null;
-}
-
-function resultSchema(record) {
-  const pathItem = record.openapi?.paths?.[`/${record.endpoint_id}/requests/{request_id}`];
-  return pathItem?.get?.responses?.['200']?.content?.['application/json']?.schema ?? null;
-}
-
-function field(properties, names) {
-  return names.find((name) => properties[name]) ?? null;
-}
-
-function schemaFields(properties) {
-  const names = Object.keys(properties ?? {});
-  if (!names.length) return 'no fields';
-  const visible = names.slice(0, 20);
-  return visible.join(', ') + (names.length > visible.length ? `, and ${names.length - visible.length} more` : '');
-}
-
-function incompatibleModelError(record) {
-  const endpoint = record?.endpoint_id ?? 'unknown endpoint';
-  if (!record?.openapi) return `fal endpoint "${endpoint}" has no OpenAPI schema.`;
-  const request = requestSchema(record);
-  if (!request) return `fal endpoint "${endpoint}" has no JSON request schema at POST /${endpoint}.`;
-  const input = objectProperties(record.openapi, request);
-  if (!input) return `fal endpoint "${endpoint}" has a request schema Texel could not resolve to an object.`;
-  const result = resultSchema(record);
-  if (!result) return `fal endpoint "${endpoint}" has no JSON result schema at GET /${endpoint}/requests/{request_id}.`;
-  const output = objectProperties(record.openapi, result);
-  if (!output) return `fal endpoint "${endpoint}" has a result schema Texel could not resolve to an object.`;
-  const inputFields = input.properties ?? {};
-  const outputFields = output.properties ?? {};
-  const imageField = field(inputFields, ['image_urls', 'image_url', 'input_image_urls', 'input_image_url', 'source_image_url', 'input_image', 'image']);
-  if (!imageField) {
-    return `fal endpoint "${endpoint}" has no supported input image field. Request fields: ${schemaFields(inputFields)}.`;
-  }
-  const outputField = field(outputFields, ['images', 'image', 'output_images', 'output_image', 'output', 'result']);
-  if (!outputField) {
-    return `fal endpoint "${endpoint}" has no supported output image field. Result fields: ${schemaFields(outputFields)}.`;
-  }
-  return `fal endpoint "${endpoint}" uses an unsupported schema.`;
-}
-
-function classifyModel(record) {
-  const metadata = record.metadata ?? {};
-  const tags = [...new Set((Array.isArray(metadata.tags) ? metadata.tags : [])
-    .map((tag) => String(tag).trim().toLowerCase()).filter(Boolean))];
-  const group = typeof metadata.group === 'string' ? metadata.group : [metadata.group?.key, metadata.group?.label].filter(Boolean).join(' ');
-  const text = [record.endpoint_id, metadata.display_name, metadata.description, group, ...tags].filter(Boolean).join(' ').toLowerCase();
-  const has = (...words) => words.some((word) => text.includes(word));
-  const types = [];
-  const expansion = has('outpaint', 'expand', 'reframe', 'uncrop');
-  if (expansion) types.push('expand-reframe');
-  if (has('upscale', 'upscaler', 'super resolution', 'super-resolution', 'enhance resolution')) types.push('upscale');
-  if (has('restore', 'deblur', 'denoise', 'old photo', 'face enhance', 'scratch', 'restoration')) types.push('restore');
-  if (has('relight', 'lighting', 'colorize', 'colourize', 'white balance', 'color correction', 'reseason')) types.push('lighting-color');
-  if (has('style', 'stylized', 'toon', 'anime', 'sketch', 'transfer', 'perspective', 'expression change', 'multiple angles')) types.push('style-transform');
-  if (has('product', 'fashion', 'try-on', 'tryon', 'portrait', 'headshot', 'subject', 'face', 'age progression')) types.push('subject-product');
-  if (backgroundRemovalCandidate(record)) types.push('background-removal');
-  if (has('segment', 'detect', 'caption', 'vision', 'classif', 'background removal', 'matting')) types.push('selection-analysis');
-  if (has('depth', 'normal map', 'pose', 'edge', 'canny', 'lineart', 'structure', 'extract')) types.push('structure-extraction');
-  if (!types.length && has('/edit', 'edit-image', 'image edit', 'image-edit', '/modify', '/remix')) types.push('general-editing');
-  if (!types.length && has('image-to-image', 'img2img', 'reference-to-image', 'variation')) types.push('generate-from-image');
-  return { tags, types: [...new Set(types)] };
-}
-
-function backgroundRemovalCandidate(record) {
-  const metadata = record.metadata ?? {};
-  const endpoint = String(record.endpoint_id ?? '').toLowerCase();
-  const tags = Array.isArray(metadata.tags) ? metadata.tags.map((tag) => String(tag).trim().toLowerCase()) : [];
-  const group = typeof metadata.group === 'string' ? metadata.group : [metadata.group?.key, metadata.group?.label].filter(Boolean).join(' ');
-  const text = [endpoint, metadata.display_name, metadata.description, group, ...tags].filter(Boolean).join(' ').toLowerCase();
-  if (/(replace|replacement)/.test(endpoint) || text.includes('replace background') || text.includes('background replacement')) return false;
-  if (tags.some((tag) => tag === 'background removal' || tag === 'background-removal')) return true;
-  return /(^|\/)(remove-background|background-removal)(\/|$)/.test(endpoint) ||
-    /(^|\/)(rembg(?:-|\/|$)|birefnet(?:-|\/|$)|feynobg(?:-|\/|$))/.test(endpoint) ||
-    text.includes('remove background') || text.includes('background remover') || text.includes('background removal') ||
-    text.includes('matting technology');
-}
-
-function objectRemovalCandidate(record) {
-  const metadata = record.metadata ?? {};
-  const text = [record.endpoint_id, metadata.display_name, metadata.description, ...(metadata.tags ?? [])]
-    .filter(Boolean).join(' ').toLowerCase();
-  if (text.includes('background removal') || text.includes('background remover') || text.includes('remove background') ||
-      text.includes('replace background') || text.includes('background replace') || text.includes('text removal')) return false;
-  return /(^|\/)object-removal(\/|$)/.test(record.endpoint_id) || /(^|[-_/ ])eraser([-_/ ]|$)/.test(text) ||
-    /(^|\/)erase(_by_text)?$/.test(record.endpoint_id) || /(^|[-_/ ])remove-element([-_/ ]|$)/.test(text);
-}
-
-function inpaintCandidate(record) {
-  const metadata = record.metadata ?? {};
-  const group = typeof metadata.group === 'string' ? metadata.group : [metadata.group?.key, metadata.group?.label].filter(Boolean).join(' ');
-  const text = [record.endpoint_id, metadata.display_name, metadata.description, group, ...(metadata.tags ?? [])]
-    .filter(Boolean).join(' ').toLowerCase();
-  if (['outpaint', 'expand', 'reframe', 'uncrop'].some((word) => text.includes(word))) return false;
-  return ['inpaint', 'genfill', '/fill', '-fill', ' fill '].some((word) => text.includes(word));
-}
-
-function arrayLimit(openapi, schema) {
-  const variant = schemaVariants(openapi, schema).find((candidate) => candidate.type === 'array');
-  return variant?.maxItems;
-}
-
-function enumValues(openapi, schema) {
-  return [...new Set(schemaVariants(openapi, schema).flatMap((candidate) => candidate.enum ?? []))];
-}
-
-function discoverModel(record) {
-  if (!record?.endpoint_id || !record.openapi) return null;
-  const input = objectProperties(record.openapi, requestSchema(record));
-  const output = objectProperties(record.openapi, resultSchema(record));
-  if (!input || !output) return null;
-  const properties = input.properties ?? {};
-  const outputProperties = output.properties ?? {};
-  const imageField = field(properties, ['image_urls', 'image_url', 'input_image_urls', 'input_image_url', 'source_image_url', 'input_image', 'image']);
-  const outputField = field(outputProperties, ['images', 'image', 'output_images', 'output_image', 'output', 'result']);
-  if (!imageField || !outputField) return null;
-  const promptField = field(properties, ['prompt', 'object_to_remove', 'objects_to_remove']);
-  const maskField = field(properties, ['mask_url', 'mask_image_url', 'mask_urls', 'mask_image', 'mask']);
-  const required = new Set(input.required ?? []);
-  const maximum = arrayLimit(record.openapi, properties[imageField]);
-  const imageSize = objectProperties(record.openapi, properties.image_size);
-  const classification = classifyModel(record);
-  if (objectRemovalCandidate(record)) {
-    if (maskField) classification.types.push('object-removal-mask');
-    if (promptField) classification.types.push('object-removal-prompt');
-  }
-  if (inpaintCandidate(record) && imageField && maskField && promptField) classification.types.push('fill-inpaint');
-  return {
-    id: `fal/${record.endpoint_id}`,
-    label: record.metadata?.display_name || record.endpoint_id,
-    endpoint: record.endpoint_id,
-    imageField,
-    outputField,
-    inputImages: Number.isInteger(maximum) ? Math.max(1, Math.min(16, maximum)) : 1,
-    minimumInputImages: 1,
-    tags: classification.tags,
-    types: classification.types,
-    promptField,
-    fields: {
-      negativePrompt: field(properties, ['negative_prompt']),
-      steps: field(properties, ['num_inference_steps', 'steps']),
-      guidance: field(properties, ['guidance_scale', 'guidance']),
-      seed: field(properties, ['seed']),
-      strength: field(properties, ['strength', 'denoising_strength', 'denoise_strength']),
-      mask: maskField,
-      outputFormat: field(properties, ['output_format']),
-      imageSize: field(properties, ['image_size']),
-      width: field(properties, ['width']),
-      height: field(properties, ['height']),
-      aspectRatio: field(properties, ['aspect_ratio']),
-      resolution: field(properties, ['resolution']),
-      numImages: field(properties, ['num_images']),
-    },
-    sizing: {
-      customImageSize: !!imageSize?.properties?.width && !!imageSize?.properties?.height,
-      aspectRatios: enumValues(record.openapi, properties.aspect_ratio),
-      resolutions: enumValues(record.openapi, properties.resolution),
-    },
-    capabilities: {
-      maskRequired: required.has(maskField),
-    },
-  };
-}
-
-function catalogModel(record) {
+function modelFromCatalog(record) {
   if (!record?.endpoint_id) return null;
-  const classification = classifyModel(record);
+  const definition = MODEL_DEFS[record.endpoint_id] ?? {};
+  const tags = definition.tags ?? catalogTags(record);
+  const types = definition.types ?? fallbackTypes(tags);
+  const hasPromptField = Object.prototype.hasOwnProperty.call(definition, 'promptField');
+  const fields = definition.fields ?? (types.includes('fill-inpaint') ? { mask: 'mask_url' } : {});
   return {
     id: `fal/${record.endpoint_id}`,
-    label: record.metadata?.display_name || record.endpoint_id,
+    label: definition.displayName || record.metadata?.display_name || record.endpoint_id,
     endpoint: record.endpoint_id,
-    inputImages: 1,
-    minimumInputImages: 1,
-    tags: classification.tags,
-    types: classification.types,
-    fields: {},
-    capabilities: {},
-    resolved: false,
+    imageField: definition.imageField ?? 'image_url',
+    outputField: definition.outputField ?? 'images',
+    inputImages: definition.inputImages ?? 1,
+    minimumInputImages: definition.minimumInputImages ?? 1,
+    tags,
+    types,
+    ratings: definition.ratings,
+    promptField: hasPromptField ? definition.promptField : fallbackPromptField(types),
+    fields,
+    sizing: definition.sizing ?? {},
+    capabilities: definition.capabilities ?? {},
   };
 }
 
@@ -265,12 +104,9 @@ function registerFal({ app, ipcMain, safeStorage, keyStore, emit }, ownerOf) {
   const jobs = new Map();
   let models = new Map();
   let catalogPromise = null;
-  let catalogExpires = 0;
-  let schemaCachePromise = null;
 
   function keyPath() { return path.join(app.getPath('userData'), 'fal-key.bin'); }
   function catalogCachePath() { return path.join(app.getPath('userData'), 'fal-model-catalog.json'); }
-  function schemaCachePath() { return path.join(app.getPath('userData'), 'fal-model-schemas.json'); }
 
   async function readJson(filePath) {
     try { return JSON.parse(await readFile(filePath, 'utf8')); }
@@ -331,107 +167,44 @@ function registerFal({ app, ipcMain, safeStorage, keyStore, emit }, ownerOf) {
     return response;
   }
 
-  async function fetchModelRecord(endpoint, key) {
-    const url = new URL(CATALOG_API);
-    url.searchParams.set('endpoint_id', endpoint);
-    url.searchParams.set('expand', 'openapi-3.0');
-    const response = await request(url.href, key).then((value) => value.json());
-    const record = response.models?.find((candidate) => candidate.endpoint_id === endpoint);
-    if (!record?.openapi) throw new Error(`fal returned no OpenAPI schema for endpoint "${endpoint}".`);
-    return record;
-  }
-
   async function discoverModels() {
-    if (catalogPromise && Date.now() < catalogExpires) return catalogPromise;
-    catalogExpires = Date.now() + 10 * 60 * 1000;
+    if (catalogPromise) return catalogPromise;
     catalogPromise = (async () => {
       const key = await readKey();
       let records;
       try {
-        records = [];
-        const cursors = new Set();
-        let cursor = '';
-        do {
-          const url = new URL(CATALOG_API);
-          url.searchParams.set('limit', '100');
-          url.searchParams.set('status', 'active');
-          url.searchParams.set('category', 'image-to-image');
-          if (cursor) url.searchParams.set('cursor', cursor);
-          const page = await request(url.href, key).then((response) => response.json());
-          records.push(...(page.models ?? []));
-          const nextCursor = page.has_more && typeof page.next_cursor === 'string' ? page.next_cursor : '';
-          cursor = nextCursor && !cursors.has(nextCursor) ? nextCursor : '';
-          if (cursor) cursors.add(cursor);
-        } while (cursor);
-        await writeJson(catalogCachePath(), { version: 1, records });
+        const url = new URL(CATALOG_API);
+        url.searchParams.set('limit', '1000');
+        url.searchParams.set('status', 'active');
+        url.searchParams.set('category', 'image-to-image');
+        const page = await request(url.href, key).then((response) => response.json());
+        records = Array.isArray(page.models) ? page.models : [];
+        await writeJson(catalogCachePath(), { version: 2, records });
       } catch (error) {
         const cached = await readJson(catalogCachePath());
         if (!Array.isArray(cached?.records)) throw error;
         records = cached.records;
       }
-      const cache = await schemaCache();
-      let cacheChanged = false;
-      const detailed = await Promise.all(records.map(async (record) => {
-        if (!objectRemovalCandidate(record) && !inpaintCandidate(record)) return record;
-        if (cache.models[record.endpoint_id]?.openapi) return cache.models[record.endpoint_id];
-        try {
-          const resolved = await fetchModelRecord(record.endpoint_id, key);
-          cache.models[record.endpoint_id] = resolved;
-          cacheChanged = true;
-          return resolved;
-        } catch (error) {
-          console.error(`Unable to inspect fal image-editing endpoint "${record.endpoint_id}":`, error);
-          return record;
-        }
-      }));
-      if (cacheChanged) await writeJson(schemaCachePath(), cache);
-      models = new Map(detailed.map((record) => record.openapi ? discoverModel(record) : catalogModel(record))
-        .filter(Boolean).map((model) => [model.id, model]));
+      models = new Map(records.map(modelFromCatalog).filter(Boolean).map((model) => [model.id, model]));
       return [...models.values()];
-    })().catch((error) => {
-      catalogPromise = null;
-      catalogExpires = 0;
-      if (models.size) return [...models.values()];
-      throw error;
     });
     return catalogPromise;
-  }
-
-  async function schemaCache() {
-    schemaCachePromise ??= readJson(schemaCachePath()).then((cached) => cached?.version === 1 && cached.models ? cached : { version: 1, models: {} });
-    return schemaCachePromise;
   }
 
   async function resolveModel(modelId) {
     const current = models.get(modelId);
     if (!current) throw new Error('The selected fal model is unavailable. Refresh the model list.');
-    if (current.resolved) return current;
-    const key = await readKey();
-    const cache = await schemaCache();
-    let record;
-    try {
-      record = await fetchModelRecord(current.endpoint, key);
-      cache.models[current.endpoint] = record;
-      await writeJson(schemaCachePath(), cache);
-    } catch (error) {
-      record = cache.models[current.endpoint];
-      if (!record?.openapi) throw error;
-    }
-    const resolved = discoverModel(record);
-    if (!resolved) throw new Error(incompatibleModelError(record));
-    resolved.resolved = true;
-    models.set(modelId, resolved);
-    return resolved;
+    return current;
   }
 
   function publicModel(model) {
     const fields = model.fields;
     return {
       id: model.id,
-      ratingId: model.endpoint,
       label: model.label,
       tags: model.tags,
       types: model.types,
+      ratings: model.ratings,
       capabilities: {
         inputImages: model.inputImages ?? 1,
         minimumInputImages: model.minimumInputImages ?? 1,
@@ -479,8 +252,6 @@ function registerFal({ app, ipcMain, safeStorage, keyStore, emit }, ownerOf) {
     if (!ownerOf(event) || typeof value !== 'string' || value.length > 1024) return null;
     const key = value.trim();
     await writeKey(key);
-    catalogPromise = null;
-    catalogExpires = 0;
     return { configured: !!key };
   });
   ipcMain.handle('fal:models', async (event) => ownerOf(event) ? { data: (await discoverModels()).map(publicModel) } : null);

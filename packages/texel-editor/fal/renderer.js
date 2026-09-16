@@ -26,18 +26,9 @@ export default class FalPackage {
   async models() {
     const response = await this.api.messages.invoke('models');
     if (!response?.data) throw new Error('Fal.ai model discovery failed.');
-    const inspected = await Promise.all(response.data.map(async (entry) => {
-      const needsObjectInspection = this.objectRemovalCandidate(entry.id) &&
-        !entry.types?.some((type) => type === 'object-removal-mask' || type === 'object-removal-prompt');
-      const needsInpaintInspection = this.inpaintCandidate(entry.id) &&
-        (!entry.types?.includes('fill-inpaint') || !entry.capabilities.mask);
-      if (!needsObjectInspection && !needsInpaintInspection) return entry;
-      try { return await this.api.messages.invoke('model', entry.id) ?? entry; }
-      catch { return entry; }
-    }));
     this.entries.clear();
-    for (const entry of inspected) {
-      const model = this.normalize({ ...entry, platform: 'fal' });
+    for (const entry of response.data) {
+      const model = { ...entry, platform: 'fal' };
       this.entries.set(model.id, model);
     }
     return [...this.entries.values()];
@@ -45,38 +36,10 @@ export default class FalPackage {
 
   async resolveModel(id) {
     const entry = await this.api.messages.invoke('model', id);
-    if (!entry) throw new Error('Fal.ai returned no model schema.');
-    const model = this.normalize({ ...entry, platform: 'fal' });
+    if (!entry) throw new Error('Fal.ai returned no model definition.');
+    const model = { ...entry, platform: 'fal' };
     this.entries.set(model.id, model);
     return model;
-  }
-
-  objectRemovalCandidate(id) {
-    const endpoint = id.slice('fal/'.length).toLowerCase();
-    if (endpoint.includes('background') || endpoint.includes('text-removal') || endpoint.endsWith('/bbox')) return false;
-    return /(^|\/)object-removal(\/|$)/.test(endpoint) || /(^|[-_/])eraser([-_/]|$)/.test(endpoint) ||
-      /(^|\/)erase(_by_text)?$/.test(endpoint) || /(^|[-_/])remove-element([-_/]|$)/.test(endpoint);
-  }
-
-  inpaintCandidate(id) {
-    const endpoint = id.slice('fal/'.length).toLowerCase();
-    if (['outpaint', 'expand', 'reframe', 'uncrop'].some((word) => endpoint.includes(word))) return false;
-    return ['inpaint', 'genfill', '/fill', '-fill'].some((word) => endpoint.includes(word));
-  }
-
-  normalize(model) {
-    const originalTypes = model.types;
-    const legacyRemoval = originalTypes?.includes('remove-replace') ?? false;
-    const legacyInpaint = originalTypes?.includes('fill-inpaint') ?? false;
-    const types = new Set((model.types ?? []).filter((type) => type !== 'fill-inpaint'));
-    if (this.objectRemovalCandidate(model.id)) {
-      if (model.capabilities.mask) types.add('object-removal-mask');
-      if (model.capabilities.prompt || legacyRemoval && !model.capabilities.mask) types.add('object-removal-prompt');
-    }
-    if (this.inpaintCandidate(model.id) && model.capabilities.mask && (model.capabilities.prompt || legacyInpaint)) {
-      types.add('fill-inpaint');
-    }
-    return { ...model, types: [...types] };
   }
 
   async generate(request, events, signal) {

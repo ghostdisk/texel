@@ -1,10 +1,43 @@
 const { mkdir, readFile, rm, writeFile } = require('node:fs/promises');
 const path = require('node:path');
+const MODEL_DATABASE = require('./model_defs.json');
 
 const API = 'https://openrouter.ai/api/v1';
+const MODEL_DEFS = MODEL_DATABASE.models ?? {};
+const CAPABILITY_PROFILES = MODEL_DATABASE.profiles ?? {};
+
+function modelFromRemote(remote) {
+  if (!remote?.id || !remote.architecture?.output_modalities?.includes('image')) return null;
+  const definition = MODEL_DEFS[remote.id] ?? {};
+  const profile = CAPABILITY_PROFILES[definition.profile] ?? {};
+  const parameters = remote.supported_parameters ?? {};
+  const references = parameters.input_references;
+  const imageInput = remote.architecture.input_modalities?.includes('image');
+  return {
+    id: `openrouter/${remote.id}`,
+    label: definition.displayName || remote.name || remote.id,
+    tags: definition.tags ?? (imageInput ? ['image-to-image'] : ['text-to-image']),
+    types: definition.types ?? (imageInput ? ['general-editing', 'generate-from-image'] : ['generate-from-image']),
+    ratings: definition.ratings,
+    capabilities: {
+      inputImages: imageInput ? Math.max(1, references?.max ?? 1) : 0,
+      minimumInputImages: references?.min,
+      mask: false,
+      negativePrompt: false,
+      steps: false,
+      guidance: false,
+      seed: !!parameters.seed,
+      denoiseStrength: false,
+      partialPreview: !!remote.supports_streaming,
+      ...profile.capabilities,
+      ...definition.capabilities,
+    },
+  };
+}
 
 function registerOpenRouter({ app, ipcMain, safeStorage, keyStore, emit }, ownerOf) {
   const jobs = new Map();
+  let catalogPromise = null;
 
   function keyPath() { return path.join(app.getPath('userData'), 'openrouter-key.bin'); }
   function modelCachePath() { return path.join(app.getPath('userData'), 'openrouter-model-catalog.json'); }
@@ -58,6 +91,22 @@ function registerOpenRouter({ app, ipcMain, safeStorage, keyStore, emit }, owner
     return response;
   }
 
+  async function models() {
+    if (catalogPromise) return catalogPromise;
+    catalogPromise = (async () => {
+      let response;
+      try {
+        response = await request('/images/models').then((value) => value.json());
+        await writeModelCache(response);
+      } catch (error) {
+        response = await readModelCache();
+        if (!response?.data) throw error;
+      }
+      return { data: (response.data ?? []).map(modelFromRemote).filter(Boolean) };
+    })();
+    return catalogPromise;
+  }
+
   ipcMain.handle('openrouter:key-status', (event) => ownerOf(event) ? readKey().then((key) => ({ configured: !!key })) : null);
   ipcMain.handle('openrouter:set-key', async (event, value) => {
     if (!ownerOf(event) || typeof value !== 'string' || value.length > 512) return null;
@@ -68,15 +117,7 @@ function registerOpenRouter({ app, ipcMain, safeStorage, keyStore, emit }, owner
   });
   ipcMain.handle('openrouter:models', async (event) => {
     if (!ownerOf(event)) return null;
-    try {
-      const models = await request('/images/models').then((response) => response.json());
-      await writeModelCache(models);
-      return models;
-    } catch (error) {
-      const cached = await readModelCache();
-      if (cached?.data) return cached;
-      throw error;
-    }
+    return models();
   });
   ipcMain.handle('openrouter:cancel', (event, id) => {
     const owner = ownerOf(event);
