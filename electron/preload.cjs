@@ -19,6 +19,7 @@ contextBridge.exposeInMainWorld('desktop', {
   openDocument: () => ipcRenderer.invoke('document:open'),
   recentDocuments: () => ipcRenderer.invoke('document:recent'),
   rememberDocument: (token) => ipcRenderer.invoke('document:remember', token),
+  forgetDocument: (token) => ipcRenderer.invoke('document:forget', token),
   documentReady: () => ipcRenderer.invoke('document:ready'),
   onOpenRequest: (callback) => {
     const listener = (_event, files) => { if (Array.isArray(files)) callback(files); };

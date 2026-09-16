@@ -50,8 +50,8 @@ export class EditorView {
   private layerDropIndicator: HTMLElement | null = null;
   private layerDropParent: HTMLElement | null = null;
   private paintedPreviews = new WeakMap<HTMLCanvasElement, ImageData>();
-  private readonly opacityControl: SliderInput;
-  private readonly blendControl: BlendModeInput;
+  private opacityControl: SliderInput | null = null;
+  private blendControl: BlendModeInput | null = null;
   private blendPreviewLayers: Layer[] = [];
   private readonly panels: TabGroup;
   private readonly historyPanel: HistoryPanel;
@@ -66,7 +66,7 @@ export class EditorView {
     ], 'Document panels');
     this.historyPanel = new HistoryPanel(editor, element('history-list'));
     editor.onChange = () => this.render();
-    editor.onDocumentsChange = () => this.renderDocumentTabs();
+    editor.onDocumentsChange = () => this.render();
     editor.onPreviews = () => this.renderPreviews();
     editor.onColorChange = (primary, secondary) => {
       input('brush-color').value = primary;
@@ -86,19 +86,6 @@ export class EditorView {
     }
     input('brush-color').oninput = () => editor.setBrushColor(input('brush-color').value);
     input('secondary-color').oninput = () => editor.setColors(editor.primaryColor, input('secondary-color').value);
-    this.opacityControl = this.createOpacityControl();
-    element('layer-opacity-control').append(this.opacityControl.element);
-    this.blendControl = new BlendModeInput(element<HTMLSelectElement>('layer-blend'), {
-      preview: (mode) => this.previewBlendMode(mode),
-      change: (mode) => editor.run(() => {
-        editor.finishGesture();
-        const layers = this.blendPreviewLayers.length ? this.blendPreviewLayers : editor.image.selectedLayers;
-        const before = layers.map((layer) => layer.properties());
-        for (const layer of layers) layer.setBlendMode(mode);
-        this.blendPreviewLayers = [];
-        editor.recordLayerChanges(layers, before, 'Change blend mode');
-      }),
-    });
     for (const id of ['layer-x', 'layer-y', 'layer-scale-x', 'layer-scale-y', 'layer-angle']) {
       input(id).onchange = () => editor.run(() => this.changeTransform(id));
     }
@@ -181,8 +168,37 @@ export class EditorView {
     });
   }
 
+  private initializeDocumentControls(): void {
+    if (!this.opacityControl) {
+      this.opacityControl = this.createOpacityControl();
+      element('layer-opacity-control').append(this.opacityControl.element);
+    }
+    if (!this.blendControl) this.blendControl = new BlendModeInput(element<HTMLSelectElement>('layer-blend'), {
+      preview: (mode) => this.previewBlendMode(mode),
+      change: (mode) => this.editor.run(() => {
+        this.editor.finishGesture();
+        const layers = this.blendPreviewLayers.length ? this.blendPreviewLayers : this.editor.image.selectedLayers;
+        const before = layers.map((layer) => layer.properties());
+        for (const layer of layers) layer.setBlendMode(mode);
+        this.blendPreviewLayers = [];
+        this.editor.recordLayerChanges(layers, before, 'Change blend mode');
+      }),
+    });
+  }
+
   render(): void {
     this.renderDocumentTabs();
+    const hasDocument = this.editor.hasDocument;
+    element('app').classList.toggle('no-document', !hasDocument);
+    element('welcome-screen').hidden = hasDocument;
+    if (!hasDocument) {
+      this.renderWelcome();
+      element('frame-label').textContent = '';
+      element('image-operation-status').textContent = '';
+      this.syncActionButtons();
+      return;
+    }
+    this.initializeDocumentControls();
     this.renderTree();
     this.historyPanel.render();
     const { editor } = this;
@@ -191,8 +207,8 @@ export class EditorView {
     element('layer-kind').textContent = editor.image.selectedLayers.length > 1 ? editor.image.selectedLayers.length + ' LAYERS' : layer.isSelection ? 'SELECTION' : layer instanceof ImageLayer && layer.channels === 1 ? 'MASK' : layer === editor.image.root ? 'ROOT' : layer.kind.toUpperCase();
     element('layer-size').textContent = editor.image.selectedLayers.length > 1 ? '' : layer instanceof ImageLayer ? `${layer.width} × ${layer.height} native pixels` : `${(layer as GroupLayer).children.length} children · isolated group`;
     element('selection-actions').hidden = !layer.isSelection;
-    this.opacityControl.sync(!editor.commitEdits);
-    this.blendControl.sync(layer.blendMode, !layer.parent);
+    this.opacityControl!.sync(!editor.commitEdits);
+    this.blendControl!.sync(layer.blendMode, !layer.parent);
     element('transform-fields').hidden = editor.activeTool.id !== 'transform' || !layer.parent || editor.image.selectedLayers.length > 1;
     this.updateTransformFields();
     input('brush-color').value = editor.primaryColor;
@@ -212,6 +228,15 @@ export class EditorView {
     }
     editor.activeTool.syncUI();
     if (element<HTMLDialogElement>('precision-dialog').open) this.renderGuideSettings();
+    this.syncActionButtons();
+    this.renderFilters();
+    element('cancel-generation').hidden = !editor.generators.busy;
+    element('cancel-generation').textContent = 'Cancel generation';
+    element('image-operation-status').textContent = editor.generators.active?.progress.phase ?? '';
+  }
+
+  private syncActionButtons(): void {
+    const { editor } = this;
     for (const button of document.querySelectorAll<HTMLButtonElement>('[data-action]')) {
       button.disabled = !editor.actions.enabled(button.dataset.action!);
       if (button.dataset.action!.startsWith('tool.')) {
@@ -230,10 +255,44 @@ export class EditorView {
         button.setAttribute('aria-pressed', String(enabled));
       }
     }
-    this.renderFilters();
-    element('cancel-generation').hidden = !editor.generators.busy;
-    element('cancel-generation').textContent = 'Cancel generation';
-    element('image-operation-status').textContent = editor.generators.active?.progress.phase ?? '';
+  }
+
+  private renderWelcome(): void {
+    const list = element('welcome-recent-files');
+    list.replaceChildren();
+    if (!this.editor.files.recentEnabled) {
+      const empty = document.createElement('p');
+      empty.className = 'welcome-recent-empty';
+      empty.textContent = 'Recent files are disabled in Settings.';
+      list.append(empty);
+      return;
+    }
+    if (!this.editor.files.recentCount) {
+      const empty = document.createElement('p');
+      empty.className = 'welcome-recent-empty';
+      empty.textContent = 'No recent files yet.';
+      list.append(empty);
+      return;
+    }
+    for (let index = 0; index < this.editor.files.recentCount; index++) {
+      const row = document.createElement('div');
+      row.className = 'welcome-recent-row';
+      const button = document.createElement('button');
+      button.type = 'button';
+      button.className = 'welcome-recent-file';
+      button.textContent = this.editor.files.recentLabel(index);
+      button.title = `Open ${button.textContent}`;
+      button.onclick = () => this.editor.run(() => this.editor.files.openRecent(index));
+      const remove = document.createElement('button');
+      remove.type = 'button';
+      remove.className = 'welcome-recent-remove';
+      remove.textContent = '×';
+      remove.title = `Remove ${button.textContent} from recent files`;
+      remove.setAttribute('aria-label', remove.title);
+      remove.onclick = () => this.editor.run(() => this.editor.files.removeRecent(index));
+      row.append(button, remove);
+      list.append(row);
+    }
   }
 
   private previewBlendMode(mode: BlendMode | null): void {
@@ -245,22 +304,23 @@ export class EditorView {
   }
 
   private renderDocumentTabs(): void {
+    const active = this.editor.activeDocument;
     const signature = JSON.stringify(this.editor.documents.map((document) => [
-      document.id, document.name, document.dirty, document === this.editor.document,
+      document.id, document.name, document.dirty, document === active,
     ]));
     if (signature === this.documentSignature) return;
     this.documentSignature = signature;
     const tabs = element('document-tabs');
     const nodes = this.editor.documents.map((session) => {
       const tab = document.createElement('div');
-      tab.className = 'document-tab' + (session === this.editor.document ? ' active' : '');
+      tab.className = 'document-tab' + (session === active ? ' active' : '');
       const select = document.createElement('button');
       select.className = 'document-tab-select';
       select.type = 'button';
       select.title = session.name;
       select.setAttribute('role', 'tab');
-      select.setAttribute('aria-selected', String(session === this.editor.document));
-      select.tabIndex = session === this.editor.document ? 0 : -1;
+      select.setAttribute('aria-selected', String(session === active));
+      select.tabIndex = session === active ? 0 : -1;
       const image = document.createElement('img');
       image.src = '/assets/branding/txl.svg';
       image.alt = '';
@@ -872,17 +932,37 @@ export class EditorView {
       const files = [...(event.clipboardData?.items ?? [])].filter((item) => item.type.startsWith('image/')).map((item) => item.getAsFile()).filter((file): file is File => !!file);
       if (!files.length) return;
       event.preventDefault();
-      this.editor.run(async () => { for (const file of files) await this.editor.addImage('Pasted image', file); });
+      if (!this.editor.hasDocument) this.editor.run(() => this.editor.files.openDroppedImages(files));
+      else this.editor.run(async () => { for (const file of files) await this.editor.addImage('Pasted image', file); });
     });
-    this.editor.stage.addEventListener('dragover', (event) => {
-      if (!event.dataTransfer?.types.includes('Files')) return;
-      event.preventDefault();
-      event.dataTransfer.dropEffect = 'copy';
-    });
-    this.editor.stage.addEventListener('drop', (event) => {
-      event.preventDefault();
-      const files = [...(event.dataTransfer?.files ?? [])].filter((file) => file.type.startsWith('image/'));
-      this.editor.run(async () => { for (const file of files) await this.editor.addImage(file.name, file); });
-    });
+    const acceptsFiles = (event: DragEvent) => event.dataTransfer?.types.includes('Files') ?? false;
+    const bindDrop = (target: HTMLElement, openDocuments: boolean) => {
+      target.addEventListener('dragover', (event) => {
+        if (!acceptsFiles(event)) return;
+        event.preventDefault();
+        event.stopPropagation();
+        target.classList.add('image-drop-active');
+        if (event.dataTransfer) event.dataTransfer.dropEffect = 'copy';
+      });
+      target.addEventListener('dragleave', (event) => {
+        if (event.relatedTarget instanceof Node && target.contains(event.relatedTarget)) return;
+        target.classList.remove('image-drop-active');
+      });
+      target.addEventListener('drop', (event) => {
+        if (!acceptsFiles(event)) return;
+        event.preventDefault();
+        event.stopPropagation();
+        target.classList.remove('image-drop-active');
+        const files = [...(event.dataTransfer?.files ?? [])];
+        if (openDocuments || !this.editor.hasDocument) {
+          this.editor.run(() => this.editor.files.openDroppedImages(files));
+        } else {
+          const images = files.filter((file) => file.type.startsWith('image/'));
+          this.editor.run(async () => { for (const file of images) await this.editor.addImage(file.name, file); });
+        }
+      });
+    };
+    bindDrop(element('document-tabs'), true);
+    bindDrop(this.editor.stage, false);
   }
 }

@@ -110,6 +110,15 @@ function registerDocumentFiles({ app, ipcMain, dialog, settings }, ownerOf) {
     await rememberRecent(filePath);
   });
 
+  ipcMain.handle('document:forget', async (event, token) => {
+    const { state } = stateFor(event);
+    const filePath = typeof token === 'string' ? state.handles.get(token) : null;
+    if (!filePath) throw new Error('Unknown document file handle.');
+    const key = pathKey(filePath);
+    recentPaths = (await loadRecentPaths()).filter((candidate) => pathKey(candidate) !== key);
+    await persistRecentPaths().catch((error) => console.error('Unable to write recent files:', error));
+  });
+
   ipcMain.handle('document:read', async (event, token) => {
     const { state } = stateFor(event);
     const filePath = state.handles.get(token);

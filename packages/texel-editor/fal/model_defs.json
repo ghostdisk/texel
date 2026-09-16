@@ -89,6 +89,24 @@
       }
     },
     "bria/genfill/v2": {
+      "displayName": "Genfill",
+      "description": "The GenFill Route enables the generation of objects by prompt in a specific region of an image.\nYou can define the area for object generation by using a mask that outlines the region where the object will be created. Our model is optimized to work seamlessly with blob-shaped masks.",
+      "tags": [],
+      "types": [
+        "general-editing"
+      ],
+      "imageField": "image_url",
+      "outputField": "images",
+      "inputImages": 1,
+      "minimumInputImages": 1,
+      "promptField": null,
+      "fields": {
+        "seed": "seed",
+        "mask": "mask_url"
+      },
+      "capabilities": {
+        "maskRequired": true
+      },
       "ratings": {
         "affordability": 4,
         "speed": 3,
@@ -103,9 +121,25 @@
       }
     },
     "bytedance/seedream/v5/lite/edit": {
+      "displayName": "Seedream",
+      "description": "Image editing endpoint for the fast Lite version of Seedream 5.0, supporting high quality intelligent image editing with multiple inputs.",
+      "tags": [
+        "bytedance",
+        "seedream-5.0-lite",
+        "edit"
+      ],
+      "types": [
+        "general-editing"
+      ],
+      "imageField": "image_urls",
+      "outputField": "images",
+      "inputImages": 1,
+      "minimumInputImages": 1,
+      "promptField": "prompt",
       "fields": {
         "imageSize": "image_size",
-        "imageSizeObject": true
+        "imageSizeObject": true,
+        "numImages": "num_images"
       },
       "capabilities": {
         "size": {
@@ -158,6 +192,26 @@
         "realtimeCandidate": false
       }
     },
+    "fal-ai/birefnet": {
+      "displayName": "BiRefNet Background Removal V2",
+      "description": "High-resolution foreground segmentation and background removal using BiRefNet.",
+      "tags": [
+        "image-to-image",
+        "background-removal",
+        "segmentation"
+      ],
+      "types": [
+        "background-removal"
+      ],
+      "imageField": "image_url",
+      "outputField": "image",
+      "inputImages": 1,
+      "minimumInputImages": 1,
+      "promptField": null,
+      "fields": {
+        "outputFormat": "output_format"
+      }
+    },
     "fal-ai/boogu-image/edit": {
       "displayName": "Boogu Image",
       "description": "Image To Image Model using Boogu-Image",
@@ -177,8 +231,8 @@
         "seed": "seed",
         "outputFormat": "output_format",
         "imageSize": "image_size",
-        "numImages": "num_images",
-        "imageSizeObject": true
+        "imageSizeObject": true,
+        "numImages": "num_images"
       },
       "capabilities": {
         "size": {
@@ -288,6 +342,14 @@
         "outputFormat": "output_format",
         "resolution": "resolution"
       },
+      "capabilities": {
+        "size": {
+          "shortSideBuckets": [
+            480,
+            720
+          ]
+        }
+      },
       "ratings": {
         "affordability": 5,
         "speed": 4,
@@ -299,14 +361,6 @@
         "inferred": [],
         "qualityScope": "general_editing",
         "realtimeCandidate": false
-      },
-      "capabilities": {
-        "size": {
-          "shortSideBuckets": [
-            480,
-            720
-          ]
-        }
       }
     },
     "fal-ai/chrono-edit-lora": {
@@ -332,6 +386,14 @@
         "outputFormat": "output_format",
         "resolution": "resolution"
       },
+      "capabilities": {
+        "size": {
+          "shortSideBuckets": [
+            480,
+            720
+          ]
+        }
+      },
       "ratings": {
         "affordability": 4,
         "speed": 4,
@@ -343,14 +405,6 @@
         "inferred": [],
         "qualityScope": "general_editing",
         "realtimeCandidate": false
-      },
-      "capabilities": {
-        "size": {
-          "shortSideBuckets": [
-            480,
-            720
-          ]
-        }
       }
     },
     "fal-ai/dreamomni2/edit": {
@@ -454,8 +508,8 @@
         "seed": "seed",
         "strength": "strength",
         "imageSize": "image_size",
-        "numImages": "num_images",
-        "imageSizeObject": true
+        "imageSizeObject": true,
+        "numImages": "num_images"
       },
       "capabilities": {
         "size": {
@@ -505,8 +559,8 @@
         "strength": "strength",
         "mask": "mask_url",
         "imageSize": "image_size",
-        "numImages": "num_images",
-        "imageSizeObject": true
+        "imageSizeObject": true,
+        "numImages": "num_images"
       },
       "capabilities": {
         "maskRequired": true,
@@ -552,8 +606,8 @@
         "seed": "seed",
         "strength": "strength",
         "imageSize": "image_size",
-        "numImages": "num_images",
-        "imageSizeObject": true
+        "imageSizeObject": true,
+        "numImages": "num_images"
       },
       "capabilities": {
         "size": {
@@ -598,8 +652,8 @@
         "strength": "strength",
         "mask": "mask_url",
         "imageSize": "image_size",
-        "numImages": "num_images",
-        "imageSizeObject": true
+        "imageSizeObject": true,
+        "numImages": "num_images"
       },
       "capabilities": {
         "maskRequired": true,
@@ -649,8 +703,8 @@
         "strength": "strength",
         "mask": "mask_url",
         "imageSize": "image_size",
-        "numImages": "num_images",
-        "imageSizeObject": true
+        "imageSizeObject": true,
+        "numImages": "num_images"
       },
       "capabilities": {
         "maskRequired": true,
@@ -700,8 +754,8 @@
         "seed": "seed",
         "strength": "strength",
         "imageSize": "image_size",
-        "numImages": "num_images",
-        "imageSizeObject": true
+        "imageSizeObject": true,
+        "numImages": "num_images"
       },
       "capabilities": {
         "size": {
@@ -751,8 +805,8 @@
         "strength": "strength",
         "mask": "mask_url",
         "imageSize": "image_size",
-        "numImages": "num_images",
-        "imageSizeObject": true
+        "imageSizeObject": true,
+        "numImages": "num_images"
       },
       "capabilities": {
         "maskRequired": true,
@@ -830,8 +884,8 @@
         "seed": "seed",
         "outputFormat": "output_format",
         "imageSize": "image_size",
-        "numImages": "num_images",
-        "imageSizeObject": true
+        "imageSizeObject": true,
+        "numImages": "num_images"
       },
       "capabilities": {
         "size": {
@@ -873,8 +927,8 @@
         "seed": "seed",
         "outputFormat": "output_format",
         "imageSize": "image_size",
-        "numImages": "num_images",
-        "imageSizeObject": true
+        "imageSizeObject": true,
+        "numImages": "num_images"
       },
       "capabilities": {
         "size": {
@@ -896,6 +950,23 @@
       }
     },
     "fal-ai/flowedit": {
+      "displayName": "Flow-Edit",
+      "description": "The model provides you high quality image editing capabilities.",
+      "tags": [
+        "editing"
+      ],
+      "types": [
+        "general-editing"
+      ],
+      "imageField": "image_url",
+      "outputField": "image",
+      "inputImages": 1,
+      "minimumInputImages": 1,
+      "promptField": null,
+      "fields": {
+        "steps": "num_inference_steps",
+        "seed": "seed"
+      },
       "ratings": {
         "affordability": 4,
         "speed": 2,
@@ -913,6 +984,25 @@
       }
     },
     "fal-ai/flux-1/dev/image-to-image": {
+      "displayName": "FLUX.1 [dev]",
+      "description": "FLUX.1 [dev] is a 12 billion parameter flow transformer that generates high-quality images from text. It is suitable for personal and commercial use.\n",
+      "tags": [],
+      "types": [
+        "general-editing"
+      ],
+      "imageField": "image_url",
+      "outputField": "images",
+      "inputImages": 1,
+      "minimumInputImages": 1,
+      "promptField": "prompt",
+      "fields": {
+        "steps": "num_inference_steps",
+        "guidance": "guidance_scale",
+        "seed": "seed",
+        "strength": "strength",
+        "outputFormat": "output_format",
+        "numImages": "num_images"
+      },
       "ratings": {
         "affordability": 4,
         "speed": 4,
@@ -927,6 +1017,25 @@
       }
     },
     "fal-ai/flux-1/krea/image-to-image": {
+      "displayName": "FLUX.1 Krea [dev]",
+      "description": "FLUX.1 Krea [dev] is a 12 billion parameter flow transformer that generates high-quality images from text with incredible aesthetics. It is suitable for personal and commercial use.\n",
+      "tags": [],
+      "types": [
+        "general-editing"
+      ],
+      "imageField": "image_url",
+      "outputField": "images",
+      "inputImages": 1,
+      "minimumInputImages": 1,
+      "promptField": "prompt",
+      "fields": {
+        "steps": "num_inference_steps",
+        "guidance": "guidance_scale",
+        "seed": "seed",
+        "strength": "strength",
+        "outputFormat": "output_format",
+        "numImages": "num_images"
+      },
       "ratings": {
         "affordability": 4,
         "speed": 4,
@@ -941,6 +1050,25 @@
       }
     },
     "fal-ai/flux-1/srpo/image-to-image": {
+      "displayName": "FLUX.1 SRPO [dev]",
+      "description": "FLUX.1 SRPO [dev] is a 12 billion parameter flow transformer that generates high-quality images from text with incredible aesthetics. It is suitable for personal and commercial use.\n",
+      "tags": [],
+      "types": [
+        "general-editing"
+      ],
+      "imageField": "image_url",
+      "outputField": "images",
+      "inputImages": 1,
+      "minimumInputImages": 1,
+      "promptField": "prompt",
+      "fields": {
+        "steps": "num_inference_steps",
+        "guidance": "guidance_scale",
+        "seed": "seed",
+        "strength": "strength",
+        "outputFormat": "output_format",
+        "numImages": "num_images"
+      },
       "ratings": {
         "affordability": 4,
         "speed": 4,
@@ -1073,9 +1201,25 @@
       }
     },
     "fal-ai/flux-2/edit": {
+      "displayName": "FLUX 2 Edit",
+      "description": "Image-to-image editing with FLUX.2 [dev] from Black Forest Labs. Precise modifications using natural language descriptions and hex color control.",
+      "tags": [],
+      "types": [
+        "general-editing"
+      ],
+      "imageField": "image_urls",
+      "outputField": "images",
+      "inputImages": 1,
+      "minimumInputImages": 1,
+      "promptField": "prompt",
       "fields": {
+        "steps": "num_inference_steps",
+        "guidance": "guidance_scale",
+        "seed": "seed",
+        "outputFormat": "output_format",
         "imageSize": "image_size",
-        "imageSizeObject": true
+        "imageSizeObject": true,
+        "numImages": "num_images"
       },
       "capabilities": {
         "size": {
@@ -1097,9 +1241,24 @@
       }
     },
     "fal-ai/flux-2/flash/edit": {
+      "displayName": "FLUX 2 Flash Edit",
+      "description": "Image-to-image editing with FLUX.2 [dev] from Black Forest Labs. Precise modifications using natural language descriptions and hex color control—in a flash.",
+      "tags": [],
+      "types": [
+        "general-editing"
+      ],
+      "imageField": "image_urls",
+      "outputField": "images",
+      "inputImages": 1,
+      "minimumInputImages": 1,
+      "promptField": "prompt",
       "fields": {
+        "guidance": "guidance_scale",
+        "seed": "seed",
+        "outputFormat": "output_format",
         "imageSize": "image_size",
-        "imageSizeObject": true
+        "imageSizeObject": true,
+        "numImages": "num_images"
       },
       "capabilities": {
         "size": {
@@ -1121,9 +1280,26 @@
       }
     },
     "fal-ai/flux-2/klein/4b/base/edit": {
+      "displayName": "FLUX.2 [klein] 4B Base",
+      "description": "Image-to-image editing with FLUX.2 [klein] 4B Base from Black Forest Labs. Precise modifications using natural language descriptions and hex color control.",
+      "tags": [],
+      "types": [
+        "general-editing"
+      ],
+      "imageField": "image_urls",
+      "outputField": "images",
+      "inputImages": 1,
+      "minimumInputImages": 1,
+      "promptField": "prompt",
       "fields": {
+        "negativePrompt": "negative_prompt",
+        "steps": "num_inference_steps",
+        "guidance": "guidance_scale",
+        "seed": "seed",
+        "outputFormat": "output_format",
         "imageSize": "image_size",
-        "imageSizeObject": true
+        "imageSizeObject": true,
+        "numImages": "num_images"
       },
       "capabilities": {
         "size": {
@@ -1145,9 +1321,24 @@
       }
     },
     "fal-ai/flux-2/klein/4b/edit": {
+      "displayName": "FLUX.2 [klein] 4B",
+      "description": "Image-to-image editing with FLUX.2 [klein] 4B from Black Forest Labs. Precise modifications using natural language descriptions and hex color control.",
+      "tags": [],
+      "types": [
+        "general-editing"
+      ],
+      "imageField": "image_urls",
+      "outputField": "images",
+      "inputImages": 1,
+      "minimumInputImages": 1,
+      "promptField": "prompt",
       "fields": {
+        "steps": "num_inference_steps",
+        "seed": "seed",
+        "outputFormat": "output_format",
         "imageSize": "image_size",
-        "imageSizeObject": true
+        "imageSizeObject": true,
+        "numImages": "num_images"
       },
       "capabilities": {
         "size": {
@@ -1170,9 +1361,24 @@
       }
     },
     "fal-ai/flux-2/klein/4b/edit/lora": {
+      "displayName": "FLUX.2 [klein] 4B LoRA",
+      "description": "Image-to-image editing with FLUX.2 [klein] 4B from Black Forest Labs and custom LoRA. Precise modifications using natural language descriptions and hex color control.",
+      "tags": [],
+      "types": [
+        "general-editing"
+      ],
+      "imageField": "image_urls",
+      "outputField": "images",
+      "inputImages": 1,
+      "minimumInputImages": 1,
+      "promptField": "prompt",
       "fields": {
+        "steps": "num_inference_steps",
+        "seed": "seed",
+        "outputFormat": "output_format",
         "imageSize": "image_size",
-        "imageSizeObject": true
+        "imageSizeObject": true,
+        "numImages": "num_images"
       },
       "capabilities": {
         "size": {
@@ -1194,9 +1400,26 @@
       }
     },
     "fal-ai/flux-2/klein/9b/base/edit": {
+      "displayName": "FLUX.2 [klein] 9B Base",
+      "description": "Image-to-image editing with Flux 2 [klein] 9B Base from Black Forest Labs. Precise modifications using natural language descriptions and hex color control.",
+      "tags": [],
+      "types": [
+        "general-editing"
+      ],
+      "imageField": "image_urls",
+      "outputField": "images",
+      "inputImages": 1,
+      "minimumInputImages": 1,
+      "promptField": "prompt",
       "fields": {
+        "negativePrompt": "negative_prompt",
+        "steps": "num_inference_steps",
+        "guidance": "guidance_scale",
+        "seed": "seed",
+        "outputFormat": "output_format",
         "imageSize": "image_size",
-        "imageSizeObject": true
+        "imageSizeObject": true,
+        "numImages": "num_images"
       },
       "capabilities": {
         "size": {
@@ -1218,9 +1441,24 @@
       }
     },
     "fal-ai/flux-2/klein/9b/edit": {
+      "displayName": "FLUX.2 [klein] 9B",
+      "description": "Image-to-image editing with FLUX.2 [klein] 9B from Black Forest Labs. Precise modifications using natural language descriptions and hex color control.",
+      "tags": [],
+      "types": [
+        "general-editing"
+      ],
+      "imageField": "image_urls",
+      "outputField": "images",
+      "inputImages": 1,
+      "minimumInputImages": 1,
+      "promptField": "prompt",
       "fields": {
+        "steps": "num_inference_steps",
+        "seed": "seed",
+        "outputFormat": "output_format",
         "imageSize": "image_size",
-        "imageSizeObject": true
+        "imageSizeObject": true,
+        "numImages": "num_images"
       },
       "capabilities": {
         "size": {
@@ -1242,9 +1480,24 @@
       }
     },
     "fal-ai/flux-2/klein/9b/edit/lora": {
+      "displayName": "FLUX.2 [klein] 9B LoRA",
+      "description": "Image-to-image editing with FLUX.2 [klein] 9B from Black Forest Labs and custom LoRA. Precise modifications using natural language descriptions and hex color control.",
+      "tags": [],
+      "types": [
+        "general-editing"
+      ],
+      "imageField": "image_urls",
+      "outputField": "images",
+      "inputImages": 1,
+      "minimumInputImages": 1,
+      "promptField": "prompt",
       "fields": {
+        "steps": "num_inference_steps",
+        "seed": "seed",
+        "outputFormat": "output_format",
         "imageSize": "image_size",
-        "imageSizeObject": true
+        "imageSizeObject": true,
+        "numImages": "num_images"
       },
       "capabilities": {
         "size": {
@@ -1266,6 +1519,23 @@
       }
     },
     "fal-ai/flux-2/klein/realtime": {
+      "displayName": "FLUX.2 Klein Realtime",
+      "description": "Realtime WebSocket image editing, which is not supported by the Fal queue provider.",
+      "tags": [
+        "image-to-image",
+        "realtime"
+      ],
+      "types": [],
+      "imageField": "image_url",
+      "outputField": "images",
+      "inputImages": 1,
+      "minimumInputImages": 1,
+      "promptField": "prompt",
+      "fields": {
+        "steps": "num_inference_steps",
+        "seed": "seed",
+        "imageSize": "image_size"
+      },
       "ratings": {
         "affordability": 5,
         "speed": 5,
@@ -1283,9 +1553,24 @@
       }
     },
     "fal-ai/flux-2/turbo/edit": {
+      "displayName": "FLUX 2 Turbo Edit",
+      "description": "Image-to-image editing with FLUX.2 [dev] from Black Forest Labs. Precise modifications using natural language descriptions and hex color control—all at turbo speed.",
+      "tags": [],
+      "types": [
+        "general-editing"
+      ],
+      "imageField": "image_urls",
+      "outputField": "images",
+      "inputImages": 1,
+      "minimumInputImages": 1,
+      "promptField": "prompt",
       "fields": {
+        "guidance": "guidance_scale",
+        "seed": "seed",
+        "outputFormat": "output_format",
         "imageSize": "image_size",
-        "imageSizeObject": true
+        "imageSizeObject": true,
+        "numImages": "num_images"
       },
       "capabilities": {
         "size": {
@@ -1331,8 +1616,8 @@
         "mask": "mask_url",
         "outputFormat": "output_format",
         "imageSize": "image_size",
-        "numImages": "num_images",
-        "imageSizeObject": true
+        "imageSizeObject": true,
+        "numImages": "num_images"
       },
       "capabilities": {
         "maskRequired": true,
@@ -1397,6 +1682,24 @@
       }
     },
     "fal-ai/flux-kontext/dev": {
+      "displayName": "FLUX.1 Kontext [dev]",
+      "description": "Frontier image editing model.",
+      "tags": [],
+      "types": [
+        "general-editing"
+      ],
+      "imageField": "image_url",
+      "outputField": "images",
+      "inputImages": 1,
+      "minimumInputImages": 1,
+      "promptField": "prompt",
+      "fields": {
+        "steps": "num_inference_steps",
+        "guidance": "guidance_scale",
+        "seed": "seed",
+        "outputFormat": "output_format",
+        "numImages": "num_images"
+      },
       "ratings": {
         "affordability": 4,
         "speed": 4,
@@ -1433,8 +1736,8 @@
         "mask": "mask_url",
         "outputFormat": "output_format",
         "imageSize": "image_size",
-        "numImages": "num_images",
-        "imageSizeObject": true
+        "imageSizeObject": true,
+        "numImages": "num_images"
       },
       "capabilities": {
         "maskRequired": true,
@@ -1478,8 +1781,8 @@
         "mask": "mask_url",
         "outputFormat": "output_format",
         "imageSize": "image_size",
-        "numImages": "num_images",
-        "imageSizeObject": true
+        "imageSizeObject": true,
+        "numImages": "num_images"
       },
       "capabilities": {
         "maskRequired": true,
@@ -1765,12 +2068,6 @@
       },
       "capabilities": {
         "size": {
-          "pixelAreaBuckets": [
-            262144,
-            1048576,
-            4194304,
-            16777216
-          ],
           "aspectRatios": [
             "21:9",
             "16:9",
@@ -1786,6 +2083,12 @@
             "1:4",
             "8:1",
             "1:8"
+          ],
+          "pixelAreaBuckets": [
+            262144,
+            1048576,
+            4194304,
+            16777216
           ]
         }
       },
@@ -1889,8 +2192,8 @@
         "strength": "strength",
         "outputFormat": "output_format",
         "imageSize": "image_size",
-        "numImages": "num_images",
-        "imageSizeObject": true
+        "imageSizeObject": true,
+        "numImages": "num_images"
       },
       "capabilities": {
         "size": {
@@ -1912,9 +2215,29 @@
       }
     },
     "fal-ai/hunyuan-image/v3/instruct/edit": {
+      "displayName": "Hunyuan Image",
+      "description": "Image editing endpoint for Hunyuan Image 3.0 Instruct.",
+      "tags": [
+        "tencent",
+        "hunyuan-image",
+        "instruct",
+        "edit"
+      ],
+      "types": [
+        "general-editing"
+      ],
+      "imageField": "image_urls",
+      "outputField": "images",
+      "inputImages": 1,
+      "minimumInputImages": 1,
+      "promptField": "prompt",
       "fields": {
+        "guidance": "guidance_scale",
+        "seed": "seed",
+        "outputFormat": "output_format",
         "imageSize": "image_size",
-        "imageSizeObject": true
+        "imageSizeObject": true,
+        "numImages": "num_images"
       },
       "capabilities": {
         "size": {
@@ -2292,8 +2615,8 @@
         "seed": "seed",
         "strength": "strength",
         "imageSize": "image_size",
-        "numImages": "num_images",
-        "imageSizeObject": true
+        "imageSizeObject": true,
+        "numImages": "num_images"
       },
       "capabilities": {
         "size": {
@@ -2623,8 +2946,8 @@
         "strength": "strength",
         "outputFormat": "output_format",
         "imageSize": "image_size",
-        "numImages": "num_images",
-        "imageSizeObject": true
+        "imageSizeObject": true,
+        "numImages": "num_images"
       },
       "capabilities": {
         "size": {
@@ -2870,12 +3193,6 @@
       },
       "capabilities": {
         "size": {
-          "pixelAreaBuckets": [
-            262144,
-            1048576,
-            4194304,
-            16777216
-          ],
           "aspectRatios": [
             "21:9",
             "16:9",
@@ -2891,6 +3208,12 @@
             "1:4",
             "8:1",
             "1:8"
+          ],
+          "pixelAreaBuckets": [
+            262144,
+            1048576,
+            4194304,
+            16777216
           ]
         }
       },
@@ -3087,8 +3410,8 @@
         "strength": "strength",
         "mask": "mask_url",
         "imageSize": "image_size",
-        "numImages": "num_images",
-        "imageSizeObject": true
+        "imageSizeObject": true,
+        "numImages": "num_images"
       },
       "capabilities": {
         "maskRequired": true,
@@ -3137,8 +3460,8 @@
         "seed": "seed",
         "outputFormat": "output_format",
         "imageSize": "image_size",
-        "numImages": "num_images",
-        "imageSizeObject": true
+        "imageSizeObject": true,
+        "numImages": "num_images"
       },
       "capabilities": {
         "size": {
@@ -3160,9 +3483,31 @@
       }
     },
     "fal-ai/qwen-image-edit-2509": {
+      "displayName": "Qwen Image Edit 2509",
+      "description": "Endpoint for Qwen's Image Editing Plus model also known as Qwen-Image-Edit-2509. Has superior text editing capabilities and multi-image support.",
+      "tags": [
+        "image-editing",
+        "image-to-image",
+        "high-quality-text"
+      ],
+      "types": [
+        "general-editing",
+        "generate-from-image"
+      ],
+      "imageField": "image_urls",
+      "outputField": "images",
+      "inputImages": 1,
+      "minimumInputImages": 1,
+      "promptField": "prompt",
       "fields": {
+        "negativePrompt": "negative_prompt",
+        "steps": "num_inference_steps",
+        "guidance": "guidance_scale",
+        "seed": "seed",
+        "outputFormat": "output_format",
         "imageSize": "image_size",
-        "imageSizeObject": true
+        "imageSizeObject": true,
+        "numImages": "num_images"
       },
       "capabilities": {
         "size": {
@@ -3184,9 +3529,30 @@
       }
     },
     "fal-ai/qwen-image-edit-2509-lora": {
+      "displayName": "Qwen Image Edit 2509 Lora",
+      "description": "LoRA endpoint for the Qwen Image Edit 2509 model.",
+      "tags": [
+        "image-to-image",
+        "image-editing"
+      ],
+      "types": [
+        "generate-from-image",
+        "general-editing"
+      ],
+      "imageField": "image_urls",
+      "outputField": "images",
+      "inputImages": 1,
+      "minimumInputImages": 1,
+      "promptField": "prompt",
       "fields": {
+        "negativePrompt": "negative_prompt",
+        "steps": "num_inference_steps",
+        "guidance": "guidance_scale",
+        "seed": "seed",
+        "outputFormat": "output_format",
         "imageSize": "image_size",
-        "imageSizeObject": true
+        "imageSizeObject": true,
+        "numImages": "num_images"
       },
       "capabilities": {
         "size": {
@@ -3231,8 +3597,8 @@
         "seed": "seed",
         "outputFormat": "output_format",
         "imageSize": "image_size",
-        "numImages": "num_images",
-        "imageSizeObject": true
+        "imageSizeObject": true,
+        "numImages": "num_images"
       },
       "capabilities": {
         "size": {
@@ -3277,8 +3643,8 @@
         "seed": "seed",
         "outputFormat": "output_format",
         "imageSize": "image_size",
-        "numImages": "num_images",
-        "imageSizeObject": true
+        "imageSizeObject": true,
+        "numImages": "num_images"
       },
       "capabilities": {
         "size": {
@@ -3322,8 +3688,8 @@
         "seed": "seed",
         "outputFormat": "output_format",
         "imageSize": "image_size",
-        "numImages": "num_images",
-        "imageSizeObject": true
+        "imageSizeObject": true,
+        "numImages": "num_images"
       },
       "capabilities": {
         "size": {
@@ -3370,8 +3736,8 @@
         "mask": "mask_url",
         "outputFormat": "output_format",
         "imageSize": "image_size",
-        "numImages": "num_images",
-        "imageSizeObject": true
+        "imageSizeObject": true,
+        "numImages": "num_images"
       },
       "capabilities": {
         "maskRequired": true,
@@ -3413,8 +3779,8 @@
         "seed": "seed",
         "outputFormat": "output_format",
         "imageSize": "image_size",
-        "numImages": "num_images",
-        "imageSizeObject": true
+        "imageSizeObject": true,
+        "numImages": "num_images"
       },
       "capabilities": {
         "size": {
@@ -3458,8 +3824,8 @@
         "seed": "seed",
         "strength": "strength",
         "imageSize": "image_size",
-        "numImages": "num_images",
-        "imageSizeObject": true
+        "imageSizeObject": true,
+        "numImages": "num_images"
       },
       "capabilities": {
         "size": {
@@ -3507,8 +3873,8 @@
         "strength": "strength",
         "mask": "mask_url",
         "imageSize": "image_size",
-        "numImages": "num_images",
-        "imageSizeObject": true
+        "imageSizeObject": true,
+        "numImages": "num_images"
       },
       "capabilities": {
         "maskRequired": true,
@@ -3553,8 +3919,8 @@
         "seed": "seed",
         "outputFormat": "output_format",
         "imageSize": "image_size",
-        "numImages": "num_images",
-        "imageSizeObject": true
+        "imageSizeObject": true,
+        "numImages": "num_images"
       },
       "capabilities": {
         "size": {
@@ -3672,8 +4038,8 @@
         "negativePrompt": "negative_prompt",
         "seed": "seed",
         "imageSize": "image_size",
-        "numImages": "num_images",
-        "imageSizeObject": true
+        "imageSizeObject": true,
+        "numImages": "num_images"
       },
       "capabilities": {
         "size": {
@@ -3715,8 +4081,8 @@
         "seed": "seed",
         "strength": "strength",
         "imageSize": "image_size",
-        "aspectRatio": "aspect_ratio",
-        "imageSizeObject": true
+        "imageSizeObject": true,
+        "aspectRatio": "aspect_ratio"
       },
       "capabilities": {
         "size": {
@@ -3743,9 +4109,29 @@
       }
     },
     "fal-ai/wan/v2.7/edit": {
+      "displayName": "Wan",
+      "description": "Transform and edit existing images with text-guided instructions using the WAN 2.7 model for creative image manipulation.",
+      "tags": [
+        "wan",
+        "image-to-image",
+        "image-editing"
+      ],
+      "types": [
+        "generate-from-image",
+        "general-editing"
+      ],
+      "imageField": "image_urls",
+      "outputField": "images",
+      "inputImages": 1,
+      "minimumInputImages": 1,
+      "promptField": "prompt",
       "fields": {
+        "negativePrompt": "negative_prompt",
+        "seed": "seed",
+        "outputFormat": "output_format",
         "imageSize": "image_size",
-        "imageSizeObject": true
+        "imageSizeObject": true,
+        "numImages": "num_images"
       },
       "capabilities": {
         "size": {
@@ -3767,9 +4153,28 @@
       }
     },
     "fal-ai/wan/v2.7/pro/edit": {
+      "displayName": "Wan",
+      "description": "Edit and transform images using text instructions with the WAN 2.7 Pro model for precise, professional-grade image modifications.",
+      "tags": [
+        "wan",
+        "image-editing",
+        "pro"
+      ],
+      "types": [
+        "general-editing"
+      ],
+      "imageField": "image_urls",
+      "outputField": "images",
+      "inputImages": 1,
+      "minimumInputImages": 1,
+      "promptField": "prompt",
       "fields": {
+        "negativePrompt": "negative_prompt",
+        "seed": "seed",
+        "outputFormat": "output_format",
         "imageSize": "image_size",
-        "imageSizeObject": true
+        "imageSizeObject": true,
+        "numImages": "num_images"
       },
       "capabilities": {
         "size": {
@@ -3812,8 +4217,8 @@
         "strength": "strength",
         "outputFormat": "output_format",
         "imageSize": "image_size",
-        "numImages": "num_images",
-        "imageSizeObject": true
+        "imageSizeObject": true,
+        "numImages": "num_images"
       },
       "capabilities": {
         "size": {
@@ -3857,8 +4262,8 @@
         "strength": "strength",
         "outputFormat": "output_format",
         "imageSize": "image_size",
-        "numImages": "num_images",
-        "imageSizeObject": true
+        "imageSizeObject": true,
+        "numImages": "num_images"
       },
       "capabilities": {
         "size": {
@@ -3900,8 +4305,8 @@
         "mask": "mask_image_url",
         "outputFormat": "output_format",
         "imageSize": "image_size",
-        "numImages": "num_images",
-        "imageSizeObject": true
+        "imageSizeObject": true,
+        "numImages": "num_images"
       },
       "capabilities": {
         "maskRequired": true,
@@ -3944,8 +4349,8 @@
         "mask": "mask_image_url",
         "outputFormat": "output_format",
         "imageSize": "image_size",
-        "numImages": "num_images",
-        "imageSizeObject": true
+        "imageSizeObject": true,
+        "numImages": "num_images"
       },
       "capabilities": {
         "maskRequired": true,
@@ -3968,8 +4373,22 @@
       }
     },
     "google/nano-banana-lite/edit": {
+      "displayName": "Nano Banana Lite Edit",
+      "description": "Nano banana lite is the efficiency-focused model in the image generation family. Sub-2 second latency with cost-effective generation and editing, fast multi-turn local edits, and 14 supported aspect ratios.",
+      "tags": [],
+      "types": [
+        "general-editing"
+      ],
+      "imageField": "image_urls",
+      "outputField": "images",
+      "inputImages": 1,
+      "minimumInputImages": 1,
+      "promptField": "prompt",
       "fields": {
-        "aspectRatio": "aspect_ratio"
+        "seed": "seed",
+        "outputFormat": "output_format",
+        "aspectRatio": "aspect_ratio",
+        "numImages": "num_images"
       },
       "capabilities": {
         "size": {
@@ -4008,8 +4427,27 @@
       }
     },
     "microsoft/mai-image-2.5-pro/edit": {
+      "displayName": "MAI Image 2.5 Pro (Edit)",
+      "description": "Apply precise, controllable edits to a reference image while preserving composition, typography, identity, and fine visual detail.",
+      "tags": [
+        "image-editing",
+        "typography",
+        "photorealism",
+        "controllable-editing",
+        "multi-image"
+      ],
+      "types": [
+        "general-editing"
+      ],
+      "imageField": "image_url",
+      "outputField": "images",
+      "inputImages": 1,
+      "minimumInputImages": 1,
+      "promptField": "prompt",
       "fields": {
-        "aspectRatio": "aspect_ratio"
+        "outputFormat": "output_format",
+        "aspectRatio": "aspect_ratio",
+        "numImages": "num_images"
       },
       "capabilities": {
         "size": {
@@ -4039,9 +4477,27 @@
       }
     },
     "openai/gpt-image-2/edit": {
+      "displayName": "GPT Image 2 API",
+      "description": "GPT Image 2, OpenAI's latest image model, is capable of making fine-grained, detailed edits to images.",
+      "tags": [
+        "gpt-image-2",
+        "openai",
+        "chatgpt-images-2"
+      ],
+      "types": [
+        "general-editing"
+      ],
+      "imageField": "image_urls",
+      "outputField": "images",
+      "inputImages": 16,
+      "minimumInputImages": 1,
+      "promptField": "prompt",
       "fields": {
+        "mask": "mask_url",
+        "outputFormat": "output_format",
         "imageSize": "image_size",
-        "imageSizeObject": true
+        "imageSizeObject": true,
+        "numImages": "num_images"
       },
       "capabilities": {
         "size": {
@@ -4064,11 +4520,30 @@
       }
     },
     "rundiffusion-fal/juggernaut-flux-lora/inpainting": {
+      "displayName": "Juggernaut Flux Lora",
+      "description": "Juggernaut Base Flux LoRA Inpainting by RunDiffusion is a drop-in replacement for Flux [Dev] inpainting that delivers sharper details, richer colors, and enhanced realism to all your LoRAs and LyCORIS with full compatibility.",
+      "tags": [],
+      "types": [
+        "general-editing"
+      ],
+      "imageField": "image_url",
+      "outputField": "images",
+      "inputImages": 1,
+      "minimumInputImages": 1,
+      "promptField": "prompt",
       "fields": {
+        "steps": "num_inference_steps",
+        "guidance": "guidance_scale",
+        "seed": "seed",
+        "strength": "strength",
+        "mask": "mask_url",
+        "outputFormat": "output_format",
         "imageSize": "image_size",
-        "imageSizeObject": true
+        "imageSizeObject": true,
+        "numImages": "num_images"
       },
       "capabilities": {
+        "maskRequired": true,
         "size": {
           "maxWidth": 14142,
           "maxHeight": 14142
@@ -4088,6 +4563,27 @@
       }
     },
     "rundiffusion-fal/juggernaut-flux/base/image-to-image": {
+      "displayName": "Juggernaut Flux Base",
+      "description": "Juggernaut Base Flux by RunDiffusion is a drop-in replacement for Flux [Dev] that delivers sharper details, richer colors, and enhanced realism, while instantly boosting LoRAs and LyCORIS with full compatibility.",
+      "tags": [
+        "image-generation"
+      ],
+      "types": [
+        "general-editing"
+      ],
+      "imageField": "image_url",
+      "outputField": "images",
+      "inputImages": 1,
+      "minimumInputImages": 1,
+      "promptField": "prompt",
+      "fields": {
+        "steps": "num_inference_steps",
+        "guidance": "guidance_scale",
+        "seed": "seed",
+        "strength": "strength",
+        "outputFormat": "output_format",
+        "numImages": "num_images"
+      },
       "ratings": {
         "affordability": 4,
         "speed": 3,
@@ -4102,6 +4598,27 @@
       }
     },
     "rundiffusion-fal/juggernaut-flux/pro/image-to-image": {
+      "displayName": "Juggernaut Flux Pro",
+      "description": "Juggernaut Pro Flux by RunDiffusion is the flagship Juggernaut model rivaling some of the most advanced image models available, often surpassing them in realism. It combines Juggernaut Base with RunDiffusion Photo and features enhancements like reduced background blurriness.",
+      "tags": [
+        "image-generation"
+      ],
+      "types": [
+        "general-editing"
+      ],
+      "imageField": "image_url",
+      "outputField": "images",
+      "inputImages": 1,
+      "minimumInputImages": 1,
+      "promptField": "prompt",
+      "fields": {
+        "steps": "num_inference_steps",
+        "guidance": "guidance_scale",
+        "seed": "seed",
+        "strength": "strength",
+        "outputFormat": "output_format",
+        "numImages": "num_images"
+      },
       "ratings": {
         "affordability": 3,
         "speed": 3,
@@ -4116,9 +4633,25 @@
       }
     },
     "wan/v2.6/image-to-image": {
+      "displayName": "Wan v2.6 Image to Image",
+      "description": "Wan 2.6 image-to-image model.",
+      "tags": [
+        "image-to-image"
+      ],
+      "types": [
+        "generate-from-image"
+      ],
+      "imageField": "image_urls",
+      "outputField": "images",
+      "inputImages": 1,
+      "minimumInputImages": 1,
+      "promptField": "prompt",
       "fields": {
+        "negativePrompt": "negative_prompt",
+        "seed": "seed",
         "imageSize": "image_size",
-        "imageSizeObject": true
+        "imageSizeObject": true,
+        "numImages": "num_images"
       },
       "capabilities": {
         "size": {
@@ -4140,9 +4673,26 @@
       }
     },
     "xai/grok-imagine-image/edit": {
+      "displayName": "Grok Imagine Image",
+      "description": "Edit images precisely with xAI's Grok Imagine model",
+      "tags": [
+        "grok",
+        "xai",
+        "image-editing"
+      ],
+      "types": [
+        "general-editing"
+      ],
+      "imageField": "image_urls",
+      "outputField": "images",
+      "inputImages": 1,
+      "minimumInputImages": 1,
+      "promptField": "prompt",
       "fields": {
+        "outputFormat": "output_format",
         "aspectRatio": "aspect_ratio",
-        "resolution": "resolution"
+        "resolution": "resolution",
+        "numImages": "num_images"
       },
       "capabilities": {
         "size": {
@@ -4181,9 +4731,26 @@
       }
     },
     "xai/grok-imagine-image/v2.0/edit": {
+      "displayName": "Grok Imagine Image 2.0",
+      "description": "Edit images with xAi's Grok Imagine 2.0 model.",
+      "tags": [
+        "xai",
+        "grok",
+        "image-editing"
+      ],
+      "types": [
+        "general-editing"
+      ],
+      "imageField": "image_urls",
+      "outputField": "images",
+      "inputImages": 1,
+      "minimumInputImages": 1,
+      "promptField": "prompt",
       "fields": {
+        "outputFormat": "output_format",
         "aspectRatio": "aspect_ratio",
-        "resolution": "resolution"
+        "resolution": "resolution",
+        "numImages": "num_images"
       },
       "capabilities": {
         "size": {

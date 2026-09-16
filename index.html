@@ -92,6 +92,20 @@
               <span data-mode="selection" data-icon="selection"></span>
               <span data-mode="erase" data-icon="eraser"></span>
             </div>
+            <section id="welcome-screen" class="welcome-screen" aria-labelledby="welcome-title" hidden>
+              <div class="welcome-card">
+                <img class="welcome-logo" src="/assets/branding/icon.svg" width="72" height="72" alt="" />
+                <h1 id="welcome-title">Welcome to Texel</h1>
+                <div class="welcome-actions">
+                  <button class="primary" data-action="file.new"><span data-icon="plus"></span><span>New document</span></button>
+                  <button data-action="file.open"><span data-icon="document"></span><span>Open file…</span></button>
+                </div>
+                <section class="welcome-recents" aria-labelledby="welcome-recents-title">
+                  <h2 id="welcome-recents-title">Recent files</h2>
+                  <div id="welcome-recent-files" class="welcome-recent-files"></div>
+                </section>
+              </div>
+            </section>
           </div>
         </main>
         <aside class="sidebar" aria-label="Document panels">

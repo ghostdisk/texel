@@ -74,7 +74,7 @@ export abstract class Generator {
   constructor(protected readonly editor: Editor, protected readonly service: AIRequestService) {
     this.blend = new GenerationBlend(editor.gpu);
     this.masks = new GenerationMask(editor.gpu);
-    this.lens = new GenerationLens(editor.image.width, editor.image.height, () => this.notify());
+    this.lens = new GenerationLens(1, 1, () => this.notify());
   }
 
   get models(): readonly GenerationModel[] {

@@ -1,4 +1,5 @@
 import { ActionRegistry } from './actions';
+import type { Action } from './actions';
 import { EditorClipboard } from './clipboard';
 import { DocumentFiles } from './files/document-files';
 import type { LoadedDocument } from './files/txl';
@@ -99,7 +100,7 @@ export class Editor {
   readonly generators: GeneratorManager;
   readonly files: DocumentFiles;
   readonly documents: EditorDocument[] = [];
-  private currentDocument!: EditorDocument;
+  private currentDocument: EditorDocument | null = null;
   readonly tools = new Map<string, Tool>();
   private baseTool: Tool;
   private altHeld = false;
@@ -195,8 +196,6 @@ export class Editor {
     this.filters.register({ kind: 'drop-shadow', label: 'Drop shadow', group: 'Effects', create: (id) => new DropShadowFilter(id) });
     this.filters.register({ kind: 'invert', label: 'Invert', group: 'Adjustments', create: (id) => new InvertFilter(id) });
     this.filters.register({ kind: 'mask', label: 'Mask', create: (id) => new MaskFilter(id) });
-    this.currentDocument = this.createDocumentSession();
-    this.documents.push(this.currentDocument);
     this.actions = new ActionRegistry(report);
     this.clipboard = new EditorClipboard(this);
     this.baseTool = new BrushTool(this);
@@ -214,19 +213,19 @@ export class Editor {
     this.tools.set('eyedropper', new EyedropperTool(this));
     this.generators = new GeneratorManager(this);
     this.files = new DocumentFiles(this);
-    this.attachDocument(this.currentDocument);
     this.actions.beforeExecute = (action) => {
-      if (!action.id.startsWith('polygon.')) this.finishGesture();
+      if (this.currentDocument && !action.id.startsWith('polygon.')) this.finishGesture();
     };
     this.actions.blocked = () => this.halted || this.reframing || this.files.busy;
     this.actions.context = () => ({
-      hasSelection: !!this.image.selectionMask,
-      canSelectionLayer: !!this.selectionPixelTarget,
+      hasDocument: !!this.currentDocument,
+      hasSelection: !!this.currentDocument?.image.selectionMask,
+      canSelectionLayer: !!this.currentDocument && !!this.selectionPixelTarget,
       isGenerating: this.generators.busy,
-      isCropping: this.activeTool.id === 'crop',
-      hasPolygonPath: this.activeTool.id === 'polygon-lasso' && (this.activeTool as PolygonLassoTool).hasPath,
-      canApplyPolygon: this.activeTool.id === 'polygon-lasso' && (this.activeTool as PolygonLassoTool).canApply,
-      isTransforming: this.activeTool.id === 'transform' && this.image.selectedRoots.length > 0,
+      isCropping: !!this.currentDocument && this.activeTool.id === 'crop',
+      hasPolygonPath: !!this.currentDocument && this.activeTool.id === 'polygon-lasso' && (this.activeTool as PolygonLassoTool).hasPath,
+      canApplyPolygon: !!this.currentDocument && this.activeTool.id === 'polygon-lasso' && (this.activeTool as PolygonLassoTool).canApply,
+      isTransforming: !!this.currentDocument && this.activeTool.id === 'transform' && this.image.selectedRoots.length > 0,
     });
     this.registerActions();
     this.attachInput();
@@ -235,16 +234,18 @@ export class Editor {
   }
 
   get activeTool(): Tool { return this.altHeld && this.baseTool.supportsAltEyedropper ? this.tools.get('eyedropper')! : this.baseTool; }
-  get document(): EditorDocument { return this.currentDocument; }
-  get image(): ImageDocument { return this.currentDocument.image; }
-  get history(): UndoStack { return this.currentDocument.history; }
-  get viewport(): Viewport { return this.currentDocument.viewport; }
-  get showGrid(): boolean { return this.currentDocument.showGrid; }
-  set showGrid(value: boolean) { this.currentDocument.showGrid = value; }
-  get showGuides(): boolean { return this.currentDocument.showGuides; }
-  set showGuides(value: boolean) { this.currentDocument.showGuides = value; }
-  get snapping(): boolean { return this.currentDocument.snapping; }
-  set snapping(value: boolean) { this.currentDocument.snapping = value; }
+  get hasDocument(): boolean { return !!this.currentDocument; }
+  get activeDocument(): EditorDocument | null { return this.currentDocument; }
+  get document(): EditorDocument { return this.currentDocument!; }
+  get image(): ImageDocument { return this.currentDocument!.image; }
+  get history(): UndoStack { return this.currentDocument!.history; }
+  get viewport(): Viewport { return this.currentDocument!.viewport; }
+  get showGrid(): boolean { return this.currentDocument!.showGrid; }
+  set showGrid(value: boolean) { this.currentDocument!.showGrid = value; }
+  get showGuides(): boolean { return this.currentDocument!.showGuides; }
+  set showGuides(value: boolean) { this.currentDocument!.showGuides = value; }
+  get snapping(): boolean { return this.currentDocument!.snapping; }
+  set snapping(value: boolean) { this.currentDocument!.snapping = value; }
   get maskEditLayer(): ImageLayer | null { return this.editedMask; }
   get editingPixels(): boolean { return this.reframing; }
   get panHeld(): boolean { return this.panKeyHeld || this.panMode; }
@@ -257,7 +258,7 @@ export class Editor {
     if (!/^#[0-9a-f]{6}$/i.test(color)) return;
     const channel = (offset: number) => Number.parseInt(color.slice(offset, offset + 2), 16) / 255;
     this.canvasBackground = { r: channel(1), g: channel(3), b: channel(5), a: 1 };
-    this.requestRender();
+    if (this.currentDocument) this.requestRender();
   }
 
   private createDocumentSession(): EditorDocument {
@@ -292,24 +293,45 @@ export class Editor {
   }
 
   private storeDocumentState(): void {
-    const document = this.currentDocument;
+    const document = this.currentDocument!;
     document.selectionMode = this.selectionMode;
     document.selectionReturnId = this.selectionReturnId;
     document.editedMaskId = this.editedMask?.id ?? null;
-    if (this.generators) document.generationLens = [...this.generators.lens.transform] as Matrix;
+    document.generationLens = [...this.generators.lens.transform] as Matrix;
+  }
+
+  private resetTransientDocumentState(): void {
+    this.generators.documentChanging();
+    this.pickGeneration++;
+    this.tools.get('eyedropper')?.cancel();
+    this.activeTool.hover(null);
+    this.previews.clear();
+    this.previewsRequested = false;
+    this.previewsReady = false;
+    this.checkedSelection = null;
+    this.floatingSelection = null;
+    this.floatingSelectionPromise = null;
+    this.selectionMode = false;
+    this.selectionReturnId = null;
+    this.editedMask = null;
+    this.hoverPointer = null;
+    this.panKeyHeld = false;
+    this.panMode = false;
+    this.altHeld = false;
+    this.suppressContextMenu = false;
+    if (this.scheduledFrame) cancelAnimationFrame(this.scheduledFrame);
+    this.scheduledFrame = 0;
+    this.overlay.replaceChildren();
   }
 
   activateDocument(document: EditorDocument): void {
     if (document === this.currentDocument || !this.documents.includes(document)) return;
-    this.finishGesture();
-    this.storeDocumentState();
-    this.generators.documentChanging();
-    this.pickGeneration++;
-    this.tools.get('eyedropper')?.cancel();
-    this.previews.clear();
+    if (this.currentDocument) {
+      this.finishGesture();
+      this.storeDocumentState();
+      this.resetTransientDocumentState();
+    }
     this.currentDocument = document;
-    this.floatingSelection = null;
-    this.floatingSelectionPromise = null;
     this.selectionMode = document.selectionMode && !!document.image.selectionLayer;
     this.selectionReturnId = document.selectionReturnId;
     this.editedMask = document.editedMaskId ?
@@ -369,10 +391,14 @@ export class Editor {
   closeDocument(document: EditorDocument): void {
     const index = this.documents.indexOf(document);
     if (index < 0) return;
-    if (this.documents.length === 1) this.createDocument(1000, 750);
     if (document === this.currentDocument) {
       const next = this.documents[index + 1] ?? this.documents[index - 1];
       if (next) this.activateDocument(next);
+      else {
+        this.finishGesture();
+        this.resetTransientDocumentState();
+        this.currentDocument = null;
+      }
     }
     this.documents.splice(this.documents.indexOf(document), 1);
     document.dispose(this.compositor);
@@ -381,10 +407,13 @@ export class Editor {
   }
 
   disposeDocuments(): void {
-    this.generators.documentChanging();
+    if (this.currentDocument) {
+      this.finishGesture();
+      this.resetTransientDocumentState();
+    }
     this.halted = true;
-    this.finishGesture();
     for (const document of this.documents.splice(0)) document.dispose(this.compositor);
+    this.currentDocument = null;
     this.clipboard.dispose();
   }
 
@@ -469,7 +498,7 @@ export class Editor {
     // Hold the exact pixels being checked: edits and undo can replace the live surface during readback.
     const snapshot = output.snapshot('Selection occupancy');
     this.selectionCheck = this.readback.isEmpty(snapshot).then((empty) => {
-      if (this.image !== image || image.id !== state.documentId || image.selectionLayer !== selection ||
+      if (this.currentDocument?.image !== image || image.id !== state.documentId || image.selectionLayer !== selection ||
         selection.source !== state.source || selection.revision !== state.revision || selection.outputRevision !== state.outputRevision ||
         image.root.revision !== state.rootRevision || this.interacting || this.reframing || this.halted) return;
       this.checkedSelection = state;
@@ -489,7 +518,7 @@ export class Editor {
     }).catch(this.report).finally(() => {
       snapshot.destroy();
       this.selectionCheck = null;
-      this.requestRender();
+      if (this.currentDocument?.image === image) this.requestRender();
     });
   }
 
@@ -611,7 +640,7 @@ export class Editor {
       this.previewsReady = true;
     } finally {
       this.previewsRunning = false;
-      this.requestRender();
+      if (this.currentDocument) this.requestRender();
     }
   }
 
@@ -680,18 +709,20 @@ export class Editor {
   }
 
   changed(): void {
-    this.generators?.validate();
-    this.files?.sync();
-    if (this.editedMask && (this.image.selected !== this.editedMask || !this.image.allLayers().includes(this.editedMask))) {
-      this.setMaskEditLayer(null);
+    this.generators.validate();
+    this.files.sync();
+    if (this.currentDocument) {
+      if (this.editedMask && (this.image.selected !== this.editedMask || !this.image.allLayers().includes(this.editedMask))) {
+        this.setMaskEditLayer(null);
+      }
+      if (!this.image.selectionLayer) this.selectionMode = false;
     }
-    if (!this.image.selectionLayer) this.selectionMode = false;
     this.onChange?.();
-    this.refreshHover();
+    if (this.currentDocument) this.refreshHover();
     const menus = this.actions.menus();
     const json = JSON.stringify(menus);
     if (json !== this.lastMenus) { this.lastMenus = json; void window.desktop.setMenus(menus).catch(this.report); }
-    this.requestRender();
+    if (this.currentDocument) this.requestRender();
   }
 
   requestRender(): void {
@@ -769,7 +800,7 @@ export class Editor {
     const density = Math.min(devicePixelRatio, this.gpu.device.limits.maxTextureDimension2D / Math.max(width, height));
     this.canvas.width = Math.max(1, Math.round(width * density));
     this.canvas.height = Math.max(1, Math.round(height * density));
-    this.viewport.resize(width, height);
+    this.currentDocument?.viewport.resize(width, height);
   }
 
   reset(width: number, height: number): void {
@@ -1188,7 +1219,15 @@ export class Editor {
   }
 
   private registerActions(): void {
-    const register = this.actions.register.bind(this.actions);
+    const documentMenus = new Set(['Edit', 'Layer', 'View', 'Select', 'Filter', 'Tools']);
+    const register = (action: Action) => {
+      const contextualDocumentAction = !action.menu && action.id !== 'settings.canvas-background';
+      const documentBound = contextualDocumentAction ||
+        !!action.menu && documentMenus.has(action.menu) && action.id !== 'command.palette';
+      if (!documentBound) { this.actions.register(action); return; }
+      const visible = action.visible;
+      this.actions.register({ ...action, visible: () => this.hasDocument && (visible?.() ?? true) });
+    };
     register({ id: 'file.new', label: 'New document…', menu: 'File', execute: () => this.onNewDocument?.() });
     register({ id: 'file.open', label: 'Open…', menu: 'File', execute: () => this.files.open() });
     register({
@@ -1199,18 +1238,18 @@ export class Editor {
       id: `file.recent.${index}`, label: () => this.files.recentLabel(index), menu: 'File', submenu: 'Open Recent',
       visible: () => this.files.recentEnabled && index < this.files.recentCount, execute: () => this.files.openRecent(index),
     });
-    register({ id: 'file.save', label: 'Save', menu: 'File', execute: () => this.files.save() });
-    register({ id: 'file.save-as', label: 'Save as…', menu: 'File', execute: () => this.files.save(true) });
-    register({ id: 'file.close', label: 'Close document', menu: 'File', separatorBefore: true, execute: () => this.files.closeDocument() });
-    register({ id: 'file.export-png', label: 'PNG image…', menu: 'File', submenu: 'Export', execute: () => this.files.exportImage('png') });
-    register({ id: 'file.export-webp', label: 'WebP image…', menu: 'File', submenu: 'Export', execute: () => this.files.exportImage('webp') });
-    register({ id: 'file.import', label: 'Add image…', menu: 'File', execute: async () => {
+    register({ id: 'file.save', label: 'Save', menu: 'File', enabled: () => this.hasDocument, execute: () => this.files.save() });
+    register({ id: 'file.save-as', label: 'Save as…', menu: 'File', enabled: () => this.hasDocument, execute: () => this.files.save(true) });
+    register({ id: 'file.close', label: 'Close document', menu: 'File', separatorBefore: true, enabled: () => this.hasDocument, execute: () => this.files.closeDocument() });
+    register({ id: 'file.export-png', label: 'PNG image…', menu: 'File', submenu: 'Export', enabled: () => this.hasDocument, execute: () => this.files.exportImage('png') });
+    register({ id: 'file.export-webp', label: 'WebP image…', menu: 'File', submenu: 'Export', enabled: () => this.hasDocument, execute: () => this.files.exportImage('webp') });
+    register({ id: 'file.import', label: 'Add image…', menu: 'File', enabled: () => this.hasDocument, execute: async () => {
       const image = await window.desktop.openImage();
       if (image) await this.addImage(image.name, new Blob([image.bytes]));
     } });
     register({
       id: 'file.image-size', label: 'Image size…', menu: 'File',
-      enabled: () => !this.generators.busy && this.activeTool.id !== 'crop', execute: () => this.onImageSize?.(),
+      enabled: () => this.hasDocument && !this.generators.busy && this.activeTool.id !== 'crop', execute: () => this.onImageSize?.(),
     });
     register({ id: 'command.palette', label: 'Command palette…', menu: 'Edit', execute: () => this.onCommandPalette?.() });
     register({ id: 'settings.open', label: 'Settings…', menu: 'File', separatorBefore: true, execute: () => this.onOpenSettings?.() });
@@ -1631,12 +1670,15 @@ export class Editor {
         this.refreshHover();
       });
     }, { passive: false });
-    window.addEventListener('blur', () => this.run(() => {
-      this.hoverPointer = null;
-      this.activeTool.hover(null);
-      this.finishGesture();
-      this.setPanHeld(false);
-      this.setAltHeld(false);
-    }));
+    window.addEventListener('blur', () => {
+      if (!this.currentDocument) return;
+      this.run(() => {
+        this.hoverPointer = null;
+        this.activeTool.hover(null);
+        this.finishGesture();
+        this.setPanHeld(false);
+        this.setAltHeld(false);
+      });
+    });
   }
 }

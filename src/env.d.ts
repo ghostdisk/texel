@@ -56,6 +56,7 @@ interface Window {
     openDocument(): Promise<DocumentFileHandle | null>;
     recentDocuments(): Promise<DocumentFileHandle[]>;
     rememberDocument(token: string): Promise<void>;
+    forgetDocument(token: string): Promise<void>;
     documentReady(): Promise<void>;
     onOpenRequest(callback: (files: DocumentFileHandle[]) => void): () => void;
     readDocument(token: string): Promise<Uint8Array<ArrayBuffer>>;

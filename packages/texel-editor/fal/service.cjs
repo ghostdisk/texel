@@ -52,6 +52,28 @@ function modelFromCatalog(record) {
 
 function mappedField(value) { return typeof value === 'string' ? value : null; }
 
+const IMAGE_OUTPUT_FIELDS = ['images', 'image', 'image_urls', 'output_images', 'output_image', 'output_url', 'output', 'result', 'data'];
+
+function imageOutput(value, preferred, seen = new Set()) {
+  if (typeof value === 'string') return { url: value };
+  if (Array.isArray(value)) {
+    for (const entry of value) {
+      const output = imageOutput(entry, preferred, seen);
+      if (output) return output;
+    }
+    return null;
+  }
+  if (!value || typeof value !== 'object' || seen.has(value)) return null;
+  seen.add(value);
+  if (typeof value.url === 'string') return value;
+  for (const field of [...new Set([preferred, ...IMAGE_OUTPUT_FIELDS])]) {
+    if (!field || !Object.prototype.hasOwnProperty.call(value, field)) continue;
+    const output = imageOutput(value[field], null, seen);
+    if (output) return output;
+  }
+  return null;
+}
+
 function assignFile(body, name, dataUrl) {
   body[name] = name.endsWith('urls') ? [dataUrl] : dataUrl;
 }
@@ -339,11 +361,9 @@ function registerFal({ app, ipcMain, safeStorage, keyStore, emit }, ownerOf) {
         await delay(600, controller.signal);
       }
       const result = await request(responseUrl, key, { signal: controller.signal }).then((response) => response.json());
-      const value = result[model.outputField ?? 'images'] ?? result.data?.[model.outputField ?? 'images'];
-      const output = Array.isArray(value) ? value[0] : value;
-      const outputUrl = typeof output === 'string' ? output : output?.url;
-      if (typeof outputUrl !== 'string') throw new Error('fal returned no image.');
-      const imageResponse = await fetch(outputUrl, { signal: controller.signal });
+      const output = imageOutput(result, model.outputField);
+      if (!output) throw new Error('fal returned no image.');
+      const imageResponse = await fetch(output.url, { signal: controller.signal });
       if (!imageResponse.ok) throw new Error(await errorMessage(imageResponse));
       return {
         bytes: new Uint8Array(await imageResponse.arrayBuffer()),

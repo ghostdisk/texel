@@ -50,6 +50,9 @@ function resultSchema(record) {
   const paths = record.openapi?.paths ?? {};
   const preferred = paths[`/${record.endpoint_id}/requests/{request_id}`]?.get?.responses?.['200']?.content?.['application/json']?.schema;
   if (preferred) return preferred;
+  const queueResult = Object.entries(paths).find(([route, pathItem]) =>
+    route.endsWith('/requests/{request_id}') && pathItem.get)?.[1].get?.responses?.['200']?.content?.['application/json']?.schema;
+  if (queueResult) return queueResult;
   const operations = Object.values(paths).flatMap((pathItem) => [pathItem.get, pathItem.post]).filter(Boolean);
   return operations.flatMap((operation) => [operation.responses?.['200'], operation.responses?.['201'], operation.responses?.['202']])
     .map((response) => response?.content?.['application/json']?.schema).find(Boolean) ?? null;
@@ -195,16 +198,20 @@ function definitionFromSchema(record) {
 }
 
 function mergeDefinition(generated, existing = {}) {
-  return {
+  const merged = {
     ...generated,
     ...existing,
-    fields: { ...generated.fields, ...existing.fields },
+    fields: generated.fields,
     capabilities: {
       ...generated.capabilities,
       ...existing.capabilities,
       size: { ...generated.capabilities?.size, ...existing.capabilities?.size },
     },
   };
+  for (const key of ['imageField', 'outputField', 'inputImages', 'promptField']) {
+    if (Object.prototype.hasOwnProperty.call(generated, key)) merged[key] = generated[key];
+  }
+  return merged;
 }
 
 function cleanDefinition(definition) {

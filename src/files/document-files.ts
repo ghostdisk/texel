@@ -61,8 +61,8 @@ export class DocumentFiles {
 
   whenIdle(): Promise<void> { return this.idle; }
 
-  get name(): string { return this.editor.document.name; }
-  get dirty(): boolean { return this.editor.document.dirty; }
+  get name(): string { return this.editor.activeDocument?.name ?? 'Texel'; }
+  get dirty(): boolean { return this.editor.activeDocument?.dirty ?? false; }
 
   reset(): void {
     this.editor.document.fileHandle = null;
@@ -77,7 +77,7 @@ export class DocumentFiles {
     }
     const state = { name: this.name, dirty: this.dirty };
     const signature = JSON.stringify(state);
-    document.title = this.name + (this.dirty ? ' *' : '') + ' — Texel';
+    document.title = this.editor.hasDocument ? this.name + (this.dirty ? ' *' : '') + ' — Texel' : 'Texel';
     if (signature === this.lastWindowState) return;
     this.lastWindowState = signature;
     this.editor.onDocumentsChange?.();
@@ -87,7 +87,7 @@ export class DocumentFiles {
   private async exclusive<T>(work: () => Promise<T>): Promise<T | undefined> {
     if (this.busy || this.editor.editingPixels) return;
     if (document.activeElement instanceof HTMLElement) document.activeElement.blur();
-    if (!this.editor.halted) this.editor.finishGesture();
+    if (!this.editor.halted && this.editor.hasDocument) this.editor.finishGesture();
     this.busy = true;
     this.idle = new Promise<void>((resolve) => { this.releaseIdle = resolve; });
     const app = document.getElementById('app');
@@ -119,9 +119,32 @@ export class DocumentFiles {
     if (file) await this.exclusive(() => this.loadFile(file));
   }
 
+  async removeRecent(index: number): Promise<void> {
+    const file = this.recentFiles[index];
+    if (!file) return;
+    await window.desktop.forgetDocument(file.token);
+    await this.refreshRecent();
+  }
+
+  async openDroppedImages(files: readonly File[]): Promise<void> {
+    const images = files.filter((file) => file.type.startsWith('image/') || IMAGE_EXTENSION.test(file.name));
+    if (!images.length) return;
+    await this.exclusive(async () => {
+      for (const file of images) {
+        let loaded: LoadedDocument | null = await this.decodeImage(file.name, new Uint8Array(await file.arrayBuffer()));
+        try {
+          const document = this.editor.addLoadedDocument(loaded);
+          loaded = null;
+          document.fileHandle = null;
+          document.name = file.name;
+          document.savedState = document.history.stateId;
+          this.editor.changed();
+        } finally { if (loaded) this.editor.compositor.release(loaded.root); }
+      }
+    });
+  }
+
   private async loadFile(file: DocumentFileHandle): Promise<void> {
-    const placeholder = this.editor.documents.length === 1 && !this.editor.document.fileHandle &&
-      !this.editor.document.dirty && this.editor.document.name === 'Untitled' ? this.editor.document : null;
     const bytes = await window.desktop.readDocument(file.token);
     let loaded: LoadedDocument | null = IMAGE_EXTENSION.test(file.name) ? await this.decodeImage(file.name, bytes) : await this.format.decode(bytes);
     try {
@@ -130,7 +153,6 @@ export class DocumentFiles {
       document.fileHandle = IMAGE_EXTENSION.test(file.name) ? null : file;
       document.name = file.name;
       document.savedState = document.history.stateId;
-      if (placeholder) this.editor.closeDocument(placeholder);
       this.editor.changed();
       if (this.rememberRecentFiles) {
         await window.desktop.rememberDocument(file.token);
@@ -211,7 +233,8 @@ export class DocumentFiles {
     return true;
   }
 
-  async closeDocument(document = this.editor.document): Promise<void> {
+  async closeDocument(document = this.editor.activeDocument): Promise<void> {
+    if (!document) return;
     await this.exclusive(async () => {
       if (!this.editor.documents.includes(document) || !await this.confirmDocument(document)) return;
       this.editor.closeDocument(document);
