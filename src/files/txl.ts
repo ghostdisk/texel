@@ -15,6 +15,8 @@ import { TextLayer, validateText } from '../model/text-layer';
 import type { TextProperties } from '../model/text-layer';
 import { DEFAULT_GRID_SIZE, MAX_GUIDES, validatePrecision } from '../model/precision';
 import type { Guide, PrecisionState } from '../model/precision';
+import { DEFAULT_EXPORT_SETTINGS } from '../model/export';
+import type { ExportFormat, ExportMode, ExportSettings } from '../model/export';
 
 const MAGIC = 0x004c5854; // "TXL\0"
 const JSON_CHUNK = 0x4e4f534a;
@@ -51,6 +53,7 @@ interface TxlDocument {
   generationLens: number[];
   gridSize: number;
   guides: Guide[];
+  exportSettings: ExportSettings;
 }
 interface TxlManifest {
   format: 'texel';
@@ -66,6 +69,7 @@ export interface LoadedDocument {
   activeSelectionId: string | null;
   generationLens: Matrix;
   precision: PrecisionState;
+  exportSettings: ExportSettings;
 }
 
 /** Version 1: a GLB-style header followed by JSON and raw half-float BIN chunks. */
@@ -76,7 +80,7 @@ export class TxlFormat {
     this.pixels = new PixelStorage(gpu);
   }
 
-  async encode(image: ImageDocument, lens: Matrix): Promise<Uint8Array<ArrayBuffer>> {
+  async encode(image: ImageDocument, lens: Matrix, exportSettings: ExportSettings): Promise<Uint8Array<ArrayBuffer>> {
     this.compositor.flush();
     const sources: Surface[] = [];
     const buffers: TxlBuffer[] = [];
@@ -103,12 +107,13 @@ export class TxlFormat {
       };
     };
     const manifest: TxlManifest = {
-      format: 'texel', schemaVersion: 4,
+      format: 'texel', schemaVersion: 6,
       document: {
         width: image.width, height: image.height, root: serialize(image.root),
         selectedLayerIds: image.selectedLayers.map((layer) => layer.id), activeLayerId: image.selected.id,
         activeSelectionId: image.selectionMask?.id ?? null, generationLens: [...lens],
         gridSize: image.gridSize, guides: image.guides.map((guide) => ({ ...guide })),
+        exportSettings: structuredClone(exportSettings),
       },
       buffers,
     };
@@ -180,6 +185,7 @@ export class TxlFormat {
       selection: { ids: document.selectedLayerIds, active: document.activeLayerId },
       activeSelectionId: document.activeSelectionId, generationLens: document.generationLens as unknown as Matrix,
       precision: { gridSize: document.gridSize, guides: document.guides },
+      exportSettings: structuredClone(document.exportSettings),
     };
   }
 
@@ -231,7 +237,7 @@ export class TxlFormat {
     };
     const manifest = object(value);
     if (manifest.format !== 'texel') return bad('unrecognized document format.');
-    if (manifest.schemaVersion !== 1 && manifest.schemaVersion !== 2 && manifest.schemaVersion !== 3 && manifest.schemaVersion !== 4) throw new Error('Unsupported Texel document schema version ' + String(manifest.schemaVersion) + '.');
+    if (![1, 2, 3, 4, 5, 6].includes(Number(manifest.schemaVersion))) throw new Error('Unsupported Texel document schema version ' + String(manifest.schemaVersion) + '.');
     const limit = MAX_IMAGE_SIZE;
     const buffers = array(manifest.buffers).map((value): TxlBuffer => {
       const data = object(value);
@@ -243,7 +249,7 @@ export class TxlFormat {
       const tiles = Number(manifest.schemaVersion) >= 3 ? array(data.tiles, 1000000).map((value): StoredTile => {
         const tile = object(value);
         let color: TileColor | undefined;
-        if (manifest.schemaVersion === 4 && tile.color !== undefined) {
+        if (Number(manifest.schemaVersion) >= 4 && tile.color !== undefined) {
           const channels = array(tile.color, 4);
           if (channels.length !== 4 || channels.some((value) => typeof value !== 'number' || !Number.isFinite(value) || Math.abs(value) > 65504)) return bad('invalid solid tile color.');
           color = channels as unknown as TileColor;
@@ -324,11 +330,26 @@ export class TxlFormat {
       !selectedLayerIds.every((id) => ids.has(id)) || !selectedLayerIds.includes(activeLayerId)) return bad('invalid layer selection.');
     if (selectedLayerIds.length > 1 && selectedLayerIds.some((id) => id === root.id || id === selectionId)) return bad('the root or selection mask cannot be part of a multiple layer selection.');
     if (doc.activeSelectionId !== null && doc.activeSelectionId !== selectionId) return bad('invalid active selection mask.');
+    let exportSettings = structuredClone(DEFAULT_EXPORT_SETTINGS);
+    if (Number(manifest.schemaVersion) >= 5) {
+      const settings = object(doc.exportSettings);
+      if (settings.mode !== 'single' && settings.mode !== 'frames') return bad('invalid export mode.');
+      if (settings.format !== 'png' && settings.format !== 'webp' && settings.format !== 'jpeg') return bad('invalid export format.');
+      const scale = Number(manifest.schemaVersion) >= 6 ? settings.scale : 1;
+      if (typeof scale !== 'number' || !Number.isFinite(scale) || scale < 0.01 || scale > 16) return bad('invalid export scale.');
+      let location = null;
+      if (settings.location !== null) {
+        const value = object(settings.location);
+        location = { key: text(value.key), name: text(value.name, 4096) };
+      }
+      exportSettings = { mode: settings.mode as ExportMode, format: settings.format as ExportFormat, scale, location };
+    }
     return {
       format: 'texel', schemaVersion: manifest.schemaVersion, buffers,
       document: {
         width, height, root, selectedLayerIds, activeLayerId, activeSelectionId: doc.activeSelectionId as string | null,
         generationLens: matrix(doc.generationLens), gridSize: precision.gridSize, guides: precision.guides,
+        exportSettings,
       },
     };
   }

@@ -208,6 +208,11 @@ function registerDocumentFiles({ app, ipcMain, dialog, settings }, ownerOf) {
   });
 
   return {
+    directoryFor(event, token) {
+      const { state } = stateFor(event);
+      const filePath = typeof token === 'string' ? state.handles.get(token) : null;
+      return filePath ? path.dirname(filePath) : null;
+    },
     queueOpen(filePaths) {
       for (const filePath of filePaths) {
         if (typeof filePath === 'string' && path.isAbsolute(filePath) && isSupportedOpenPath(filePath)) pendingPaths.push(filePath);

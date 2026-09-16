@@ -8,6 +8,8 @@ import { UndoStack } from './history/undo';
 import { ImageDocument } from './model/image-document';
 import type { Matrix } from './model/geometry';
 import { Viewport } from './viewport';
+import { DEFAULT_EXPORT_SETTINGS } from './model/export';
+import type { ExportSettings } from './model/export';
 
 export class EditorDocument {
   readonly id = crypto.randomUUID();
@@ -17,6 +19,9 @@ export class EditorDocument {
   name = 'Untitled';
   fileHandle: DocumentFileHandle | null = null;
   savedState = '';
+  private metadataRevision = 0;
+  private savedMetadataRevision = 0;
+  exportSettings: ExportSettings = structuredClone(DEFAULT_EXPORT_SETTINGS);
   generationLens: Matrix | null = null;
   selectionMode = false;
   selectionReturnId: string | null = null;
@@ -34,7 +39,15 @@ export class EditorDocument {
     this.savedState = this.history.stateId;
   }
 
-  get dirty(): boolean { return this.history.stateId !== this.savedState; }
+  get dirty(): boolean { return this.history.stateId !== this.savedState || this.metadataRevision !== this.savedMetadataRevision; }
+  metadataChanged(): void { this.metadataRevision++; }
+
+  markSaved(stateId = this.history.stateId, metadataRevision = this.metadataRevision): void {
+    this.savedState = stateId;
+    this.savedMetadataRevision = metadataRevision;
+  }
+
+  get metadataState(): number { return this.metadataRevision; }
 
   dispose(compositor: Compositor): void {
     this.image.onChange = undefined;

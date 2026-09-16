@@ -16,6 +16,7 @@ import type { Matrix } from '../model/geometry';
 import type { GuideAxis } from '../model/precision';
 import { BlendModeInput } from './blend-mode-input';
 import { ToolWindow } from './tool-window';
+import type { ExportFormat, ExportMode, ExportSettings } from '../model/export';
 
 export function element<T extends HTMLElement>(id: string): T {
   const node = document.getElementById(id);
@@ -60,6 +61,7 @@ export class EditorView {
   private draggedFilterLayer: Layer | null = null;
   private documentSignature = '';
   private readonly toolWindow: ToolWindow;
+  private exportSettings: ExportSettings | null = null;
 
   constructor(private readonly editor: Editor) {
     this.toolWindow = new ToolWindow(editor);
@@ -80,6 +82,7 @@ export class EditorView {
     editor.onImageSize = () => this.showImageSizeDialog();
     editor.onRename = () => this.rename(editor.image.selected);
     editor.onGuideSettings = () => this.showPrecisionDialog();
+    editor.onExport = () => this.showExportDialog();
     editor.onFrame = () => {
       element('zoom-label').textContent = `${Math.round(editor.viewport.scale * 100)}%`;
       if (editor.activeTool.id === 'transform') this.updateTransformFields();
@@ -94,6 +97,32 @@ export class EditorView {
     }
     element('cancel-size').onclick = () => element<HTMLDialogElement>('size-dialog').close();
     element('cancel-image-size').onclick = () => element<HTMLDialogElement>('image-size-dialog').close();
+    element('cancel-export').onclick = () => {
+      this.exportSettings = null;
+      element<HTMLDialogElement>('export-dialog').close();
+    };
+    element<HTMLDialogElement>('export-dialog').addEventListener('close', () => { this.exportSettings = null; });
+    element<HTMLSelectElement>('export-mode').onchange = () => {
+      if (!this.exportSettings) return;
+      this.exportSettings.mode = element<HTMLSelectElement>('export-mode').value as ExportMode;
+      this.exportSettings.location = null;
+      this.syncExportDialog();
+    };
+    element<HTMLSelectElement>('export-format').onchange = () => {
+      if (!this.exportSettings) return;
+      this.exportSettings.format = element<HTMLSelectElement>('export-format').value as ExportFormat;
+      if (this.exportSettings.mode === 'single') this.exportSettings.location = null;
+      this.syncExportDialog();
+    };
+    input('export-scale').oninput = () => {
+      const scale = input('export-scale').valueAsNumber;
+      if (this.exportSettings && Number.isFinite(scale) && scale >= 0.01 && scale <= 16) this.exportSettings.scale = scale;
+    };
+    element('choose-export-location').onclick = () => editor.run(() => this.chooseExportLocation());
+    element<HTMLFormElement>('export-form').onsubmit = (event) => {
+      event.preventDefault();
+      editor.run(() => this.submitExport());
+    };
     input('image-width').oninput = () => this.syncImageSize('width');
     input('image-height').oninput = () => this.syncImageSize('height');
     input('image-keep-aspect').onchange = () => {
@@ -877,6 +906,45 @@ export class EditorView {
     input('image-keep-aspect').checked = true;
     for (const id of ['image-width', 'image-height']) input(id).max = String(MAX_IMAGE_SIZE);
     element<HTMLDialogElement>('image-size-dialog').showModal();
+  }
+
+  private showExportDialog(): void {
+    const dialog = element<HTMLDialogElement>('export-dialog');
+    if (dialog.open) return;
+    this.exportSettings = structuredClone(this.editor.document.exportSettings);
+    this.syncExportDialog();
+    dialog.showModal();
+  }
+
+  private syncExportDialog(): void {
+    const settings = this.exportSettings;
+    if (!settings) return;
+    element<HTMLSelectElement>('export-mode').value = settings.mode;
+    element<HTMLSelectElement>('export-format').value = settings.format;
+    input('export-scale').value = String(settings.scale);
+    input('export-location').value = settings.location?.name ?? '';
+    input('export-location').placeholder = settings.mode === 'single' ? 'Choose a file' : 'Choose a directory';
+  }
+
+  private async chooseExportLocation(): Promise<boolean> {
+    const settings = this.exportSettings;
+    if (!settings) return false;
+    const location = await this.editor.files.chooseExportLocation(settings);
+    if (!location) return false;
+    settings.location = location;
+    this.syncExportDialog();
+    return true;
+  }
+
+  private async submitExport(): Promise<void> {
+    const settings = this.exportSettings;
+    if (!settings) return;
+    settings.scale = input('export-scale').valueAsNumber;
+    if (!settings.location && !await this.chooseExportLocation()) return;
+    this.editor.files.setExportSettings(settings);
+    this.exportSettings = null;
+    element<HTMLDialogElement>('export-dialog').close();
+    await this.editor.files.exportConfigured();
   }
 
   private syncImageSize(source: 'width' | 'height'): void {

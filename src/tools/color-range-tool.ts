@@ -22,6 +22,7 @@ export class ColorRangeTool extends Tool {
   readonly hint = '';
   override readonly coalescedPointerMoves = false;
   override readonly popup = true;
+  override readonly temporary = true;
   private readonly renderer: ColorRangeRenderer;
   private readonly pointEditor: PointEditor;
   private source: Surface | null = null;

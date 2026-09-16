@@ -4,8 +4,11 @@ import { TxlFormat } from './txl';
 import type { LoadedDocument } from './txl';
 import { importImage } from '../gpu/images';
 import { GroupLayer } from '../model/layers';
-import { IDENTITY, multiply } from '../model/geometry';
+import { IDENTITY } from '../model/geometry';
 import { DEFAULT_GRID_SIZE } from '../model/precision';
+import { DEFAULT_EXPORT_SETTINGS } from '../model/export';
+import type { ExportLocation, ExportSettings } from '../model/export';
+import type { Surface } from '../gpu/surface';
 
 const IMAGE_EXTENSION = /\.(?:png|jpe?g|webp|avif|bmp|gif)$/i;
 
@@ -67,7 +70,7 @@ export class DocumentFiles {
   reset(): void {
     this.editor.document.fileHandle = null;
     this.editor.document.name = 'Untitled';
-    this.editor.document.savedState = this.editor.history.stateId;
+    this.editor.document.markSaved();
     this.sync();
   }
 
@@ -137,7 +140,7 @@ export class DocumentFiles {
           loaded = null;
           document.fileHandle = null;
           document.name = file.name;
-          document.savedState = document.history.stateId;
+          document.markSaved();
           this.editor.changed();
         } finally { if (loaded) this.editor.compositor.release(loaded.root); }
       }
@@ -152,7 +155,7 @@ export class DocumentFiles {
       loaded = null;
       document.fileHandle = IMAGE_EXTENSION.test(file.name) ? null : file;
       document.name = file.name;
-      document.savedState = document.history.stateId;
+      document.markSaved();
       this.editor.changed();
       if (this.rememberRecentFiles) {
         await window.desktop.rememberDocument(file.token);
@@ -168,33 +171,92 @@ export class DocumentFiles {
     return {
       root, width: layer.width, height: layer.height, selection: { ids: [layer.id], active: layer.id },
       activeSelectionId: null, generationLens: IDENTITY, precision: { gridSize: DEFAULT_GRID_SIZE, guides: [] },
+      exportSettings: structuredClone(DEFAULT_EXPORT_SETTINGS),
     };
   }
 
   async save(saveAs = false): Promise<void> { await this.exclusive(() => this.saveCurrent(saveAs)); }
 
-  async exportImage(format: ImageExportFormat): Promise<void> {
+  async chooseExportLocation(settings: ExportSettings): Promise<ExportLocation | null> {
+    const current = settings.location?.key ?? null;
+    const documentToken = this.editor.document.fileHandle?.token ?? null;
+    const handle = settings.mode === 'single' ?
+      await window.desktop.chooseImageExport(settings.format, this.name.replace(/\.(?:txl|png|jpe?g|webp|avif|bmp|gif)$/i, '') || 'Untitled', current, documentToken) :
+      await window.desktop.chooseImageExportDirectory(current, documentToken);
+    return handle ? { key: handle.token, name: handle.name } : null;
+  }
+
+  setExportSettings(settings: ExportSettings): void {
+    const previous = this.editor.document.exportSettings;
+    if (previous.mode === settings.mode && previous.format === settings.format && previous.scale === settings.scale &&
+      previous.location?.key === settings.location?.key && previous.location?.name === settings.location?.name) return;
+    this.editor.document.exportSettings = structuredClone(settings);
+    this.editor.document.metadataChanged();
+    this.editor.changed();
+  }
+
+  async quickExport(): Promise<void> {
+    if (!this.editor.document.exportSettings.location) { this.editor.onExport?.(); return; }
+    try { await this.exportConfigured(); }
+    catch (error) {
+      if (error instanceof Error && error.message === 'Choose an export location first.') {
+        this.editor.document.exportSettings.location = null;
+        this.editor.document.metadataChanged();
+        this.editor.onExport?.();
+        return;
+      }
+      throw error;
+    }
+  }
+
+  async exportConfigured(): Promise<void> {
     await this.exclusive(async () => {
-      const baseName = this.name.replace(/\.txl$/i, '') || 'Untitled';
-      const handle = await window.desktop.chooseImageExport(format, baseName);
-      if (!handle) return;
+      const settings = this.editor.document.exportSettings;
+      if (!settings.location) throw new Error('Choose an export location first.');
       this.editor.flushPaint();
-      const source = this.editor.compositor.captureDocument(this.editor.image.root, this.editor.image.frame);
-      try {
-        const bytes = await this.editor.readback.rgba(source, false, true);
-        const canvas = document.createElement('canvas');
-        canvas.width = this.editor.image.width;
-        canvas.height = this.editor.image.height;
-        const context = canvas.getContext('2d');
-        if (!context) throw new Error('Could not create an image export canvas.');
-        const pixels = new Uint8ClampedArray(bytes.buffer, bytes.byteOffset, bytes.byteLength);
-        context.putImageData(new ImageData(pixels, canvas.width, canvas.height), 0, 0);
-        const mime = format === 'png' ? 'image/png' : 'image/webp';
-        const blob = await new Promise<Blob | null>((resolve) => canvas.toBlob(resolve, mime));
-        if (!blob) throw new Error(`Could not encode the ${format.toUpperCase()} image.`);
-        await window.desktop.writeImageExport(handle.token, new Uint8Array(await blob.arrayBuffer()));
-      } finally { source.destroy(); }
+      if (settings.mode === 'single') {
+        const source = this.editor.compositor.captureDocument(this.editor.image.root, this.editor.image.frame, settings.scale);
+        try { await window.desktop.writeImageExport(settings.location.key, await this.encodeImage(source, settings.format)); }
+        finally { source.destroy(); }
+        this.editor.onNotify?.(`Exported ${settings.location.name}`);
+        return;
+      }
+      const layers = this.editor.image.root.children.filter((layer) => layer.visibleInStack && layer.opacity > 0);
+      if (!layers.length) throw new Error('There are no visible top-level layers to export.');
+      const names = new Set<string>();
+      for (const layer of layers) {
+        const source = this.editor.compositor.captureLayer(this.editor.image.root, layer, settings.scale);
+        try {
+          const base = this.exportName(layer.name);
+          let name = base, suffix = 2;
+          while (names.has(name.toLocaleLowerCase())) name = `${base}-${suffix++}`;
+          names.add(name.toLocaleLowerCase());
+          const bytes = await this.encodeImage(source, settings.format);
+          await window.desktop.writeImageExportDirectory(settings.location.key, name, settings.format, bytes);
+        } finally { source.destroy(); }
+      }
+      this.editor.onNotify?.(`Exported ${layers.length} frame${layers.length === 1 ? '' : 's'} to ${settings.location.name}`);
     });
+  }
+
+  private exportName(name: string): string {
+    const cleaned = name.trim().replace(/[<>:"/\\|?*\u0000-\u001f]/g, '_').slice(0, 180).replace(/[. ]+$/, '') || 'Layer';
+    return /^(?:con|prn|aux|nul|com[1-9]|lpt[1-9])(?:\.|$)/i.test(cleaned) ? '_' + cleaned : cleaned;
+  }
+
+  private async encodeImage(source: Surface, format: ImageExportFormat): Promise<Uint8Array<ArrayBuffer>> {
+    const bytes = await this.editor.readback.rgba(source, false, true);
+    const canvas = document.createElement('canvas');
+    canvas.width = source.width;
+    canvas.height = source.height;
+    const context = canvas.getContext('2d');
+    if (!context) throw new Error('Could not create an image export canvas.');
+    const pixels = new Uint8ClampedArray(bytes.buffer, bytes.byteOffset, bytes.byteLength);
+    context.putImageData(new ImageData(pixels, canvas.width, canvas.height), 0, 0);
+    const mime = format === 'png' ? 'image/png' : format === 'webp' ? 'image/webp' : 'image/jpeg';
+    const blob = await new Promise<Blob | null>((resolve) => canvas.toBlob(resolve, mime, 0.92));
+    if (!blob) throw new Error(`Could not encode the ${format.toUpperCase()} image.`);
+    return new Uint8Array(await blob.arrayBuffer());
   }
 
   private async saveCurrent(saveAs: boolean, document = this.editor.document): Promise<boolean> {
@@ -204,10 +266,8 @@ export class DocumentFiles {
     if (!this.editor.halted) this.editor.finishGesture();
     this.editor.flushPaint();
     const state = this.editor.history.stateId;
-    const lens = this.editor.generators.lens;
-    const bounds = lens.localBounds();
-    const transform = multiply(lens.transform, [bounds.width / this.editor.image.width, 0, 0, bounds.height / this.editor.image.height, 0, 0]);
-    const bytes = await this.format.encode(this.editor.image, transform);
+    const metadataState = document.metadataState;
+    const bytes = await this.format.encode(this.editor.image, this.editor.generators.lens.transform, document.exportSettings);
     await window.desktop.writeDocument(handle.token, bytes);
     if (this.rememberRecentFiles) {
       await window.desktop.rememberDocument(handle.token);
@@ -216,7 +276,7 @@ export class DocumentFiles {
     document.fileHandle = handle;
     document.name = handle.name;
     // Track the captured state so later asynchronous edits remain unsaved.
-    document.savedState = state;
+    document.markSaved(state, metadataState);
     this.editor.changed();
     return true;
   }

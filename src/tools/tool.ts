@@ -21,6 +21,7 @@ export abstract class Tool implements UndoTarget {
   readonly supportsAltEyedropper = false;
   readonly coalescedPointerMoves = true;
   readonly popup = false;
+  readonly temporary = false;
 
   constructor(protected readonly editor: Editor) {}
 

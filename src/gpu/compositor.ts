@@ -95,15 +95,38 @@ export class Compositor {
   }
 
   /** Render the document into its canonical canvas, without presentation-only overlays. */
-  captureDocument(root: GroupLayer, bounds: Rect): Surface {
+  captureDocument(root: GroupLayer, bounds: Rect, scale = 1): Surface {
     const frame = this.gpu.beginFrame();
-    const result = createSurface('Document export', bounds);
+    const result = createSurface('Document export', bounds, scale);
     try {
       this.prepare(root);
       this.encodePaint(frame);
-      const output = this.evaluate(frame, root, IDENTITY, 1).surface;
+      const output = this.evaluate(frame, root, IDENTITY, scale, scale > 1).surface;
       const pass = this.quads.begin(frame, result);
       this.quads.draw(pass, frame, output, result, root.worldTransform(), root.visible ? root.opacity : 0);
+      pass.end();
+      frame.submit();
+      this.operations.clear();
+      return result;
+    } catch (error) {
+      result.destroy();
+      for (const cache of this.caches.values()) cache.revision = -1;
+      frame.release();
+      throw error;
+    }
+  }
+
+  /** Render one layer into its transformed document-space bounds without sibling contributions. */
+  captureLayer(root: GroupLayer, layer: Layer, scale = 1): Surface {
+    const bounds = transformBounds(layer.worldTransform(), layer.localBounds());
+    const frame = this.gpu.beginFrame();
+    const result = createSurface(`${layer.name} export`, { x: 0, y: 0, width: bounds.width, height: bounds.height }, scale);
+    try {
+      this.prepare(root);
+      this.encodePaint(frame);
+      const output = this.evaluate(frame, layer, layer.parent?.worldTransform() ?? IDENTITY, scale, scale > 1).surface;
+      const pass = this.quads.begin(frame, result);
+      this.quads.draw(pass, frame, output, result, multiply([1, 0, 0, 1, -bounds.x, -bounds.y], layer.worldTransform()), layer.opacity);
       pass.end();
       frame.submit();
       this.operations.clear();
@@ -349,13 +372,14 @@ export class Compositor {
     return current;
   }
 
-  private evaluate(frame: GpuFrame, layer: Layer, parentTransform: Matrix, pixelsPerUnit: number): Evaluation {
+  private evaluate(frame: GpuFrame, layer: Layer, parentTransform: Matrix, pixelsPerUnit: number, allowUpscale = false): Evaluation {
     const evaluated = this.evaluated.get(layer);
     if (evaluated) return evaluated;
     if (this.visiting.has(layer)) throw new Error('Circular layer dependency.');
     this.visiting.add(layer);
     const world = multiply(parentTransform, layer.transform);
-    const scale = layer instanceof ImageLayer ? 1 : Math.min(1, 2 ** Math.ceil(Math.log2(Math.max(1 / 16, maxScale(world) * pixelsPerUnit))));
+    const scale = layer instanceof ImageLayer ? 1 : Math.min(allowUpscale ? Infinity : 1,
+      2 ** Math.ceil(Math.log2(Math.max(1 / 16, maxScale(world) * pixelsPerUnit))));
     const cache = this.caches.get(layer) ?? { revision: -1, signature: '', scale, surfaces: new Map<string, Surface>(), filterInputs: new Map<string, Surface>() };
     this.caches.set(layer, cache);
     const children: EvaluatedChild[] = [];
@@ -363,7 +387,7 @@ export class Compositor {
     if (layer instanceof GroupLayer) {
       for (const child of layer.children) {
         if (!child.visibleInStack || child.opacity === 0 || this.excludedLayers.has(child)) continue;
-        const evaluated = this.evaluate(frame, child, world, pixelsPerUnit);
+        const evaluated = this.evaluate(frame, child, world, pixelsPerUnit, allowUpscale);
         children.push({ layer: child, surface: evaluated.surface });
         childrenChanged ||= evaluated.changed;
       }
@@ -373,7 +397,7 @@ export class Compositor {
     for (const filter of filters) for (const id of filter.dependencies()) {
       const dependency = this.index.get(id);
       if (!dependency) continue;
-      this.evaluate(frame, dependency, dependency.parent?.worldTransform() ?? IDENTITY, pixelsPerUnit);
+      this.evaluate(frame, dependency, dependency.parent?.worldTransform() ?? IDENTITY, pixelsPerUnit, allowUpscale);
       dependencies.set(id, dependency);
     }
     const signature = JSON.stringify([

@@ -15,7 +15,7 @@ else startApplication();
 function startApplication() {
   const settings = registerSettings({ app, ipcMain, nativeTheme }, ownerOf);
   const documentFiles = registerDocumentFiles({ app, ipcMain, dialog, settings }, ownerOf);
-  registerImageFiles({ ipcMain, dialog }, ownerOf);
+  registerImageFiles({ app, ipcMain, dialog, documentFiles }, ownerOf);
   const packageLoader = new PackageLoader({ app, BrowserWindow, ipcMain, safeStorage, root: path.join(__dirname, '..'), ownerOf });
   let quitting = false;
   let editorWindow = null;

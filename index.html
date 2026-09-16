@@ -215,6 +215,16 @@
         <div class="dialog-actions"><button id="cancel-image-size" type="button">Cancel</button><button class="primary" id="confirm-image-size" type="submit">Resize</button></div>
       </form>
     </dialog>
+    <dialog id="export-dialog" class="export-dialog">
+      <form id="export-form">
+        <h2>Export</h2>
+        <label class="field">Mode <select id="export-mode"><option value="single">Single image</option><option value="frames">Frames (top-level layers)</option></select></label>
+        <label class="field">Format <select id="export-format"><option value="png">PNG</option><option value="webp">WebP</option><option value="jpeg">JPEG</option></select></label>
+        <label class="field">Scale <span class="input-unit"><input id="export-scale" type="number" min="0.01" max="16" step="any" value="1" required /><span>×</span></span></label>
+        <label class="field">Output location <span class="export-location"><input id="export-location" type="text" readonly /><button id="choose-export-location" type="button">Choose…</button></span></label>
+        <div class="dialog-actions"><button id="cancel-export" type="button">Cancel</button><button class="primary" type="submit">Export</button></div>
+      </form>
+    </dialog>
     <dialog id="precision-dialog">
       <form id="precision-form">
         <h2>Grid and guides</h2>

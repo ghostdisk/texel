@@ -231,6 +231,9 @@ h2 { display: flex; align-items: center; gap: 7px; font-weight: 600; font-size: 
 .selection-actions button { font-size: 10px; padding: 3px 6px; }
 .rename-layer { flex: 1; width: 0; padding: 4px; font-size: 11px; }
 #history-list { flex: 1; overflow-y: auto; min-height: 0; padding: 5px; }
+.export-location { display: flex; gap: 6px; }
+.export-location input { flex: 1; }
+.export-dialog { width: 420px; }
 .history-row { display: flex; width: 100%; justify-content: flex-start; gap: 9px; height: 34px; padding: 4px 8px; border: 1px solid transparent; border-bottom-color: color-mix(in srgb, var(--border) 50%, transparent); border-radius: 3px; background: transparent; color: var(--text-muted); text-align: left; font-size: 11px; }
 .history-row span { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 .history-row .icon { width: 18px; height: 18px; color: var(--text-muted); }
@@ -429,6 +432,7 @@ button.primary { background: var(--primary-button-bg); color: var(--primary-butt
 button.primary:hover:not(:disabled) { background: var(--primary-button-hover-bg); border-color: var(--primary-button-hover-bg); color: var(--primary-button-text); }
 #error { position: fixed; z-index: 2000; top: 50%; left: 50%; transform: translate(-50%, -50%); width: max-content; max-width: min(660px, calc(100vw - 40px)); display: flex; flex-direction: column; align-items: center; gap: 10px; pointer-events: none; }
 .editor-message { max-width: 100%; padding: 11px 14px; background: var(--danger-surface); color: var(--danger); border: 1px solid var(--danger); border-radius: 5px; box-shadow: 0 6px 20px var(--shadow); text-align: center; overflow-wrap: anywhere; animation: editor-message-float 4.5s linear both; }
+.editor-message.editor-notice { background: var(--panel-bg); color: var(--text-strong); border-color: var(--accent); }
 @keyframes editor-message-float {
   0% { opacity: 0; transform: translateY(0); }
   8% { opacity: 1; }

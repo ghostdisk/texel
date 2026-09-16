@@ -8,7 +8,7 @@ interface ImportedImage {
   bytes: Uint8Array<ArrayBuffer>;
 }
 
-type ImageExportFormat = 'png' | 'webp';
+type ImageExportFormat = 'png' | 'webp' | 'jpeg';
 
 interface ImageExportHandle {
   token: string;
@@ -51,8 +51,10 @@ interface Window {
       image: Uint8Array<ArrayBuffer> | null;
       mediaType: string;
     } | null>;
-    chooseImageExport(format: ImageExportFormat, name: string): Promise<ImageExportHandle | null>;
+    chooseImageExport(format: ImageExportFormat, name: string, key?: string | null, documentToken?: string | null): Promise<ImageExportHandle | null>;
+    chooseImageExportDirectory(key?: string | null, documentToken?: string | null): Promise<ImageExportHandle | null>;
     writeImageExport(token: string, bytes: Uint8Array<ArrayBuffer>): Promise<void>;
+    writeImageExportDirectory(token: string, name: string, format: ImageExportFormat, bytes: Uint8Array<ArrayBuffer>): Promise<void>;
     openDocument(): Promise<DocumentFileHandle | null>;
     recentDocuments(): Promise<DocumentFileHandle[]>;
     rememberDocument(token: string): Promise<void>;

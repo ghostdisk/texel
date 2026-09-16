@@ -9,18 +9,19 @@ import { CommandPalette } from './ui/command-palette';
 import { RendererPackageLoader } from './package-runtime';
 import { AboutView } from './ui/about-view';
 
-function reportError(error: unknown): void {
+function showMessage(text: string, notice = false): void {
   const messages = element('error');
-  const text = error instanceof Error ? error.message : String(error);
   for (const existing of messages.children) if (existing.textContent === text) existing.remove();
   while (messages.children.length >= 3) messages.firstElementChild?.remove();
   const message = document.createElement('div');
-  message.className = 'editor-message';
+  message.className = `editor-message${notice ? ' editor-notice' : ''}`;
   message.textContent = text;
   messages.append(message);
   const timeout = window.setTimeout(() => message.remove(), 5000);
   message.addEventListener('animationend', () => { clearTimeout(timeout); message.remove(); }, { once: true });
 }
+
+function reportError(error: unknown): void { showMessage(error instanceof Error ? error.message : String(error)); }
 
 async function boot(): Promise<void> {
   const setMaximized = (maximized: boolean) => document.documentElement.classList.toggle('window-maximized', maximized);
@@ -49,6 +50,7 @@ async function boot(): Promise<void> {
     gpu, element<HTMLCanvasElement>('canvas'), element('stage'), overlay,
     element('brush-cursor'), element('tool-mode-cursor'), reportError,
   );
+  editor.onNotify = (message) => showMessage(message, true);
   const applySettings = () => {
     editor?.setCanvasBackground(settings.canvasBackground);
     editor?.files.setRememberRecentFiles(settings.rememberRecentFiles);

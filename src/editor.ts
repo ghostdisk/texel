@@ -65,6 +65,7 @@ import { ColorRangeTool } from './tools/color-range-tool';
 import type { Tool, ToolPointer } from './tools/tool';
 import { Viewport } from './viewport';
 import { EditorDocument } from './editor-document';
+import { DEFAULT_EXPORT_SETTINGS } from './model/export';
 
 interface PointerGesture {
   id: number;
@@ -104,7 +105,7 @@ export class Editor {
   private currentDocument: EditorDocument | null = null;
   readonly tools = new Map<string, Tool>();
   private baseTool: Tool;
-  private popupReturnTool: Tool | null = null;
+  private temporaryReturnTool: Tool | null = null;
   private altHeld = false;
   readonly readback: GpuReadback;
   readonly previews: LayerPreviews;
@@ -135,6 +136,8 @@ export class Editor {
   onOpenAbout?: () => void;
   onCanvasBackgroundSettings?: () => void;
   onCommandPalette?: () => void;
+  onExport?: () => void;
+  onNotify?: (message: string) => void;
   onDocumentsChange?: () => void;
   commitEdits?: () => void;
   private scheduledFrame = 0;
@@ -309,10 +312,10 @@ export class Editor {
     this.pickGeneration++;
     this.tools.get('eyedropper')?.cancel();
     this.activeTool.hover(null);
-    if (this.baseTool.popup) {
+    if (this.baseTool.temporary) {
       this.baseTool.deactivate();
-      this.baseTool = this.popupReturnTool ?? this.tools.get('brush')!;
-      this.popupReturnTool = null;
+      this.baseTool = this.temporaryReturnTool ?? this.tools.get('brush')!;
+      this.temporaryReturnTool = null;
     }
     this.previews.clear();
     this.previewsRequested = false;
@@ -377,7 +380,7 @@ export class Editor {
     const document = this.createDocumentSession();
     document.image.reset(width, height);
     document.viewport.fit(document.image.frame);
-    document.savedState = document.history.stateId;
+    document.markSaved();
     this.attachDocument(document);
     this.documents.push(document);
     this.activateDocument(document);
@@ -388,9 +391,10 @@ export class Editor {
     const document = this.createDocumentSession();
     document.image.replace(loaded.root, loaded.width, loaded.height, loaded.selection, loaded.activeSelectionId, loaded.precision);
     document.generationLens = [...loaded.generationLens] as Matrix;
+    document.exportSettings = structuredClone(loaded.exportSettings);
     document.selectionMode = document.image.selected.isSelection && !!document.image.selectionMask;
     document.viewport.fit(document.image.frame);
-    document.savedState = document.history.stateId;
+    document.markSaved();
     this.attachDocument(document);
     this.documents.push(document);
     this.activateDocument(document);
@@ -823,6 +827,7 @@ export class Editor {
     this.setMaskEditLayer(null);
     this.generators.resetLens(width, height);
     this.image.reset(width, height);
+    this.document.exportSettings = structuredClone(DEFAULT_EXPORT_SETTINGS);
     this.queuePreviews();
     this.viewport.fit(this.image.frame);
     this.files.reset();
@@ -849,6 +854,7 @@ export class Editor {
     this.selectionReturnId = null;
     this.setMaskEditLayer(null);
     this.image.replace(document.root, document.width, document.height, document.selection, document.activeSelectionId, document.precision);
+    this.document.exportSettings = structuredClone(document.exportSettings);
     this.generators.resetLens(document.width, document.height);
     this.generators.lens.setTransform(document.generationLens);
     this.selectionMode = this.image.selected.isSelection && !!this.image.selectionMask;
@@ -876,8 +882,8 @@ export class Editor {
     if (previous.id === 'crop' && tool !== previous) previous.cancel();
     if (previousBase !== tool) previousBase.deactivate();
     this.pickGeneration++;
-    if (tool.popup && !previousBase.popup) this.popupReturnTool = previousBase;
-    else if (!tool.popup) this.popupReturnTool = null;
+    if (tool.temporary && !previousBase.temporary) this.temporaryReturnTool = previousBase;
+    else if (!tool.temporary) this.temporaryReturnTool = null;
     this.baseTool = tool;
     tool.activate();
     if (tool.id === 'crop' || tool.id === 'text') this.setMaskEditLayer(null);
@@ -890,8 +896,14 @@ export class Editor {
 
   closeToolPopup(): void {
     if (!this.baseTool.popup) return;
-    this.switchTool((this.popupReturnTool ?? this.tools.get('brush')!).id);
+    this.closeTemporaryTool(this.baseTool.id);
   }
+
+  closeTemporaryTool(id: string): void {
+    if (!this.baseTool.temporary || this.baseTool.id !== id) return;
+    this.switchTool((this.temporaryReturnTool ?? this.tools.get('brush')!).id);
+  }
+
 
   paint(layer: ImageLayer, stamp: BrushStamp, erase = false, selection: MaskInput | null = null): void {
     let stamps = this.pendingStamps.get(layer);
@@ -1260,8 +1272,8 @@ export class Editor {
     register({ id: 'file.save', label: 'Save', menu: 'File', enabled: () => this.hasDocument, execute: () => this.files.save() });
     register({ id: 'file.save-as', label: 'Save as…', menu: 'File', enabled: () => this.hasDocument, execute: () => this.files.save(true) });
     register({ id: 'file.close', label: 'Close document', menu: 'File', separatorBefore: true, enabled: () => this.hasDocument, execute: () => this.files.closeDocument() });
-    register({ id: 'file.export-png', label: 'PNG image…', menu: 'File', submenu: 'Export', enabled: () => this.hasDocument, execute: () => this.files.exportImage('png') });
-    register({ id: 'file.export-webp', label: 'WebP image…', menu: 'File', submenu: 'Export', enabled: () => this.hasDocument, execute: () => this.files.exportImage('webp') });
+    register({ id: 'file.quick-export', label: 'Quick Export', menu: 'File', separatorBefore: true, enabled: () => this.hasDocument, execute: () => this.files.quickExport() });
+    register({ id: 'file.export', label: 'Export…', menu: 'File', enabled: () => this.hasDocument, execute: () => this.onExport?.() });
     register({ id: 'file.import', label: 'Add image…', menu: 'File', enabled: () => this.hasDocument, execute: async () => {
       const image = await window.desktop.openImage();
       if (image) await this.addImage(image.name, new Blob([image.bytes]));
@@ -1552,7 +1564,6 @@ export class Editor {
     this.actions.bind('Ctrl+J', 'selection.layer-copy', { when: 'canSelectionLayer' });
     this.actions.bind('Ctrl+Shift+J', 'selection.layer-cut', { when: 'canSelectionLayer' });
     this.actions.bind('Ctrl+G', 'layer.group');
-    this.actions.bind('Ctrl+E', 'layer.merge');
     this.actions.bind('Ctrl+F', 'layer.reframe.normalize');
     this.actions.bind('Insert', 'layer.new');
     this.actions.bind('Ctrl+Shift+N', 'layer.new');
@@ -1570,6 +1581,8 @@ export class Editor {
     this.actions.bind('Ctrl+Tab', 'view.next-document');
     this.actions.bind('Ctrl+Shift+Tab', 'view.previous-document');
     this.actions.bind('Ctrl+Shift+O', 'file.import');
+    this.actions.bind('Ctrl+E', 'file.quick-export');
+    this.actions.bind('Ctrl+Shift+E', 'file.export');
     this.actions.bind('Ctrl+P', 'command.palette');
     this.actions.bind('Ctrl+X', 'clipboard.cut');
     this.actions.bind('Ctrl+C', 'clipboard.copy');
