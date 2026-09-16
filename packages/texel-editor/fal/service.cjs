@@ -187,7 +187,7 @@ function registerFal({ app, ipcMain, safeStorage, keyStore, emit }, ownerOf) {
       }
       models = new Map(records.map(modelFromCatalog).filter(Boolean).map((model) => [model.id, model]));
       return [...models.values()];
-    });
+    })();
     return catalogPromise;
   }
 

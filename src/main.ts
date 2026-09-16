@@ -49,9 +49,12 @@ async function boot(): Promise<void> {
     gpu, element<HTMLCanvasElement>('canvas'), element('stage'), overlay,
     element('brush-cursor'), element('tool-mode-cursor'), reportError,
   );
-  const applyCanvasBackground = () => editor?.setCanvasBackground(settings.canvasBackground);
-  settings.subscribe(applyCanvasBackground);
-  applyCanvasBackground();
+  const applySettings = () => {
+    editor?.setCanvasBackground(settings.canvasBackground);
+    editor?.files.setRememberRecentFiles(settings.rememberRecentFiles);
+  };
+  settings.subscribe(applySettings);
+  applySettings();
   const settingsView = new SettingsView(settings);
   editor.onOpenSettings = () => settingsView.open();
   editor.onCanvasBackgroundSettings = () => settingsView.openCanvasBackground();

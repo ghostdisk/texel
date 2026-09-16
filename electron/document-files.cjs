@@ -1,8 +1,9 @@
-const { open, rename, unlink, stat } = require('node:fs/promises');
+const { mkdir, open, readFile, rename, unlink, stat, writeFile } = require('node:fs/promises');
 const { randomUUID } = require('node:crypto');
 const path = require('node:path');
 
 const MAX_FILE_BYTES = 0x7fffffff;
+const MAX_RECENT_FILES = 10;
 const IMAGE_EXTENSIONS = ['png', 'jpg', 'jpeg', 'webp', 'avif', 'bmp', 'gif'];
 const OPEN_EXTENSIONS = new Set(['txl', ...IMAGE_EXTENSIONS]);
 
@@ -10,10 +11,12 @@ function isSupportedOpenPath(filePath) {
   return OPEN_EXTENSIONS.has(path.extname(filePath).slice(1).toLowerCase());
 }
 
-function registerDocumentFiles({ ipcMain, dialog }, ownerOf) {
+function registerDocumentFiles({ app, ipcMain, dialog, settings }, ownerOf) {
   const windows = new WeakMap();
   const pendingPaths = [];
   let currentWindow = null;
+  let recentPaths = null;
+  let recentWrites = Promise.resolve();
   const stateFor = (event) => {
     const owner = ownerOf(event);
     const state = owner && windows.get(owner);
@@ -21,10 +24,51 @@ function registerDocumentFiles({ ipcMain, dialog }, ownerOf) {
     return { owner, state };
   };
   const issue = (state, filePath) => {
+    for (const [token, current] of state.handles) if (current === filePath) return { token, name: path.basename(filePath) };
     const token = randomUUID();
     state.handles.set(token, filePath);
     return { token, name: path.basename(filePath) };
   };
+  const recentPath = () => path.join(app.getPath('userData'), 'recent-files.json');
+  const pathKey = (filePath) => process.platform === 'win32' ? filePath.toLowerCase() : filePath;
+
+  async function loadRecentPaths() {
+    if (recentPaths) return recentPaths;
+    try {
+      const parsed = JSON.parse(await readFile(recentPath(), 'utf8'));
+      const seen = new Set();
+      recentPaths = (Array.isArray(parsed?.files) ? parsed.files : []).filter((filePath) => {
+        if (typeof filePath !== 'string' || filePath.length > 32768 || !path.isAbsolute(filePath) || !isSupportedOpenPath(filePath)) return false;
+        const key = pathKey(filePath);
+        if (seen.has(key)) return false;
+        seen.add(key);
+        return true;
+      }).slice(0, MAX_RECENT_FILES);
+    } catch (error) {
+      if (error?.code !== 'ENOENT') console.error('Unable to read recent files:', error);
+      recentPaths = [];
+    }
+    return recentPaths;
+  }
+
+  function persistRecentPaths() {
+    const file = recentPath();
+    const temporary = `${file}.${process.pid}.tmp`;
+    recentWrites = recentWrites.catch(() => undefined).then(async () => {
+      await mkdir(path.dirname(file), { recursive: true });
+      await writeFile(temporary, JSON.stringify({ version: 1, files: recentPaths }, null, 2), 'utf8');
+      await rename(temporary, file);
+    });
+    return recentWrites;
+  }
+
+  async function rememberRecent(filePath) {
+    if (!(await settings.load()).rememberRecentFiles) return;
+    const current = await loadRecentPaths();
+    const key = pathKey(filePath);
+    recentPaths = [filePath, ...current.filter((candidate) => pathKey(candidate) !== key)].slice(0, MAX_RECENT_FILES);
+    await persistRecentPaths().catch((error) => console.error('Unable to write recent files:', error));
+  }
 
   const deliverPending = () => {
     const owner = currentWindow;
@@ -52,6 +96,18 @@ function registerDocumentFiles({ ipcMain, dialog }, ownerOf) {
     });
     if (result.canceled || !result.filePaths[0]) return null;
     return issue(state, result.filePaths[0]);
+  });
+
+  ipcMain.handle('document:recent', async (event) => {
+    const { state } = stateFor(event);
+    return (await loadRecentPaths()).map((filePath) => issue(state, filePath));
+  });
+
+  ipcMain.handle('document:remember', async (event, token) => {
+    const { state } = stateFor(event);
+    const filePath = typeof token === 'string' ? state.handles.get(token) : null;
+    if (!filePath) throw new Error('Unknown document file handle.');
+    await rememberRecent(filePath);
   });
 
   ipcMain.handle('document:read', async (event, token) => {

@@ -13,6 +13,8 @@ export class DocumentFiles {
   busy = false;
   private lastWindowState = '';
   private readonly requestedFiles: DocumentFileHandle[] = [];
+  private recentFiles: DocumentFileHandle[] = [];
+  private rememberRecentFiles = true;
   private idle = Promise.resolve();
   private releaseIdle: (() => void) | null = null;
   private readonly format: TxlFormat;
@@ -27,7 +29,26 @@ export class DocumentFiles {
       this.requestedFiles.push(...files);
       void this.openNextRequestedFile().catch(this.editor.report);
     });
+    void this.refreshRecent().catch(this.editor.report);
     void window.desktop.documentReady().catch(this.editor.report);
+  }
+
+  get recentEnabled(): boolean { return this.rememberRecentFiles; }
+  get recentCount(): number { return this.recentFiles.length; }
+  recentLabel(index: number): string { return this.recentFiles[index]?.name ?? ''; }
+
+  setRememberRecentFiles(enabled: boolean): void {
+    if (enabled === this.rememberRecentFiles) return;
+    this.rememberRecentFiles = enabled;
+    if (!enabled) {
+      this.recentFiles = [];
+      this.editor.changed();
+    } else void this.refreshRecent().catch(this.editor.report);
+  }
+
+  async refreshRecent(): Promise<void> {
+    this.recentFiles = this.rememberRecentFiles ? (await window.desktop.recentDocuments()).slice(0, 10) : [];
+    this.editor.changed();
   }
 
   private async openNextRequestedFile(): Promise<void> {
@@ -93,6 +114,11 @@ export class DocumentFiles {
     });
   }
 
+  async openRecent(index: number): Promise<void> {
+    const file = this.recentFiles[index];
+    if (file) await this.exclusive(() => this.loadFile(file));
+  }
+
   private async loadFile(file: DocumentFileHandle): Promise<void> {
     const placeholder = this.editor.documents.length === 1 && !this.editor.document.fileHandle &&
       !this.editor.document.dirty && this.editor.document.name === 'Untitled' ? this.editor.document : null;
@@ -106,6 +132,10 @@ export class DocumentFiles {
       document.savedState = document.history.stateId;
       if (placeholder) this.editor.closeDocument(placeholder);
       this.editor.changed();
+      if (this.rememberRecentFiles) {
+        await window.desktop.rememberDocument(file.token);
+        await this.refreshRecent();
+      }
     } finally { if (loaded) this.editor.compositor.release(loaded.root); }
   }
 
@@ -157,6 +187,10 @@ export class DocumentFiles {
     const transform = multiply(lens.transform, [bounds.width / this.editor.image.width, 0, 0, bounds.height / this.editor.image.height, 0, 0]);
     const bytes = await this.format.encode(this.editor.image, transform);
     await window.desktop.writeDocument(handle.token, bytes);
+    if (this.rememberRecentFiles) {
+      await window.desktop.rememberDocument(handle.token);
+      await this.refreshRecent();
+    }
     document.fileHandle = handle;
     document.name = handle.name;
     // Track the captured state so later asynchronous edits remain unsaved.

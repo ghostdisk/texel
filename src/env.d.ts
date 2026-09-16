@@ -18,6 +18,7 @@ interface ImageExportHandle {
 interface StoredSettings {
   theme: string;
   canvasBackground: string | null;
+  rememberRecentFiles: boolean;
 }
 
 interface WindowTheme {
@@ -53,6 +54,8 @@ interface Window {
     chooseImageExport(format: ImageExportFormat, name: string): Promise<ImageExportHandle | null>;
     writeImageExport(token: string, bytes: Uint8Array<ArrayBuffer>): Promise<void>;
     openDocument(): Promise<DocumentFileHandle | null>;
+    recentDocuments(): Promise<DocumentFileHandle[]>;
+    rememberDocument(token: string): Promise<void>;
     documentReady(): Promise<void>;
     onOpenRequest(callback: (files: DocumentFileHandle[]) => void): () => void;
     readDocument(token: string): Promise<Uint8Array<ArrayBuffer>>;

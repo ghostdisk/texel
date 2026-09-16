@@ -3,10 +3,11 @@ import { DEFAULT_THEME, THEMES, themeById } from './themes';
 export interface AppSettings {
   theme: string;
   canvasBackground: string | null;
+  rememberRecentFiles: boolean;
 }
 
 export class SettingsStore {
-  private value: AppSettings = { theme: DEFAULT_THEME, canvasBackground: null };
+  private value: AppSettings = { theme: DEFAULT_THEME, canvasBackground: null, rememberRecentFiles: true };
   private readonly listeners = new Set<() => void>();
   private saves = Promise.resolve();
 
@@ -15,6 +16,7 @@ export class SettingsStore {
   get settings(): Readonly<AppSettings> { return this.value; }
   get theme(): string { return this.value.theme; }
   get customCanvasBackground(): string | null { return this.value.canvasBackground; }
+  get rememberRecentFiles(): boolean { return this.value.rememberRecentFiles; }
   get canvasBackground(): string {
     return this.value.canvasBackground ?? getComputedStyle(document.documentElement).getPropertyValue('--canvas-background-default').trim();
   }
@@ -39,12 +41,20 @@ export class SettingsStore {
     this.saves = this.saves.then(() => window.desktop.updateSettings(snapshot)).then(() => undefined).catch(this.report);
   }
 
+  setRememberRecentFiles(enabled: boolean): void {
+    if (enabled === this.value.rememberRecentFiles) return;
+    this.value = { ...this.value, rememberRecentFiles: enabled };
+    for (const listener of this.listeners) listener();
+    const snapshot = { ...this.value };
+    this.saves = this.saves.then(() => window.desktop.updateSettings(snapshot)).then(() => undefined).catch(this.report);
+  }
+
   async load(): Promise<void> {
     try {
       const stored = await window.desktop.getSettings();
       if (stored) {
         const canvasBackground = stored.canvasBackground === null || /^#[0-9a-f]{6}$/i.test(stored.canvasBackground) ? stored.canvasBackground : null;
-        this.value = { theme: themeById(stored.theme).id, canvasBackground };
+        this.value = { theme: themeById(stored.theme).id, canvasBackground, rememberRecentFiles: stored.rememberRecentFiles !== false };
       }
     } catch (error) { this.report(error); }
     this.applyTheme();

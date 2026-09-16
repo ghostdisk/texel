@@ -1191,6 +1191,14 @@ export class Editor {
     const register = this.actions.register.bind(this.actions);
     register({ id: 'file.new', label: 'New document…', menu: 'File', execute: () => this.onNewDocument?.() });
     register({ id: 'file.open', label: 'Open…', menu: 'File', execute: () => this.files.open() });
+    register({
+      id: 'file.recent.empty', label: 'No recent files', menu: 'File', submenu: 'Open Recent',
+      visible: () => this.files.recentEnabled && this.files.recentCount === 0, enabled: () => false, execute: () => {},
+    });
+    for (let index = 0; index < 10; index++) register({
+      id: `file.recent.${index}`, label: () => this.files.recentLabel(index), menu: 'File', submenu: 'Open Recent',
+      visible: () => this.files.recentEnabled && index < this.files.recentCount, execute: () => this.files.openRecent(index),
+    });
     register({ id: 'file.save', label: 'Save', menu: 'File', execute: () => this.files.save() });
     register({ id: 'file.save-as', label: 'Save as…', menu: 'File', execute: () => this.files.save(true) });
     register({ id: 'file.close', label: 'Close document', menu: 'File', separatorBefore: true, execute: () => this.files.closeDocument() });

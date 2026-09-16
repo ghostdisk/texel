@@ -221,11 +221,19 @@
       </div>
       <div class="settings-layout">
         <nav class="settings-navigation" aria-label="Settings sections">
-          <button type="button" data-settings-page="appearance" class="selected">Appearance</button>
+          <button type="button" data-settings-page="general" class="selected">General</button>
+          <button type="button" data-settings-page="appearance">Appearance</button>
           <button type="button" data-settings-page="packages">Packages</button>
         </nav>
         <div class="settings-pages">
-          <section class="settings-section" data-settings-panel="appearance" aria-labelledby="appearance-heading">
+          <section class="settings-section" data-settings-panel="general" aria-labelledby="general-heading">
+            <h3 id="general-heading">Files</h3>
+            <label class="settings-toggle" for="remember-recent-files">
+              <span><strong>Recent files</strong><small>Remember opened and saved files and show them under File › Open Recent.</small></span>
+              <input id="remember-recent-files" type="checkbox" />
+            </label>
+          </section>
+          <section class="settings-section" data-settings-panel="appearance" aria-labelledby="appearance-heading" hidden>
             <h3 id="appearance-heading">Appearance</h3>
             <div id="theme-grid" class="theme-grid" role="group" aria-label="Theme"></div>
             <div class="appearance-setting">

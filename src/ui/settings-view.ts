@@ -5,22 +5,25 @@ import { THEMES } from '../themes';
 export class SettingsView {
   private readonly dialog = document.querySelector<HTMLDialogElement>('#settings-dialog')!;
   private readonly grid = document.querySelector<HTMLElement>('#theme-grid')!;
+  private readonly recentFiles = document.querySelector<HTMLInputElement>('#remember-recent-files')!;
   private readonly canvasBackground = document.querySelector<HTMLInputElement>('#canvas-background')!;
   private readonly resetCanvasBackground = document.querySelector<HTMLButtonElement>('#reset-canvas-background')!;
   private readonly packageList = document.querySelector<HTMLElement>('#package-settings-list')!;
 
   constructor(private readonly settings: SettingsStore) {
     document.querySelector<HTMLButtonElement>('#close-settings')!.onclick = () => this.dialog.close();
+    this.recentFiles.onchange = () => settings.setRememberRecentFiles(this.recentFiles.checked);
     this.canvasBackground.onchange = () => settings.setCanvasBackground(this.canvasBackground.value);
     this.resetCanvasBackground.onclick = () => settings.setCanvasBackground(null);
     for (const button of document.querySelectorAll<HTMLButtonElement>('[data-settings-page]')) {
       button.onclick = () => this.showPage(button.dataset.settingsPage!);
     }
     this.renderThemes();
-    settings.subscribe(() => this.syncAppearance());
+    settings.subscribe(() => { this.syncGeneral(); this.syncAppearance(); });
   }
 
   open(): void {
+    this.syncGeneral();
     this.syncAppearance();
     void this.renderPackages();
     this.dialog.showModal();
@@ -61,6 +64,8 @@ export class SettingsView {
     }
     this.syncAppearance();
   }
+
+  private syncGeneral(): void { this.recentFiles.checked = this.settings.rememberRecentFiles; }
 
   private syncAppearance(): void {
     this.canvasBackground.value = this.settings.canvasBackground;

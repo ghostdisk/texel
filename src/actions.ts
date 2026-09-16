@@ -6,6 +6,7 @@ export interface Action {
   menu?: ActionMenuName;
   submenu?: string;
   separatorBefore?: boolean;
+  visible?: () => boolean;
   enabled?: () => boolean;
   execute(): void | Promise<void>;
   hold?: {
@@ -132,11 +133,14 @@ export class ActionRegistry {
     return undefined;
   }
 
-  enabled(id: string): boolean { const action = this.actions.get(id); return !this.blocked?.() && !!action && (action.enabled?.() ?? true); }
+  enabled(id: string): boolean {
+    const action = this.actions.get(id);
+    return !this.blocked?.() && !!action && (action.visible?.() ?? true) && (action.enabled?.() ?? true);
+  }
 
   execute(id: string): void {
     const action = this.actions.get(id);
-    if (!action || this.blocked?.()) return;
+    if (!action || this.blocked?.() || action.visible?.() === false) return;
     try {
       this.beforeExecute?.(action);
       if (!(action.enabled?.() ?? true)) return;
@@ -153,7 +157,7 @@ export class ActionRegistry {
     }
     return ids.flatMap((id) => {
       const action = this.actions.get(id);
-      if (!action) return [];
+      if (!action || action.visible?.() === false) return [];
       return [{
         id: action.id,
         label: typeof action.label === 'function' ? action.label() : action.label,
@@ -172,7 +176,7 @@ export class ActionRegistry {
       const binding = this.binding(chord, context);
       if (binding && !shortcuts.has(binding.actionId)) shortcuts.set(binding.actionId, chord);
     }
-    return [...this.actions.values()].map((action) => ({
+    return [...this.actions.values()].filter((action) => action.visible?.() ?? true).map((action) => ({
       id: action.id,
       label: typeof action.label === 'function' ? action.label() : action.label,
       category: [action.menu ?? 'Context', action.submenu].filter(Boolean).join(' › '),
@@ -190,7 +194,7 @@ export class ActionRegistry {
     }
     const menus: ActionMenuName[] = ['File', 'Edit', 'Layer', 'View', 'Select', 'Filter', 'Tools', 'Help'];
     return menus.map((label) => ({ label, items: [...this.actions.values()]
-      .filter((action) => action.menu === label)
+      .filter((action) => action.menu === label && (action.visible?.() ?? true))
       .map((action) => ({
         id: action.id,
         label: typeof action.label === 'function' ? action.label() : action.label,

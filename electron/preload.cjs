@@ -17,6 +17,8 @@ contextBridge.exposeInMainWorld('desktop', {
   chooseImageExport: (format, name) => ipcRenderer.invoke('image:choose-export', format, name),
   writeImageExport: (token, bytes) => ipcRenderer.invoke('image:write-export', token, bytes),
   openDocument: () => ipcRenderer.invoke('document:open'),
+  recentDocuments: () => ipcRenderer.invoke('document:recent'),
+  rememberDocument: (token) => ipcRenderer.invoke('document:remember', token),
   documentReady: () => ipcRenderer.invoke('document:ready'),
   onOpenRequest: (callback) => {
     const listener = (_event, files) => { if (Array.isArray(files)) callback(files); };

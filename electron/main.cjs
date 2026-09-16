@@ -13,9 +13,9 @@ if (!app.requestSingleInstanceLock()) app.quit();
 else startApplication();
 
 function startApplication() {
-  const documentFiles = registerDocumentFiles({ ipcMain, dialog }, ownerOf);
+  const settings = registerSettings({ app, ipcMain, nativeTheme }, ownerOf);
+  const documentFiles = registerDocumentFiles({ app, ipcMain, dialog, settings }, ownerOf);
   registerImageFiles({ ipcMain, dialog }, ownerOf);
-  registerSettings({ app, ipcMain, nativeTheme }, ownerOf);
   const packageLoader = new PackageLoader({ app, BrowserWindow, ipcMain, safeStorage, root: path.join(__dirname, '..'), ownerOf });
   let quitting = false;
   let editorWindow = null;

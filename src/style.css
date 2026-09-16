@@ -485,6 +485,10 @@ body.layer-pointer-drag .layer-row .select-layer { outline: none; }
 .settings-section { flex: 1; min-height: 0; padding: 18px 20px 22px; overflow-y: auto; background: var(--panel-bg); }
 .settings-section:not([hidden]) { height: 100%; box-sizing: border-box; }
 .settings-section h3 { margin: 0 0 12px; font-size: 12px; font-weight: 600; color: var(--text-muted); text-transform: uppercase; letter-spacing: .7px; }
+.settings-toggle { display: flex; align-items: center; justify-content: space-between; gap: 16px; padding: 12px; border: 1px solid var(--border); border-radius: 5px; background: var(--surface-bg); }
+.settings-toggle span { display: grid; gap: 3px; }
+.settings-toggle strong { font-size: 12px; font-weight: 500; }
+.settings-toggle small { color: var(--text-muted); font-size: 10px; }
 .theme-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(190px, 1fr)); gap: 10px; }
 .appearance-setting { display: flex; align-items: center; gap: 8px; margin-top: 14px; padding-top: 12px; border-top: 1px solid var(--border); }
 .appearance-setting label { flex: 1; color: var(--text); font-size: 12px; }

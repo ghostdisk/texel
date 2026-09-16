@@ -2,7 +2,7 @@ const { mkdir, readFile, rename, writeFile } = require('node:fs/promises');
 const path = require('node:path');
 
 function registerSettings({ app, ipcMain, nativeTheme }, ownerOf) {
-  const defaults = { theme: 'texel', canvasBackground: null };
+  const defaults = { theme: 'texel', canvasBackground: null, rememberRecentFiles: true };
   let cached = null;
   let writes = Promise.resolve();
 
@@ -15,7 +15,8 @@ function registerSettings({ app, ipcMain, nativeTheme }, ownerOf) {
       const appearance = parsed?.appearance ?? parsed;
       if (appearance && typeof appearance === 'object' && typeof appearance.theme === 'string') {
         const canvasBackground = appearance.canvasBackground === null || /^#[0-9a-f]{6}$/i.test(appearance.canvasBackground) ? appearance.canvasBackground : null;
-        cached = { theme: appearance.theme, canvasBackground };
+        const rememberRecentFiles = typeof parsed?.files?.rememberRecentFiles === 'boolean' ? parsed.files.rememberRecentFiles : true;
+        cached = { theme: appearance.theme, canvasBackground, rememberRecentFiles };
       } else cached = defaults;
     } catch (error) {
       if (error?.code !== 'ENOENT') console.error('Unable to read settings:', error);
@@ -29,7 +30,11 @@ function registerSettings({ app, ipcMain, nativeTheme }, ownerOf) {
     const temporary = `${file}.${process.pid}.tmp`;
     writes = writes.catch(() => undefined).then(async () => {
       await mkdir(path.dirname(file), { recursive: true });
-      await writeFile(temporary, JSON.stringify({ appearance: settings }, null, 2), 'utf8');
+      const stored = {
+        appearance: { theme: settings.theme, canvasBackground: settings.canvasBackground },
+        files: { rememberRecentFiles: settings.rememberRecentFiles },
+      };
+      await writeFile(temporary, JSON.stringify(stored, null, 2), 'utf8');
       await rename(temporary, file);
     });
     return writes;
@@ -42,7 +47,8 @@ function registerSettings({ app, ipcMain, nativeTheme }, ownerOf) {
     const theme = typeof update.theme === 'string' && /^[a-z0-9-]{1,80}$/.test(update.theme) ? update.theme : current.theme;
     const canvasBackground = update.canvasBackground === null || /^#[0-9a-f]{6}$/i.test(update.canvasBackground) ?
       update.canvasBackground : current.canvasBackground;
-    cached = { theme, canvasBackground };
+    const rememberRecentFiles = typeof update.rememberRecentFiles === 'boolean' ? update.rememberRecentFiles : current.rememberRecentFiles;
+    cached = { theme, canvasBackground, rememberRecentFiles };
     await persist(cached);
     return cached;
   });
@@ -56,6 +62,8 @@ function registerSettings({ app, ipcMain, nativeTheme }, ownerOf) {
       color: '#00000000', symbolColor: theme.dark ? '#e6e8f5' : '#24292f', height: 35,
     });
   });
+
+  return { load };
 }
 
 module.exports = { registerSettings };
