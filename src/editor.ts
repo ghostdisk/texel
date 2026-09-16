@@ -1585,8 +1585,8 @@ export class Editor {
     this.actions.bind('Ctrl+Tab', 'view.next-document');
     this.actions.bind('Ctrl+Shift+Tab', 'view.previous-document');
     this.actions.bind('Ctrl+Shift+O', 'file.import');
-    this.actions.bind('Ctrl+E', 'file.quick-export');
-    this.actions.bind('Ctrl+Shift+E', 'file.export');
+    this.actions.bind('Ctrl+E', 'layer.merge');
+    this.actions.bind('Ctrl+Shift+E', 'file.quick-export');
     this.actions.bind('Ctrl+P', 'command.palette');
     this.actions.bind('Ctrl+X', 'clipboard.cut');
     this.actions.bind('Ctrl+C', 'clipboard.copy');
