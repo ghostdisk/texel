@@ -94,6 +94,12 @@ export class TransformControls {
     return ['ew-resize', 'nwse-resize', 'ns-resize', 'nesw-resize'][((direction % 4) + 4) % 4];
   }
 
+  resizeHandle(pointer: ToolPointer): Point | null {
+    if (!this.enabled()) return null;
+    const handle = this.hitHandle(this.target(), pointer.screen);
+    return handle === 'rotate' ? null : handle;
+  }
+
   pointerDown(pointer: ToolPointer): boolean {
     if (!this.enabled()) return false;
     const layer = this.target();

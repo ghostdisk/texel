@@ -1,9 +1,11 @@
 import type { Editor } from '../editor';
 import { UndoOperation } from '../history/undo';
 import type { JsonObject, UndoDirection } from '../history/undo';
-import { GroupLayer, Layer } from '../model/layers';
-import { IDENTITY, inverse, multiply, transformBounds, unionBounds } from '../model/geometry';
-import type { Matrix, Rect } from '../model/geometry';
+import { GroupLayer, ImageLayer, Layer } from '../model/layers';
+import { IDENTITY, inverse, multiply, transformBounds, transformPoint, unionBounds } from '../model/geometry';
+import type { Matrix, Point, Rect } from '../model/geometry';
+import { MAX_IMAGE_SIZE } from '../gpu/surface';
+import type { Surface } from '../gpu/surface';
 import { snapTransform, worldBounds } from '../model/precision';
 import { Tool } from './tool';
 import type { ToolPointer } from './tool';
@@ -39,14 +41,30 @@ class LayerSelectionTransform implements TransformTarget {
   }
 }
 
+interface FrameGesture {
+  layer: ImageLayer;
+  source: Surface;
+  before: Matrix;
+  worldInverse: Matrix;
+  startLocal: Point;
+  handle: Point;
+  bounds: Rect;
+  current: Rect;
+}
+
+function sameBounds(a: Rect, b: Rect): boolean {
+  return a.x === b.x && a.y === b.y && a.width === b.width && a.height === b.height;
+}
+
 export class TransformTool extends Tool {
   readonly id = 'transform';
   readonly label = 'Move / transform';
   readonly cursor = 'default';
-  readonly hint = 'Drag to move · Corners preserve aspect · Shift unlocks · Alt resizes from center · Space pans';
+  readonly hint = 'Drag to move · Corners preserve aspect · Shift unlocks · Alt resizes from center · Ctrl-drag frame handles to crop · Space pans';
   readonly coalescedPointerMoves = false;
   private readonly controls: TransformControls;
   private multiple: LayerSelectionTransform | null = null;
+  private frameGesture: FrameGesture | null = null;
   private preparation = 0;
   private pointerHeld = false;
   private lastPointer: ToolPointer | null = null;
@@ -102,6 +120,22 @@ export class TransformTool extends Tool {
   }
 
   pointerDown(pointer: ToolPointer): void {
+    const layers = this.editor.image.selectedRoots;
+    const handle = pointer.ctrl && !this.editor.image.selectionMask && layers.length === 1 && layers[0] instanceof ImageLayer && layers[0].pixelEditable ?
+      this.controls.resizeHandle(pointer) : null;
+    if (handle) {
+      const layer = layers[0] as ImageLayer;
+      this.editor.flushPaint();
+      const bounds = layer.localBounds();
+      const worldInverse = inverse(layer.worldTransform());
+      this.frameGesture = {
+        layer, source: layer.source.snapshot('Layer frame before'), before: [...layer.transform], worldInverse,
+        startLocal: transformPoint(worldInverse, pointer.world), handle, bounds, current: bounds,
+      };
+      this.pointerHeld = true;
+      this.lastPointer = pointer;
+      return;
+    }
     if (pointer.ctrl) { void this.editor.pickLayer(pointer.world, pointer.shift).catch(this.editor.report); return; }
     this.pointerHeld = true;
     this.lastPointer = pointer;
@@ -110,7 +144,6 @@ export class TransformTool extends Tool {
       void this.prepareSelection(pointer, preparation).catch(this.editor.report);
       return;
     }
-    const layers = this.editor.image.selectedRoots;
     this.multiple = layers.length > 1 ? new LayerSelectionTransform(layers) : null;
     this.controls.pointerDown(pointer);
   }
@@ -124,7 +157,27 @@ export class TransformTool extends Tool {
   }
   pointerMove(pointer: ToolPointer): void {
     this.lastPointer = pointer;
+    if (this.frameGesture) { this.resizeFrame(pointer); return; }
     this.controls.pointerMove(pointer);
+  }
+  private resizeFrame(pointer: ToolPointer): void {
+    const gesture = this.frameGesture!;
+    const current = transformPoint(gesture.worldInverse, pointer.world);
+    const dx = Math.round(current.x - gesture.startLocal.x);
+    const dy = Math.round(current.y - gesture.startLocal.y);
+    const { bounds, handle } = gesture;
+    const originalRight = bounds.x + bounds.width;
+    const originalBottom = bounds.y + bounds.height;
+    const left = handle.x < 0 ? Math.max(originalRight - MAX_IMAGE_SIZE, Math.min(originalRight - 1, bounds.x + dx)) : bounds.x;
+    const right = handle.x > 0 ? Math.min(bounds.x + MAX_IMAGE_SIZE, Math.max(bounds.x + 1, originalRight + dx)) : originalRight;
+    const top = handle.y < 0 ? Math.max(originalBottom - MAX_IMAGE_SIZE, Math.min(originalBottom - 1, bounds.y + dy)) : bounds.y;
+    const bottom = handle.y > 0 ? Math.min(bounds.y + MAX_IMAGE_SIZE, Math.max(bounds.y + 1, originalBottom + dy)) : originalBottom;
+    const next = { x: left, y: top, width: right - left, height: bottom - top };
+    if (sameBounds(next, gesture.current)) return;
+    const replacement = this.editor.layerReframer.resize(gesture.source, next);
+    gesture.layer.replaceSource(replacement);
+    gesture.layer.setTransform(multiply(gesture.before, [1, 0, 0, 1, next.x - bounds.x, next.y - bounds.y]));
+    gesture.current = next;
   }
   hover(pointer: ToolPointer | null): void { this.controls.hover(pointer); }
   drawOverlay(controls = true): void {
@@ -139,6 +192,12 @@ export class TransformTool extends Tool {
     this.preparation++;
     this.pointerHeld = false;
     this.lastPointer = null;
+    if (this.frameGesture) {
+      const gesture = this.frameGesture;
+      this.frameGesture = null;
+      if (gesture.current === gesture.bounds) gesture.source.destroy();
+      else { gesture.layer.replaceSource(gesture.source); gesture.layer.setTransform(gesture.before); }
+    }
     this.controls.cancel();
     this.multiple = null;
   }
@@ -147,6 +206,10 @@ export class TransformTool extends Tool {
     this.preparation++;
     this.pointerHeld = false;
     this.lastPointer = null;
+    if (this.frameGesture) {
+      this.finishFrame();
+      return;
+    }
     const change = this.controls.finish();
     this.multiple = null;
     if (!change) return;
@@ -168,6 +231,35 @@ export class TransformTool extends Tool {
       { type: 'tool', targetId: this.id, action: 'transform', data: { layerId: change.target.id, transform: [...change.before] } },
       { type: 'tool', targetId: this.id, action: 'transform', data: { layerId: change.target.id, transform: [...change.after] } },
     ));
+  }
+
+  private finishFrame(): void {
+    const gesture = this.frameGesture!;
+    this.frameGesture = null;
+    this.multiple = null;
+    const { layer, source, bounds, current, before } = gesture;
+    if (sameBounds(bounds, current)) {
+      if (current === bounds) source.destroy();
+      else { layer.replaceSource(source); layer.setTransform(before); }
+      return;
+    }
+    const snapshots = new Map<string, Surface>();
+    try {
+      const original = this.editor.image.captureSurface(source, snapshots);
+      const resized = this.editor.image.captureSurface(layer.source, snapshots);
+      this.editor.history.push(new UndoOperation(
+        'Resize layer frame',
+        { type: 'layer', targetId: layer.id, action: 'reframe', data: { snapshotId: original, transform: [...before] } },
+        { type: 'layer', targetId: layer.id, action: 'reframe', data: { snapshotId: resized, transform: [...layer.transform] } },
+        snapshots,
+      ));
+    } catch (error) {
+      for (const snapshot of snapshots.values()) snapshot.destroy();
+      layer.replaceSource(source);
+      layer.setTransform(before);
+      throw error;
+    }
+    source.destroy();
   }
 
   applyUndo(operation: UndoOperation, direction: UndoDirection): void {
