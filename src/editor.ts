@@ -127,6 +127,7 @@ export class Editor {
   halted = false;
   onChange?: () => void;
   onFrame?: (stats: RenderStats) => void;
+  onCursorPosition?: (point: Point | null) => void;
   onNewDocument?: () => void;
   onNewSizedLayer?: () => void;
   onImageSize?: () => void;
@@ -327,6 +328,7 @@ export class Editor {
     this.selectionReturnId = null;
     this.editedMask = null;
     this.hoverPointer = null;
+    this.onCursorPosition?.(null);
     this.panKeyHeld = false;
     this.panMode = false;
     this.altHeld = false;
@@ -680,6 +682,7 @@ export class Editor {
 
   private refreshHover(): void {
     const pointer = this.hoverPointer;
+    this.onCursorPosition?.(pointer ? this.viewport.screenToWorld(pointer.screen) : null);
     const hover = pointer && this.pointer?.mode !== 'pan' ?
       { ...pointer, world: this.viewport.screenToWorld(pointer.screen) } : null;
     this.activeTool.hover(hover);

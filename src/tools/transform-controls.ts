@@ -80,9 +80,12 @@ export class TransformControls {
   }
 
   private resizeCursor(layer: TransformTarget, handle: Point): string {
-    const point = this.handlePoint(layer, handle);
-    const center = this.handlePoint(layer, { x: 0, y: 0 });
-    const direction = Math.round(Math.atan2(point.y - center.y, point.x - center.x) / (Math.PI / 4));
+    const [a, b, c, d] = layer.worldTransform();
+    const xLength = Math.hypot(a, b) || 1;
+    const yLength = Math.hypot(c, d) || 1;
+    const x = handle.x * a / xLength + handle.y * c / yLength;
+    const y = handle.x * b / xLength + handle.y * d / yLength;
+    const direction = Math.round(Math.atan2(y, x) / (Math.PI / 4));
     return ['ew-resize', 'nwse-resize', 'ns-resize', 'nesw-resize'][((direction % 4) + 4) % 4];
   }
 

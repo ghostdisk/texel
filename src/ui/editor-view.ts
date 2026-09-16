@@ -77,6 +77,11 @@ export class EditorView {
       input('brush-color').value = primary;
       input('secondary-color').value = secondary;
     };
+    editor.onCursorPosition = (point) => {
+      const position = element('cursor-position');
+      position.hidden = !point;
+      position.textContent = point ? `X ${Math.floor(point.x)} · Y ${Math.floor(point.y)}` : '';
+    };
     editor.onNewDocument = () => this.showSizeDialog();
     editor.onNewSizedLayer = () => this.showSizeDialog(true);
     editor.onImageSize = () => this.showImageSizeDialog();
