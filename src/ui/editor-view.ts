@@ -17,6 +17,7 @@ import type { GuideAxis } from '../model/precision';
 import { BlendModeInput } from './blend-mode-input';
 import { ToolWindow } from './tool-window';
 import type { ExportFormat, ExportMode, ExportSettings } from '../model/export';
+import type { ImageDocument } from '../model/image-document';
 
 export function element<T extends HTMLElement>(id: string): T {
   const node = document.getElementById(id);
@@ -40,6 +41,7 @@ export class EditorView {
   private treeSignature = '';
   private treeLayers: Layer[] = [];
   private rows = new Map<string, HTMLElement>();
+  private collapsedGroups = new WeakMap<ImageDocument, Set<string>>();
   private optionsTool = '';
   private sizedLayerDialog = false;
   private imageSizeAspect = 1;
@@ -437,6 +439,8 @@ export class EditorView {
 
   private renderTree(force = false): void {
     const { image } = this.editor;
+    let collapsed = this.collapsedGroups.get(image);
+    if (!collapsed) { collapsed = new Set(); this.collapsedGroups.set(image, collapsed); }
     const generatedLayer = this.editor.generators.active?.resultLayer;
     const layers = image.allLayers().filter((layer) => !layer.isSelection || layer === image.selectionMask || this.editor.selectionMode || image.isSelected(layer));
     const signature = JSON.stringify(layers.map((layer) => [layer.id, layer.name, layer.visible, layer.parent?.id, layer.filters.length, layer.isSelection, layer === generatedLayer]));
@@ -495,7 +499,26 @@ export class EditorView {
         choose.onclick = (event) => this.editor.select(layer, event.shiftKey ? 'range' : event.ctrlKey || event.metaKey ? 'toggle' : 'replace',
           [...this.rows.keys()].map((id) => image.find(id)));
         choose.ondblclick = (event) => { event.preventDefault(); this.rename(layer); };
-        row.append(visibility, choose);
+        if (layer.parent) {
+          if (layer instanceof GroupLayer) {
+            const disclosure = document.createElement('button');
+            disclosure.className = 'layer-disclosure';
+            disclosure.title = `${collapsed.has(layer.id) ? 'Expand' : 'Collapse'} ${layer.name}`;
+            disclosure.setAttribute('aria-label', disclosure.title);
+            disclosure.setAttribute('aria-expanded', String(!collapsed.has(layer.id)));
+            disclosure.append(icon('chevron-down'));
+            disclosure.onclick = () => {
+              if (collapsed.has(layer.id)) collapsed.delete(layer.id);
+              else collapsed.add(layer.id);
+              this.renderTree(true);
+            };
+            row.append(visibility, disclosure, choose);
+          } else {
+            const spacer = document.createElement('span');
+            spacer.className = 'layer-disclosure-spacer';
+            row.append(visibility, spacer, choose);
+          }
+        } else row.append(visibility, choose);
         if (isGenerated) {
           const badge = document.createElement('span');
           badge.className = 'layer-badge generation-badge';
@@ -519,7 +542,7 @@ export class EditorView {
         tree.append(row);
         this.rows.set(layer.id, row);
         if (layer instanceof GroupLayer) {
-          [...layer.children].reverse().forEach((child) => visit(child, depth + 1));
+          if (!collapsed.has(layer.id)) [...layer.children].reverse().forEach((child) => visit(child, depth + 1));
           const end = document.createElement('div');
           end.className = 'layer-drop-end';
           end.style.marginLeft = `${3 + (depth + 1) * 12}px`;

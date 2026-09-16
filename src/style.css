@@ -223,6 +223,11 @@ h2 { display: flex; align-items: center; gap: 7px; font-weight: 600; font-size: 
 .layer-row.selected.active-layer { border-color: var(--accent); box-shadow: inset 0 0 0 1px color-mix(in srgb, var(--accent) 8%, transparent); }
 .layer-row .visibility { width: 22px; height: 28px; flex-shrink: 0; padding: 2px; border: 0; background: transparent; color: var(--text); }
 .layer-row .visibility .icon { width: 18px; height: 18px; }
+.layer-disclosure, .layer-disclosure-spacer { width: 14px; height: 24px; flex: 0 0 14px; }
+.layer-disclosure { display: grid; place-items: center; padding: 0; border: 0; background: transparent; color: var(--text-muted); }
+.layer-disclosure:hover { color: var(--text); }
+.layer-disclosure .icon { width: 13px; height: 13px; }
+.layer-disclosure[aria-expanded="false"] .icon { transform: rotate(-90deg); }
 .layer-row .visibility-off { color: var(--text-faint); }
 .layer-row .select-layer { display: flex; gap: 7px; align-items: center; justify-content: flex-start; flex: 1; min-width: 0; border: 0; padding: 3px 0; background: transparent; text-align: left; font-size: 11px; }
 .layer-row .select-layer:hover { background: transparent; }
