@@ -79,6 +79,7 @@ export class GeneratorWindow {
     const models = generator.models;
     this.modelPicker.update(models, generator.model);
     const capabilities = generator.selectedModel?.capabilities;
+    generator.syncUI();
     for (const [capability, field] of this.capabilityFields) {
       const supported = capability === 'mask' ? capabilities?.mask || generator.selectionRequired : capabilities?.[capability];
       field.hidden = !supported || capability === 'mask' && !this.editor.image.selectionMask;
@@ -111,7 +112,7 @@ export class GeneratorWindow {
     for (const [key, control] of this.lensFields) {
       if (document.activeElement !== control) control.value = String(Number(values[key].toFixed(2)));
     }
-    const { width, height } = generator.frame;
+    const { width, height } = generator.outputFrame;
     this.generatedSize.textContent = `Requested size: ${width} × ${height} px`;
     const progress = generator.progress;
     const result = generator.resultSize;
@@ -297,6 +298,9 @@ export class GeneratorWindow {
     const signature = JSON.stringify([
       generator.id,
       generator.model,
+      generator.previewKey,
+      generator.frame.width,
+      generator.frame.height,
       generator.scale,
       generator.feather,
       generator.includeResult,

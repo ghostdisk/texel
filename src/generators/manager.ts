@@ -10,6 +10,7 @@ import { ImageGenerator } from './image-generator';
 import { InpaintGenerator } from './inpaint-generator';
 import { ObjectRemovalGenerator } from './object-removal-generator';
 import { ModelTypeGenerator } from './model-type-generator';
+import { ExpandGenerator } from './expand-generator';
 import { GenerationLens } from '../generation/lens';
 import { multiply, transformPoint } from '../model/geometry';
 import type { Matrix } from '../model/geometry';
@@ -30,7 +31,7 @@ export class GeneratorManager {
       new ObjectRemovalGenerator(editor, this.service, this.lens),
       new InpaintGenerator(editor, this.service, this.lens),
       new ModelTypeGenerator(editor, this.service, this.lens, { id: 'enhance', label: 'Upscale / Enhance', resultName: 'Enhanced image', modelTypes: ['restore', 'upscale'] }),
-      new ModelTypeGenerator(editor, this.service, this.lens, { id: 'expand', label: 'Outpaint / Expand', resultName: 'Expanded image', modelTypes: ['expand-reframe'], prompt: 'Prompt' }),
+      new ExpandGenerator(editor, this.service, this.lens),
       new ModelTypeGenerator(editor, this.service, this.lens, { id: 'extract-structure', label: 'Extract Structure', resultName: 'Extracted structure', modelTypes: ['structure-extraction'] }),
       new ModelTypeGenerator(editor, this.service, this.lens, { id: 'relight-recolor', label: 'Relight / Recolor', resultName: 'Relit image', modelTypes: ['lighting-color'], prompt: 'Prompt' }),
     ]) this.generators.set(generator.id, generator);
@@ -73,6 +74,7 @@ export class GeneratorManager {
     const generator = this.current;
     if (!generator) return;
     this.controls.cancel();
+    if (generator instanceof ExpandGenerator) generator.cancelGesture();
     generator.close();
     this.current = null;
     this.window.hide();
@@ -99,27 +101,40 @@ export class GeneratorManager {
   }
 
   pointerDown(pointer: ToolPointer): boolean {
-    return !!this.current && this.controls.pointerDown(pointer);
+    if (!this.current) return false;
+    return this.controls.pointerDown(pointer) || this.current instanceof ExpandGenerator && this.current.pointerDown(pointer);
   }
 
-  pointerMove(pointer: ToolPointer): void { if (this.controls.active) this.controls.pointerMove(pointer); }
+  pointerMove(pointer: ToolPointer): void {
+    if (this.controls.active) this.controls.pointerMove(pointer);
+    else if (this.current instanceof ExpandGenerator) this.current.pointerMove(pointer);
+  }
 
   finish(): void {
     const change = this.controls.finish();
     if (change) this.current?.recordLensTransform(change.before);
+    if (this.current instanceof ExpandGenerator) this.current.finishGesture();
   }
 
-  cancelGesture(): void { this.controls.cancel(); }
+  cancelGesture(): void {
+    this.controls.cancel();
+    if (this.current instanceof ExpandGenerator) this.current.cancelGesture();
+  }
 
   hover(pointer: ToolPointer | null): boolean {
-    if (!this.current || !pointer || !this.controls.wantsPointer(pointer)) return false;
-    this.controls.hover(pointer);
-    return true;
+    if (!this.current || !pointer) return false;
+    if (this.controls.wantsPointer(pointer)) { this.controls.hover(pointer); return true; }
+    if (this.current instanceof ExpandGenerator && this.current.wantsPointer(pointer)) {
+      this.current.hover(pointer);
+      return true;
+    }
+    return false;
   }
 
   drawOverlay(): void {
     const generator = this.current;
     if (!generator) return;
+    if (generator instanceof ExpandGenerator) generator.drawOutputFrame();
     const frame = generator.frame;
     if (frame.canonicalWidth > generator.lens.width + 0.0001 || frame.canonicalHeight > generator.lens.height + 0.0001) {
       const corners = [

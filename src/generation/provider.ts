@@ -33,6 +33,22 @@ export interface GenerationSizeConstraints {
   granularity?: number | { width: number; height: number };
 }
 
+export interface GenerationExpandConstraints {
+  maxPerSide?: number;
+  maxPixels?: number;
+  aspectRatios?: string[];
+  outputSizeBuckets?: GenerationSizeBucket[];
+  centered?: boolean;
+  fitSource?: boolean;
+}
+
+export interface GenerationExpansion {
+  left: number;
+  right: number;
+  top: number;
+  bottom: number;
+}
+
 export type GenerationModelType =
   | 'general-editing'
   | 'generate-from-image'
@@ -62,6 +78,7 @@ export interface GenerationModelCapabilities {
   denoiseStrength: boolean;
   partialPreview: boolean;
   size?: GenerationSizeConstraints;
+  expand?: GenerationExpandConstraints;
 }
 
 export interface GenerationModel {
@@ -93,6 +110,7 @@ export interface GenerationRequest {
   seed: number;
   input: Uint8Array<ArrayBuffer> | null;
   mask: Uint8Array<ArrayBuffer> | null;
+  expand?: GenerationExpansion;
 }
 
 export interface GenerationProgress {

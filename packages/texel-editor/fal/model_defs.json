@@ -57,6 +57,102 @@
     ]
   },
   "models": {
+    "fal-ai/bria/expand": {
+      "displayName": "Bria Expand Image",
+      "tags": ["outpainting"],
+      "types": ["expand-reframe"],
+      "imageField": "image_url",
+      "outputField": "image",
+      "inputImages": 1,
+      "minimumInputImages": 1,
+      "promptField": "prompt",
+      "fields": { "negativePrompt": "negative_prompt", "seed": "seed" },
+      "expandApi": "bria-canvas",
+      "capabilities": { "expand": { "maxPixels": 25000000 } }
+    },
+    "fal-ai/flux-2-pro/outpaint": {
+      "displayName": "FLUX 2 Pro Outpaint",
+      "tags": ["outpainting"],
+      "types": ["expand-reframe"],
+      "imageField": "image_url",
+      "outputField": "images",
+      "inputImages": 1,
+      "minimumInputImages": 1,
+      "promptField": null,
+      "fields": { "outputFormat": "output_format" },
+      "expandApi": "side-margins",
+      "expandOptions": { "auto_crop": false }
+    },
+    "fal-ai/image-apps-v2/outpaint": {
+      "displayName": "Image Outpaint",
+      "tags": ["outpainting"],
+      "types": ["expand-reframe"],
+      "imageField": "image_url",
+      "outputField": "images",
+      "inputImages": 1,
+      "minimumInputImages": 1,
+      "promptField": "prompt",
+      "fields": { "seed": "seed", "outputFormat": "output_format" },
+      "expandApi": "side-margins",
+      "expandOptions": { "zoom_out_percentage": 0 },
+      "capabilities": { "expand": { "maxPerSide": 700 } }
+    },
+    "fal-ai/luma-photon/flash/reframe": {
+      "displayName": "Luma Photon Flash Reframe",
+      "tags": ["outpainting", "reframe"],
+      "types": ["expand-reframe"],
+      "imageField": "image_url",
+      "outputField": "images",
+      "inputImages": 1,
+      "minimumInputImages": 1,
+      "promptField": "prompt",
+      "fields": {},
+      "expandApi": "luma-reframe",
+      "capabilities": {
+        "expand": {
+          "centered": true,
+          "fitSource": true,
+          "aspectRatios": ["1:1", "16:9", "9:16", "4:3", "3:4", "21:9", "9:21"],
+          "outputSizeBuckets": [
+            { "width": 1536, "height": 1536 },
+            { "width": 2048, "height": 1152 },
+            { "width": 1152, "height": 2048 },
+            { "width": 1792, "height": 1344 },
+            { "width": 1344, "height": 1792 },
+            { "width": 2432, "height": 1024 },
+            { "width": 1024, "height": 2432 }
+          ]
+        }
+      }
+    },
+    "fal-ai/luma-photon/reframe": {
+      "displayName": "Luma Photon Reframe",
+      "tags": ["outpainting", "reframe"],
+      "types": ["expand-reframe"],
+      "imageField": "image_url",
+      "outputField": "images",
+      "inputImages": 1,
+      "minimumInputImages": 1,
+      "promptField": "prompt",
+      "fields": {},
+      "expandApi": "luma-reframe",
+      "capabilities": {
+        "expand": {
+          "centered": true,
+          "fitSource": true,
+          "aspectRatios": ["1:1", "16:9", "9:16", "4:3", "3:4", "21:9", "9:21"],
+          "outputSizeBuckets": [
+            { "width": 1536, "height": 1536 },
+            { "width": 2048, "height": 1152 },
+            { "width": 1152, "height": 2048 },
+            { "width": 1792, "height": 1344 },
+            { "width": 1344, "height": 1792 },
+            { "width": 2432, "height": 1024 },
+            { "width": 1024, "height": 2432 }
+          ]
+        }
+      }
+    },
     "bria/fibo-edit/rewrite_text": {
       "displayName": "Fibo Edit [Rewrite Text]",
       "description": "Precisely rewrite text inside images while preserving typography, fonts, and layout. High-quality, brand-safe edits trained exclusively on licensed data for safe commercial use.",

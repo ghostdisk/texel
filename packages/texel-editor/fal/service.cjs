@@ -30,7 +30,9 @@ function modelFromCatalog(record) {
   if (!record?.endpoint_id) return null;
   const definition = MODEL_DEFS[record.endpoint_id] ?? {};
   const tags = definition.tags ?? catalogTags(record);
-  const types = definition.types ?? fallbackTypes(tags);
+  const classified = definition.types ?? fallbackTypes(tags);
+  const supported = classified.includes('expand-reframe') && !definition.expandApi ? classified.filter((type) => type !== 'expand-reframe') : classified;
+  const types = supported.length ? supported : ['general-editing'];
   const hasPromptField = Object.prototype.hasOwnProperty.call(definition, 'promptField');
   const fields = definition.fields ?? (types.includes('fill-inpaint') ? { mask: 'mask_url' } : {});
   return {
@@ -46,6 +48,8 @@ function modelFromCatalog(record) {
     ratings: definition.ratings,
     promptField: hasPromptField ? definition.promptField : fallbackPromptField(types),
     fields,
+    expandApi: definition.expandApi,
+    expandOptions: definition.expandOptions,
     capabilities: definition.capabilities ?? {},
   };
 }
@@ -122,6 +126,40 @@ function assignSize(body, model, width, height) {
     });
     if (resolution !== null) body[fields.resolution] = resolution;
   }
+}
+
+function assignExpansion(body, model, width, height, expand) {
+  const sides = ['left', 'right', 'top', 'bottom'];
+  if (!Number.isSafeInteger(width) || !Number.isSafeInteger(height) || width < 1 || height < 1) {
+    throw new Error('Outpainting input dimensions must be positive whole numbers.');
+  }
+  if (!expand || sides.some((side) => !Number.isSafeInteger(expand[side]) || expand[side] < 0)) {
+    throw new Error('Outpainting requires nonnegative whole-pixel expansion on all four sides.');
+  }
+  const outputWidth = width + expand.left + expand.right;
+  const outputHeight = height + expand.top + expand.bottom;
+  if (!Number.isSafeInteger(outputWidth) || !Number.isSafeInteger(outputHeight)) throw new Error('Expanded dimensions are too large.');
+  const constraints = model.capabilities.expand ?? {};
+  if (constraints.maxPerSide && sides.some((side) => expand[side] > constraints.maxPerSide)) {
+    throw new Error(`This model can expand at most ${constraints.maxPerSide} pixels per side.`);
+  }
+  if (constraints.maxPixels && outputWidth * outputHeight >= constraints.maxPixels) throw new Error('Expanded image exceeds this model’s pixel limit.');
+  if (model.expandApi === 'bria-canvas') {
+    body.canvas_size = [outputWidth, outputHeight];
+    body.original_image_size = [width, height];
+    body.original_image_location = [expand.left, expand.top];
+  } else if (model.expandApi === 'side-margins') {
+    for (const side of sides) body[`expand_${side}`] = expand[side];
+    Object.assign(body, model.expandOptions);
+  } else if (model.expandApi === 'luma-reframe') {
+    const ratios = constraints.aspectRatios ?? [];
+    const chosen = closestSize(ratios, outputWidth / outputHeight, (value) => {
+      const match = String(value).match(/^(\d+):(\d+)$/);
+      return match ? Number(match[1]) / Number(match[2]) : NaN;
+    });
+    if (!chosen) throw new Error('Luma Reframe has no configured output aspect ratios.');
+    body.aspect_ratio = chosen;
+  } else throw new Error('This outpainting model has no request mapping.');
 }
 
 function queueUrl(value, field) {
@@ -205,12 +243,23 @@ function registerFal({ app, ipcMain, safeStorage, keyStore, emit }, ownerOf) {
       const key = await readKey();
       let records;
       try {
-        const url = new URL(CATALOG_API);
-        url.searchParams.set('limit', '1000');
-        url.searchParams.set('status', 'active');
-        url.searchParams.set('category', 'image-to-image');
-        const page = await request(url.href, key).then((response) => response.json());
-        records = Array.isArray(page.models) ? page.models : [];
+        records = [];
+        const cursors = new Set();
+        let cursor = '';
+        do {
+          const url = new URL(CATALOG_API);
+          url.searchParams.set('limit', '100');
+          url.searchParams.set('status', 'active');
+          url.searchParams.set('category', 'image-to-image');
+          if (cursor) url.searchParams.set('cursor', cursor);
+          const page = await request(url.href, key).then((response) => response.json());
+          if (!Array.isArray(page.models)) throw new Error('fal returned an invalid model catalog.');
+          records.push(...page.models);
+          if (!page.has_more) break;
+          cursor = page.next_cursor;
+          if (typeof cursor !== 'string' || !cursor || cursors.has(cursor)) throw new Error('fal returned an invalid model catalog cursor.');
+          cursors.add(cursor);
+        } while (true);
         await writeJson(catalogCachePath(), { version: 2, records });
       } catch (error) {
         const cached = await readJson(catalogCachePath());
@@ -219,7 +268,7 @@ function registerFal({ app, ipcMain, safeStorage, keyStore, emit }, ownerOf) {
       }
       models = new Map(records.map(modelFromCatalog).filter(Boolean).map((model) => [model.id, model]));
       return [...models.values()];
-    })();
+    })().catch((error) => { catalogPromise = null; throw error; });
     return catalogPromise;
   }
 
@@ -327,7 +376,8 @@ function registerFal({ app, ipcMain, safeStorage, keyStore, emit }, ownerOf) {
     }
     if (outputFormat) body[outputFormat] = 'png';
     if (numImages) body[numImages] = 1;
-    assignSize(body, model, generation.width, generation.height);
+    if (model.expandApi) assignExpansion(body, model, generation.width, generation.height, generation.expand);
+    else assignSize(body, model, generation.width, generation.height);
     const controller = new AbortController();
     const job = { controller, sender: event.sender, key, cancelUrl: '' };
     jobs.set(id, job);

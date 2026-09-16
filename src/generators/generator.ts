@@ -12,7 +12,7 @@ import { rgbaToPng } from '../generation/image-codec';
 import { generationResultFrame } from '../generation/lens';
 import type { GenerationFrame, GenerationLens } from '../generation/lens';
 import type { AIRequestService } from '../generation/service';
-import type { GenerationModel, GenerationModelType, GenerationProgress } from '../generation/provider';
+import type { GenerationExpansion, GenerationModel, GenerationModelType, GenerationProgress } from '../generation/provider';
 
 export interface GeneratorInputPreview {
   input: Blob | null;
@@ -24,6 +24,7 @@ interface RunningRequest {
   documentId: string;
   root: GroupLayer;
   frame: GenerationFrame;
+  outputFrame: GenerationFrame;
   input: Surface | null;
   mask: Surface | null;
   controller: AbortController;
@@ -57,6 +58,7 @@ export abstract class Generator {
   onChange?: () => void;
   protected get requiresPrompt(): boolean { return true; }
   protected get requiresSelection(): boolean { return false; }
+  protected get expansion(): GenerationExpansion | undefined { return undefined; }
   protected readonly operation: 'remove' | undefined = undefined;
   protected readonly supportsAutoRun: boolean = false;
   private running: RunningRequest | null = null;
@@ -88,6 +90,8 @@ export abstract class Generator {
       (!this.requiresSelection || !!this.editor.image.selectionMask) && !this.sizeError && !this.requirementError;
   }
   get frame(): GenerationFrame { return this.lens.frame(this.scale, this.selectedModel?.capabilities.size); }
+  get outputFrame(): GenerationFrame { return this.frame; }
+  get previewKey(): unknown { return null; }
   get resultSize(): Pick<GenerationFrame, 'width' | 'height'> | null {
     const source = this.result?.source;
     return source ? { width: source.width, height: source.height } : null;
@@ -116,6 +120,7 @@ export abstract class Generator {
 
   abstract renderSpecific(container: HTMLElement): void;
   abstract run(): Promise<void>;
+  syncUI(): void {}
 
   renderBeforeModel(_container: HTMLElement): void {}
 
@@ -233,6 +238,7 @@ export abstract class Generator {
       documentId: this.editor.image.id,
       root: this.editor.image.root,
       frame: this.frame,
+      outputFrame: this.outputFrame,
       input: null,
       mask: null,
       controller: new AbortController(),
@@ -278,6 +284,7 @@ export abstract class Generator {
         seed: this.seed,
         input,
         mask,
+        expand: this.expansion,
       }, {
         progress: (progress) => {
           if (!this.valid(run)) return;
@@ -367,7 +374,7 @@ export abstract class Generator {
   private installPixels(generated: Surface, run: RunningRequest): void {
     this.editor.finishGesture();
     if (!this.valid(run)) throw new DOMException('Generation cancelled.', 'AbortError');
-    const frame = generationResultFrame(run.frame, generated.width, generated.height);
+    const frame = generationResultFrame(run.outputFrame, generated.width, generated.height);
     const output = this.blend.apply(generated, run.mask, multiply(inverse(frame.transform), run.frame.transform));
     const layer = this.result;
     const previousFrame = this.resultFrame;

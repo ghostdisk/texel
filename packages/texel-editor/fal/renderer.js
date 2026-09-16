@@ -67,6 +67,7 @@ export default class FalPackage {
         seed: request.seed,
         input,
         mask,
+        expand: request.expand,
       });
       if (signal.aborted) throw new DOMException('Generation cancelled.', 'AbortError');
       return new Blob([result.bytes], { type: result.mediaType });
