@@ -1,35 +1,141 @@
 {
   "schemaVersion": 1,
   "tagTypes": {
-    "background-removal": ["background-removal"],
-    "image-to-image": ["generate-from-image"],
-    "image-editing": ["general-editing"],
-    "inpaint": ["fill-inpaint"],
-    "inpainting": ["fill-inpaint"],
-    "object-removal": ["object-removal-prompt"],
-    "outpaint": ["expand-reframe"],
-    "outpainting": ["expand-reframe"],
-    "reframe": ["expand-reframe"],
-    "restoration": ["restore"],
-    "upscale": ["upscale"],
-    "upscaling": ["upscale"],
-    "relighting": ["lighting-color"],
-    "color-correction": ["lighting-color"],
-    "style-transfer": ["style-transform"],
-    "segmentation": ["selection-analysis"],
-    "detection": ["selection-analysis"],
-    "structure-extraction": ["structure-extraction"]
+    "background-removal": [
+      "background-removal"
+    ],
+    "image-to-image": [
+      "generate-from-image"
+    ],
+    "image-editing": [
+      "general-editing"
+    ],
+    "inpaint": [
+      "fill-inpaint"
+    ],
+    "inpainting": [
+      "fill-inpaint"
+    ],
+    "object-removal": [
+      "object-removal-prompt"
+    ],
+    "outpaint": [
+      "expand-reframe"
+    ],
+    "outpainting": [
+      "expand-reframe"
+    ],
+    "reframe": [
+      "expand-reframe"
+    ],
+    "restoration": [
+      "restore"
+    ],
+    "upscale": [
+      "upscale"
+    ],
+    "upscaling": [
+      "upscale"
+    ],
+    "relighting": [
+      "lighting-color"
+    ],
+    "color-correction": [
+      "lighting-color"
+    ],
+    "style-transfer": [
+      "style-transform"
+    ],
+    "segmentation": [
+      "selection-analysis"
+    ],
+    "detection": [
+      "selection-analysis"
+    ],
+    "structure-extraction": [
+      "structure-extraction"
+    ]
   },
   "models": {
-    "fal-ai/image-editing/object-removal": {
-      "displayName": "Object Removal",
-      "description": "Remove unwanted objects or people from an image.",
+    "bria/fibo-edit/rewrite_text": {
+      "displayName": "Fibo Edit [Rewrite Text]",
+      "description": "Precisely rewrite text inside images while preserving typography, fonts, and layout. High-quality, brand-safe edits trained exclusively on licensed data for safe commercial use.",
       "tags": [
-        "image-to-image",
-        "object-removal"
+        "bria",
+        "fibo-edit",
+        "text-rewriting",
+        "image-editing"
       ],
       "types": [
-        "object-removal-prompt"
+        "general-editing"
+      ],
+      "imageField": "image_url",
+      "outputField": "images",
+      "inputImages": 1,
+      "minimumInputImages": 1,
+      "promptField": null,
+      "fields": {},
+      "ratings": {
+        "affordability": 4,
+        "speed": 3,
+        "quality": 4,
+        "provisional": [
+          "speed",
+          "quality"
+        ],
+        "inferred": [],
+        "qualityScope": "in_image_text_rewriting",
+        "realtimeCandidate": false
+      }
+    },
+    "bria/genfill/v2": {
+      "ratings": {
+        "affordability": 4,
+        "speed": 3,
+        "quality": 3,
+        "provisional": [
+          "speed",
+          "quality"
+        ],
+        "inferred": [],
+        "qualityScope": "masked_inpainting",
+        "realtimeCandidate": false
+      }
+    },
+    "bytedance/seedream/v5/lite/edit": {
+      "fields": {
+        "imageSize": "image_size",
+        "imageSizeObject": true
+      },
+      "capabilities": {
+        "size": {
+          "maxWidth": 14142,
+          "maxHeight": 14142
+        }
+      },
+      "ratings": {
+        "affordability": 4,
+        "speed": 2,
+        "quality": 4,
+        "provisional": [
+          "speed",
+          "quality"
+        ],
+        "inferred": [],
+        "qualityScope": "general_editing",
+        "realtimeCandidate": false
+      }
+    },
+    "fal-ai/bagel/edit": {
+      "displayName": "Bagel",
+      "description": "Bagel is a 7B parameter multimodal model from Bytedance-Seed that can generate both images and text.",
+      "tags": [
+        "image-to-image",
+        "image-editing"
+      ],
+      "types": [
+        "generate-from-image",
+        "general-editing"
       ],
       "imageField": "image_url",
       "outputField": "images",
@@ -37,31 +143,8 @@
       "minimumInputImages": 1,
       "promptField": "prompt",
       "fields": {
-        "steps": "num_inference_steps",
-        "guidance": "guidance_scale",
-        "seed": "seed",
-        "outputFormat": "output_format",
-        "aspectRatio": "aspect_ratio"
+        "seed": "seed"
       },
-      "sizing": {
-        "aspectRatios": [
-          "21:9",
-          "16:9",
-          "4:3",
-          "3:2",
-          "1:1",
-          "2:3",
-          "3:4",
-          "9:16",
-          "9:21"
-        ],
-        "resolutions": []
-      },
-      "capabilities": {
-        "dimensionMultiple": 32
-      }
-    },
-    "fal-ai/bagel/edit": {
       "ratings": {
         "affordability": 3,
         "speed": 2,
@@ -76,6 +159,33 @@
       }
     },
     "fal-ai/boogu-image/edit": {
+      "displayName": "Boogu Image",
+      "description": "Image To Image Model using Boogu-Image",
+      "tags": [],
+      "types": [
+        "general-editing"
+      ],
+      "imageField": "image_url",
+      "outputField": "images",
+      "inputImages": 1,
+      "minimumInputImages": 1,
+      "promptField": "prompt",
+      "fields": {
+        "negativePrompt": "negative_prompt",
+        "steps": "num_inference_steps",
+        "guidance": "guidance_scale",
+        "seed": "seed",
+        "outputFormat": "output_format",
+        "imageSize": "image_size",
+        "numImages": "num_images",
+        "imageSizeObject": true
+      },
+      "capabilities": {
+        "size": {
+          "maxWidth": 14142,
+          "maxHeight": 14142
+        }
+      },
       "ratings": {
         "affordability": 4,
         "speed": 3,
@@ -89,7 +199,95 @@
         "realtimeCandidate": false
       }
     },
+    "fal-ai/bria/eraser": {
+      "displayName": "Bria Eraser",
+      "description": "Bria Eraser enables precise removal of unwanted objects from images while maintaining high-quality outputs. Trained exclusively on licensed data for safe and risk-free commercial use. Access the model's source code and weights: https://bria.ai/contact-us",
+      "tags": [
+        "image-editing",
+        "object-removal"
+      ],
+      "types": [
+        "general-editing",
+        "object-removal-mask"
+      ],
+      "imageField": "image_url",
+      "outputField": "image",
+      "inputImages": 1,
+      "minimumInputImages": 1,
+      "promptField": null,
+      "fields": {
+        "mask": "mask_url"
+      },
+      "capabilities": {
+        "maskRequired": true
+      },
+      "ratings": {
+        "affordability": 3,
+        "speed": null,
+        "quality": 5,
+        "provisional": [],
+        "inferred": [],
+        "qualityScope": "object_removal",
+        "realtimeCandidate": false
+      }
+    },
+    "fal-ai/bria/genfill": {
+      "displayName": "Bria GenFill",
+      "description": "Bria GenFill enables high-quality object addition or visual transformation. Trained exclusively on licensed data for safe and risk-free commercial use. Access the model's source code and weights: https://bria.ai/contact-us",
+      "tags": [
+        "image-editing"
+      ],
+      "types": [
+        "general-editing"
+      ],
+      "imageField": "image_url",
+      "outputField": "images",
+      "inputImages": 1,
+      "minimumInputImages": 1,
+      "promptField": "prompt",
+      "fields": {
+        "negativePrompt": "negative_prompt",
+        "seed": "seed",
+        "mask": "mask_url",
+        "numImages": "num_images"
+      },
+      "capabilities": {
+        "maskRequired": true
+      },
+      "ratings": {
+        "affordability": 4,
+        "speed": 4,
+        "quality": 3,
+        "provisional": [
+          "speed",
+          "quality"
+        ],
+        "inferred": [],
+        "qualityScope": "masked_inpainting",
+        "realtimeCandidate": false
+      }
+    },
     "fal-ai/chrono-edit": {
+      "displayName": "Chrono Edit",
+      "description": "NVIDIA's Logically Consistent and Physics-Aware Image Editing Model",
+      "tags": [
+        "image-editing"
+      ],
+      "types": [
+        "general-editing"
+      ],
+      "imageField": "image_url",
+      "outputField": "images",
+      "inputImages": 1,
+      "minimumInputImages": 1,
+      "promptField": "prompt",
+      "fields": {
+        "steps": "num_inference_steps",
+        "guidance": "guidance_scale",
+        "seed": "seed",
+        "outputFormat": "output_format",
+        "resolution": "resolution"
+      },
       "ratings": {
         "affordability": 5,
         "speed": 4,
@@ -101,9 +299,39 @@
         "inferred": [],
         "qualityScope": "general_editing",
         "realtimeCandidate": false
+      },
+      "capabilities": {
+        "size": {
+          "shortSideBuckets": [
+            480,
+            720
+          ]
+        }
       }
     },
     "fal-ai/chrono-edit-lora": {
+      "displayName": "Chrono Edit Lora",
+      "description": "LoRA endpoint for the Chrono Edit model.",
+      "tags": [
+        "image-to-image",
+        "image-editing"
+      ],
+      "types": [
+        "generate-from-image",
+        "general-editing"
+      ],
+      "imageField": "image_url",
+      "outputField": "images",
+      "inputImages": 1,
+      "minimumInputImages": 1,
+      "promptField": "prompt",
+      "fields": {
+        "steps": "num_inference_steps",
+        "guidance": "guidance_scale",
+        "seed": "seed",
+        "outputFormat": "output_format",
+        "resolution": "resolution"
+      },
       "ratings": {
         "affordability": 4,
         "speed": 4,
@@ -115,9 +343,29 @@
         "inferred": [],
         "qualityScope": "general_editing",
         "realtimeCandidate": false
+      },
+      "capabilities": {
+        "size": {
+          "shortSideBuckets": [
+            480,
+            720
+          ]
+        }
       }
     },
     "fal-ai/dreamomni2/edit": {
+      "displayName": "DreamOmni2",
+      "description": "DreamOmni2 is a unified multimodal model for text and image guided image editing.",
+      "tags": [],
+      "types": [
+        "general-editing"
+      ],
+      "imageField": "image_urls",
+      "outputField": "image",
+      "inputImages": 1,
+      "minimumInputImages": 1,
+      "promptField": "prompt",
+      "fields": {},
       "ratings": {
         "affordability": 4,
         "speed": 2,
@@ -132,6 +380,42 @@
       }
     },
     "fal-ai/emu-3.5-image/edit-image": {
+      "displayName": "Emu 3.5 Image",
+      "description": "Edit images with a text prompt using Emu 3.5 Image",
+      "tags": [],
+      "types": [
+        "general-editing"
+      ],
+      "imageField": "image_url",
+      "outputField": "images",
+      "inputImages": 1,
+      "minimumInputImages": 1,
+      "promptField": "prompt",
+      "fields": {
+        "seed": "seed",
+        "outputFormat": "output_format",
+        "aspectRatio": "aspect_ratio",
+        "resolution": "resolution"
+      },
+      "capabilities": {
+        "size": {
+          "aspectRatios": [
+            "21:9",
+            "16:9",
+            "4:3",
+            "3:2",
+            "1:1",
+            "2:3",
+            "3:4",
+            "9:16",
+            "9:21"
+          ],
+          "shortSideBuckets": [
+            480,
+            720
+          ]
+        }
+      },
       "ratings": {
         "affordability": 1,
         "speed": 1,
@@ -145,21 +429,416 @@
         "realtimeCandidate": false
       }
     },
-    "bria/fibo-edit/rewrite_text": {
+    "fal-ai/fast-lcm-diffusion/image-to-image": {
+      "displayName": "Latent Consistency Models (v1.5/XL)",
+      "description": "Run SDXL at the speed of light",
+      "tags": [
+        "lcm",
+        "diffusion",
+        "turbo",
+        "real-time",
+        "editing"
+      ],
+      "types": [
+        "general-editing"
+      ],
+      "imageField": "image_url",
+      "outputField": "images",
+      "inputImages": 1,
+      "minimumInputImages": 1,
+      "promptField": "prompt",
+      "fields": {
+        "negativePrompt": "negative_prompt",
+        "steps": "num_inference_steps",
+        "guidance": "guidance_scale",
+        "seed": "seed",
+        "strength": "strength",
+        "imageSize": "image_size",
+        "numImages": "num_images",
+        "imageSizeObject": true
+      },
+      "capabilities": {
+        "size": {
+          "maxWidth": 14142,
+          "maxHeight": 14142
+        }
+      },
       "ratings": {
-        "affordability": 4,
-        "speed": 3,
+        "affordability": 5,
+        "speed": 5,
+        "quality": 2,
+        "provisional": [
+          "affordability",
+          "speed",
+          "quality"
+        ],
+        "inferred": [
+          "affordability"
+        ],
+        "qualityScope": "image_conditioned_generation",
+        "realtimeCandidate": true
+      }
+    },
+    "fal-ai/fast-lcm-diffusion/inpainting": {
+      "displayName": "Latent Consistency Models (v1.5/XL)",
+      "description": "Run SDXL at the speed of light",
+      "tags": [
+        "lcm",
+        "diffusion",
+        "turbo",
+        "real-time",
+        "editing"
+      ],
+      "types": [
+        "general-editing"
+      ],
+      "imageField": "image_url",
+      "outputField": "images",
+      "inputImages": 1,
+      "minimumInputImages": 1,
+      "promptField": "prompt",
+      "fields": {
+        "negativePrompt": "negative_prompt",
+        "steps": "num_inference_steps",
+        "guidance": "guidance_scale",
+        "seed": "seed",
+        "strength": "strength",
+        "mask": "mask_url",
+        "imageSize": "image_size",
+        "numImages": "num_images",
+        "imageSizeObject": true
+      },
+      "capabilities": {
+        "maskRequired": true,
+        "size": {
+          "maxWidth": 14142,
+          "maxHeight": 14142
+        }
+      },
+      "ratings": {
+        "affordability": 5,
+        "speed": 5,
+        "quality": 2,
+        "provisional": [
+          "affordability",
+          "speed",
+          "quality"
+        ],
+        "inferred": [
+          "affordability"
+        ],
+        "qualityScope": "masked_inpainting",
+        "realtimeCandidate": true
+      }
+    },
+    "fal-ai/fast-lightning-sdxl/image-to-image": {
+      "displayName": "Stable Diffusion XL Lightning",
+      "description": "Run SDXL at the speed of light",
+      "tags": [
+        "diffusion",
+        "lightning",
+        "editing"
+      ],
+      "types": [
+        "general-editing"
+      ],
+      "imageField": "image_url",
+      "outputField": "images",
+      "inputImages": 1,
+      "minimumInputImages": 1,
+      "promptField": "prompt",
+      "fields": {
+        "steps": "num_inference_steps",
+        "seed": "seed",
+        "strength": "strength",
+        "imageSize": "image_size",
+        "numImages": "num_images",
+        "imageSizeObject": true
+      },
+      "capabilities": {
+        "size": {
+          "maxWidth": 14142,
+          "maxHeight": 14142
+        }
+      },
+      "ratings": {
+        "affordability": 5,
+        "speed": 5,
+        "quality": 2,
+        "provisional": [
+          "affordability",
+          "speed",
+          "quality"
+        ],
+        "inferred": [
+          "affordability"
+        ],
+        "qualityScope": "image_conditioned_generation",
+        "realtimeCandidate": false
+      }
+    },
+    "fal-ai/fast-lightning-sdxl/inpainting": {
+      "displayName": "Stable Diffusion XL Lightning",
+      "description": "Run SDXL at the speed of light",
+      "tags": [
+        "diffusion",
+        "lightning"
+      ],
+      "types": [
+        "general-editing"
+      ],
+      "imageField": "image_url",
+      "outputField": "images",
+      "inputImages": 1,
+      "minimumInputImages": 1,
+      "promptField": "prompt",
+      "fields": {
+        "steps": "num_inference_steps",
+        "seed": "seed",
+        "strength": "strength",
+        "mask": "mask_url",
+        "imageSize": "image_size",
+        "numImages": "num_images",
+        "imageSizeObject": true
+      },
+      "capabilities": {
+        "maskRequired": true,
+        "size": {
+          "maxWidth": 14142,
+          "maxHeight": 14142
+        }
+      },
+      "ratings": {
+        "affordability": 5,
+        "speed": 5,
+        "quality": 2,
+        "provisional": [
+          "affordability",
+          "speed",
+          "quality"
+        ],
+        "inferred": [
+          "affordability"
+        ],
+        "qualityScope": "masked_inpainting",
+        "realtimeCandidate": false
+      }
+    },
+    "fal-ai/fast-sdxl-controlnet-canny/inpainting": {
+      "displayName": "ControlNet SDXL",
+      "description": "Generate Images with ControlNet.",
+      "tags": [
+        "diffusion",
+        "controlnet",
+        "editing",
+        "manipulation"
+      ],
+      "types": [
+        "general-editing"
+      ],
+      "imageField": "image_url",
+      "outputField": "images",
+      "inputImages": 1,
+      "minimumInputImages": 1,
+      "promptField": "prompt",
+      "fields": {
+        "negativePrompt": "negative_prompt",
+        "steps": "num_inference_steps",
+        "guidance": "guidance_scale",
+        "seed": "seed",
+        "strength": "strength",
+        "mask": "mask_url",
+        "imageSize": "image_size",
+        "numImages": "num_images",
+        "imageSizeObject": true
+      },
+      "capabilities": {
+        "maskRequired": true,
+        "size": {
+          "maxWidth": 14142,
+          "maxHeight": 14142
+        }
+      },
+      "ratings": {
+        "affordability": 5,
+        "speed": 4,
+        "quality": 2,
+        "provisional": [
+          "affordability",
+          "speed",
+          "quality"
+        ],
+        "inferred": [
+          "affordability"
+        ],
+        "qualityScope": "masked_inpainting",
+        "realtimeCandidate": false
+      }
+    },
+    "fal-ai/fast-sdxl/image-to-image": {
+      "displayName": "Stable Diffusion XL",
+      "description": "Run SDXL at the speed of light",
+      "tags": [
+        "diffusion",
+        "high-res",
+        "lora",
+        "ip-adapter",
+        "controlnet"
+      ],
+      "types": [
+        "general-editing"
+      ],
+      "imageField": "image_url",
+      "outputField": "images",
+      "inputImages": 1,
+      "minimumInputImages": 1,
+      "promptField": "prompt",
+      "fields": {
+        "negativePrompt": "negative_prompt",
+        "steps": "num_inference_steps",
+        "guidance": "guidance_scale",
+        "seed": "seed",
+        "strength": "strength",
+        "imageSize": "image_size",
+        "numImages": "num_images",
+        "imageSizeObject": true
+      },
+      "capabilities": {
+        "size": {
+          "maxWidth": 14142,
+          "maxHeight": 14142
+        }
+      },
+      "ratings": {
+        "affordability": 5,
+        "speed": 4,
+        "quality": 2,
+        "provisional": [
+          "affordability",
+          "speed",
+          "quality"
+        ],
+        "inferred": [
+          "affordability"
+        ],
+        "qualityScope": "image_conditioned_generation",
+        "realtimeCandidate": false
+      }
+    },
+    "fal-ai/fast-sdxl/inpainting": {
+      "displayName": "Stable Diffusion XL",
+      "description": "Run SDXL at the speed of light",
+      "tags": [
+        "diffusion",
+        "high-res",
+        "lora",
+        "ip-adapter",
+        "controlnet"
+      ],
+      "types": [
+        "general-editing"
+      ],
+      "imageField": "image_url",
+      "outputField": "images",
+      "inputImages": 1,
+      "minimumInputImages": 1,
+      "promptField": "prompt",
+      "fields": {
+        "negativePrompt": "negative_prompt",
+        "steps": "num_inference_steps",
+        "guidance": "guidance_scale",
+        "seed": "seed",
+        "strength": "strength",
+        "mask": "mask_url",
+        "imageSize": "image_size",
+        "numImages": "num_images",
+        "imageSizeObject": true
+      },
+      "capabilities": {
+        "maskRequired": true,
+        "size": {
+          "maxWidth": 14142,
+          "maxHeight": 14142
+        }
+      },
+      "ratings": {
+        "affordability": 5,
+        "speed": 4,
+        "quality": 2,
+        "provisional": [
+          "affordability",
+          "speed",
+          "quality"
+        ],
+        "inferred": [
+          "affordability"
+        ],
+        "qualityScope": "masked_inpainting",
+        "realtimeCandidate": false
+      }
+    },
+    "fal-ai/finegrain-eraser": {
+      "displayName": "Finegrain Eraser",
+      "description": "Finegrain Eraser removes objects—along with their shadows, reflections, and lighting artifacts—using only natural language, seamlessly filling the scene with contextually accurate content.",
+      "tags": [
+        "utility",
+        "editing"
+      ],
+      "types": [
+        "general-editing"
+      ],
+      "imageField": "image_url",
+      "outputField": "image",
+      "inputImages": 1,
+      "minimumInputImages": 1,
+      "promptField": "prompt",
+      "fields": {
+        "seed": "seed"
+      },
+      "ratings": {
+        "affordability": 1,
+        "speed": 2,
         "quality": 4,
         "provisional": [
           "speed",
           "quality"
         ],
         "inferred": [],
-        "qualityScope": "in_image_text_rewriting",
+        "qualityScope": "object_removal",
         "realtimeCandidate": false
       }
     },
     "fal-ai/firered-image-edit": {
+      "displayName": "Firered Image Edit",
+      "description": "FireRed Image Edit is FireRed's state of the art open source editing model, re-trained from Qwen Image Edit 2509.",
+      "tags": [
+        "image-editing",
+        "firered"
+      ],
+      "types": [
+        "general-editing"
+      ],
+      "imageField": "image_urls",
+      "outputField": "images",
+      "inputImages": 1,
+      "minimumInputImages": 1,
+      "promptField": "prompt",
+      "fields": {
+        "negativePrompt": "negative_prompt",
+        "steps": "num_inference_steps",
+        "guidance": "guidance_scale",
+        "seed": "seed",
+        "outputFormat": "output_format",
+        "imageSize": "image_size",
+        "numImages": "num_images",
+        "imageSizeObject": true
+      },
+      "capabilities": {
+        "size": {
+          "maxWidth": 14142,
+          "maxHeight": 14142
+        }
+      },
       "ratings": {
         "affordability": 4,
         "speed": 3,
@@ -174,6 +853,35 @@
       }
     },
     "fal-ai/firered-image-edit-v1.1": {
+      "displayName": "Firered Image Edit V1.1",
+      "description": "FireRed Image Edit v1.1 is an updated version of FireRed Image Edit, with improved image editing capabilities.",
+      "tags": [
+        "firered-image-edit"
+      ],
+      "types": [
+        "general-editing"
+      ],
+      "imageField": "image_urls",
+      "outputField": "images",
+      "inputImages": 1,
+      "minimumInputImages": 1,
+      "promptField": "prompt",
+      "fields": {
+        "negativePrompt": "negative_prompt",
+        "steps": "num_inference_steps",
+        "guidance": "guidance_scale",
+        "seed": "seed",
+        "outputFormat": "output_format",
+        "imageSize": "image_size",
+        "numImages": "num_images",
+        "imageSizeObject": true
+      },
+      "capabilities": {
+        "size": {
+          "maxWidth": 14142,
+          "maxHeight": 14142
+        }
+      },
       "ratings": {
         "affordability": 4,
         "speed": 3,
@@ -204,760 +912,6 @@
         "realtimeCandidate": false
       }
     },
-    "fal-ai/flux-2/edit": {
-      "ratings": {
-        "affordability": 4,
-        "speed": 3,
-        "quality": 3,
-        "provisional": [
-          "speed",
-          "quality"
-        ],
-        "inferred": [],
-        "qualityScope": "general_editing",
-        "realtimeCandidate": false
-      }
-    },
-    "fal-ai/flux-2/flash/edit": {
-      "ratings": {
-        "affordability": 5,
-        "speed": 5,
-        "quality": 3,
-        "provisional": [
-          "speed",
-          "quality"
-        ],
-        "inferred": [],
-        "qualityScope": "general_editing",
-        "realtimeCandidate": false
-      }
-    },
-    "fal-ai/flux-2-flex/edit": {
-      "ratings": {
-        "affordability": 3,
-        "speed": 4,
-        "quality": 3,
-        "provisional": [
-          "affordability",
-          "speed",
-          "quality"
-        ],
-        "inferred": [],
-        "qualityScope": "general_editing",
-        "realtimeCandidate": false
-      }
-    },
-    "fal-ai/flux-2-max/edit": {
-      "ratings": {
-        "affordability": 3,
-        "speed": 3,
-        "quality": 3,
-        "provisional": [
-          "speed",
-          "quality"
-        ],
-        "inferred": [],
-        "qualityScope": "general_editing",
-        "realtimeCandidate": false
-      }
-    },
-    "fal-ai/flux-2-pro/edit": {
-      "ratings": {
-        "affordability": 4,
-        "speed": 4,
-        "quality": 3,
-        "provisional": [
-          "speed",
-          "quality"
-        ],
-        "inferred": [],
-        "qualityScope": "general_editing",
-        "realtimeCandidate": false
-      }
-    },
-    "fal-ai/flux-2/turbo/edit": {
-      "ratings": {
-        "affordability": 5,
-        "speed": 5,
-        "quality": 3,
-        "provisional": [
-          "speed",
-          "quality"
-        ],
-        "inferred": [],
-        "qualityScope": "general_editing",
-        "realtimeCandidate": false
-      }
-    },
-    "fal-ai/flux-kontext/dev": {
-      "ratings": {
-        "affordability": 4,
-        "speed": 4,
-        "quality": 2,
-        "provisional": [
-          "speed",
-          "quality"
-        ],
-        "inferred": [],
-        "qualityScope": "general_editing",
-        "realtimeCandidate": false
-      }
-    },
-    "fal-ai/flux-2/klein/4b/edit": {
-      "ratings": {
-        "affordability": 5,
-        "speed": 5,
-        "quality": 2,
-        "provisional": [
-          "affordability",
-          "speed",
-          "quality"
-        ],
-        "inferred": [],
-        "qualityScope": "general_editing",
-        "realtimeCandidate": false
-      }
-    },
-    "fal-ai/flux-2/klein/4b/base/edit": {
-      "ratings": {
-        "affordability": 5,
-        "speed": 4,
-        "quality": 2,
-        "provisional": [
-          "speed",
-          "quality"
-        ],
-        "inferred": [],
-        "qualityScope": "general_editing",
-        "realtimeCandidate": false
-      }
-    },
-    "fal-ai/flux-2/klein/4b/edit/lora": {
-      "ratings": {
-        "affordability": 5,
-        "speed": 5,
-        "quality": 2,
-        "provisional": [
-          "speed",
-          "quality"
-        ],
-        "inferred": [],
-        "qualityScope": "general_editing",
-        "realtimeCandidate": false
-      }
-    },
-    "fal-ai/flux-2/klein/9b/edit": {
-      "ratings": {
-        "affordability": 4,
-        "speed": 5,
-        "quality": 3,
-        "provisional": [
-          "speed",
-          "quality"
-        ],
-        "inferred": [],
-        "qualityScope": "general_editing",
-        "realtimeCandidate": false
-      }
-    },
-    "fal-ai/flux-2/klein/9b/base/edit": {
-      "ratings": {
-        "affordability": 4,
-        "speed": 3,
-        "quality": 3,
-        "provisional": [
-          "speed",
-          "quality"
-        ],
-        "inferred": [],
-        "qualityScope": "general_editing",
-        "realtimeCandidate": false
-      }
-    },
-    "fal-ai/flux-2/klein/9b/edit/lora": {
-      "ratings": {
-        "affordability": 4,
-        "speed": 5,
-        "quality": 3,
-        "provisional": [
-          "speed",
-          "quality"
-        ],
-        "inferred": [],
-        "qualityScope": "general_editing",
-        "realtimeCandidate": false
-      }
-    },
-    "fal-ai/gemini-25-flash-image/edit": {
-      "ratings": {
-        "affordability": 4,
-        "speed": 4,
-        "quality": 3,
-        "provisional": [
-          "speed",
-          "quality"
-        ],
-        "inferred": [],
-        "qualityScope": "general_editing",
-        "realtimeCandidate": false
-      }
-    },
-    "fal-ai/gemini-3-pro-image-preview/edit": {
-      "ratings": {
-        "affordability": 2,
-        "speed": 3,
-        "quality": 4,
-        "provisional": [
-          "speed",
-          "quality"
-        ],
-        "inferred": [],
-        "qualityScope": "general_editing",
-        "realtimeCandidate": false
-      }
-    },
-    "fal-ai/gemini-3.1-flash-image-preview/edit": {
-      "ratings": {
-        "affordability": 3,
-        "speed": 4,
-        "quality": 4,
-        "provisional": [
-          "speed",
-          "quality"
-        ],
-        "inferred": [],
-        "qualityScope": "general_editing",
-        "realtimeCandidate": false
-      }
-    },
-    "fal-ai/gpt-image-1-mini/edit": {
-      "ratings": {
-        "affordability": 4,
-        "speed": 3,
-        "quality": 2,
-        "provisional": [
-          "affordability",
-          "speed",
-          "quality"
-        ],
-        "inferred": [],
-        "qualityScope": "general_editing",
-        "realtimeCandidate": false
-      }
-    },
-    "openai/gpt-image-2/edit": {
-      "ratings": {
-        "affordability": 1,
-        "speed": 3,
-        "quality": 5,
-        "provisional": [
-          "affordability",
-          "speed",
-          "quality"
-        ],
-        "inferred": [],
-        "qualityScope": "general_editing",
-        "realtimeCandidate": false
-      }
-    },
-    "fal-ai/gpt-image-1/edit-image": {
-      "ratings": {
-        "affordability": 2,
-        "speed": 2,
-        "quality": 2,
-        "provisional": [
-          "affordability",
-          "speed",
-          "quality"
-        ],
-        "inferred": [],
-        "qualityScope": "general_editing",
-        "realtimeCandidate": false
-      }
-    },
-    "xai/grok-imagine-image/edit": {
-      "ratings": {
-        "affordability": 4,
-        "speed": 4,
-        "quality": 4,
-        "provisional": [
-          "speed",
-          "quality"
-        ],
-        "inferred": [],
-        "qualityScope": "general_editing",
-        "realtimeCandidate": false
-      }
-    },
-    "xai/grok-imagine-image/v2.0/edit": {
-      "ratings": {
-        "affordability": 3,
-        "speed": 3,
-        "quality": 5,
-        "provisional": [
-          "speed",
-          "quality"
-        ],
-        "inferred": [],
-        "qualityScope": "general_editing",
-        "realtimeCandidate": false
-      }
-    },
-    "fal-ai/hunyuan-image/v3/instruct/edit": {
-      "ratings": {
-        "affordability": 3,
-        "speed": 2,
-        "quality": 3,
-        "provisional": [
-          "speed",
-          "quality"
-        ],
-        "inferred": [],
-        "qualityScope": "general_editing",
-        "realtimeCandidate": false
-      }
-    },
-    "fal-ai/ideogram/v3/remix": {
-      "ratings": {
-        "affordability": 3,
-        "speed": 3,
-        "quality": 3,
-        "provisional": [
-          "speed",
-          "quality"
-        ],
-        "inferred": [],
-        "qualityScope": "general_editing",
-        "realtimeCandidate": false
-      }
-    },
-    "fal-ai/ideogram/v2/edit": {
-      "ratings": {
-        "affordability": 3,
-        "speed": 3,
-        "quality": 3,
-        "provisional": [
-          "speed",
-          "quality"
-        ],
-        "inferred": [],
-        "qualityScope": "masked_inpainting",
-        "realtimeCandidate": false
-      }
-    },
-    "fal-ai/ideogram/v2/remix": {
-      "ratings": {
-        "affordability": 3,
-        "speed": 3,
-        "quality": 3,
-        "provisional": [
-          "speed",
-          "quality"
-        ],
-        "inferred": [],
-        "qualityScope": "general_editing",
-        "realtimeCandidate": false
-      }
-    },
-    "fal-ai/ideogram/v2/turbo/edit": {
-      "ratings": {
-        "affordability": 4,
-        "speed": 4,
-        "quality": 2,
-        "provisional": [
-          "speed",
-          "quality"
-        ],
-        "inferred": [],
-        "qualityScope": "masked_inpainting",
-        "realtimeCandidate": false
-      }
-    },
-    "fal-ai/ideogram/v2/turbo/remix": {
-      "ratings": {
-        "affordability": 4,
-        "speed": 4,
-        "quality": 2,
-        "provisional": [
-          "speed",
-          "quality"
-        ],
-        "inferred": [],
-        "qualityScope": "general_editing",
-        "realtimeCandidate": false
-      }
-    },
-    "fal-ai/ideogram/v2a/remix": {
-      "ratings": {
-        "affordability": 4,
-        "speed": 3,
-        "quality": 3,
-        "provisional": [
-          "speed",
-          "quality"
-        ],
-        "inferred": [],
-        "qualityScope": "general_editing",
-        "realtimeCandidate": false
-      }
-    },
-    "fal-ai/ideogram/v2a/turbo/remix": {
-      "ratings": {
-        "affordability": 4,
-        "speed": 4,
-        "quality": 2,
-        "provisional": [
-          "speed",
-          "quality"
-        ],
-        "inferred": [],
-        "qualityScope": "general_editing",
-        "realtimeCandidate": false
-      }
-    },
-    "fal-ai/ideogram/v3/edit": {
-      "ratings": {
-        "affordability": 3,
-        "speed": 3,
-        "quality": 3,
-        "provisional": [
-          "speed",
-          "quality"
-        ],
-        "inferred": [],
-        "qualityScope": "masked_inpainting",
-        "realtimeCandidate": false
-      }
-    },
-    "fal-ai/joyai-image-edit": {
-      "ratings": {
-        "affordability": 3,
-        "speed": 1,
-        "quality": 3,
-        "provisional": [
-          "speed",
-          "quality"
-        ],
-        "inferred": [],
-        "qualityScope": "general_editing",
-        "realtimeCandidate": false
-      }
-    },
-    "fal-ai/kling-image/o3/image-to-image": {
-      "ratings": {
-        "affordability": 4,
-        "speed": 3,
-        "quality": 2,
-        "provisional": [
-          "speed",
-          "quality"
-        ],
-        "inferred": [],
-        "qualityScope": "general_editing",
-        "realtimeCandidate": false
-      }
-    },
-    "fal-ai/kling-image/v3/image-to-image": {
-      "ratings": {
-        "affordability": 4,
-        "speed": 3,
-        "quality": 3,
-        "provisional": [
-          "speed",
-          "quality"
-        ],
-        "inferred": [],
-        "qualityScope": "general_editing",
-        "realtimeCandidate": false
-      }
-    },
-    "fal-ai/longcat-image/edit": {
-      "ratings": {
-        "affordability": 2,
-        "speed": 3,
-        "quality": 2,
-        "provisional": [
-          "speed",
-          "quality"
-        ],
-        "inferred": [],
-        "qualityScope": "general_editing",
-        "realtimeCandidate": false
-      }
-    },
-    "fal-ai/luma-photon/flash/modify": {
-      "ratings": {
-        "affordability": 5,
-        "speed": 5,
-        "quality": 2,
-        "provisional": [
-          "speed",
-          "quality"
-        ],
-        "inferred": [],
-        "qualityScope": "image_conditioned_generation",
-        "realtimeCandidate": false
-      }
-    },
-    "fal-ai/luma-photon/modify": {
-      "ratings": {
-        "affordability": 5,
-        "speed": 4,
-        "quality": 3,
-        "provisional": [
-          "speed",
-          "quality"
-        ],
-        "inferred": [],
-        "qualityScope": "image_conditioned_generation",
-        "realtimeCandidate": false
-      }
-    },
-    "microsoft/mai-image-2.5-pro/edit": {
-      "ratings": {
-        "affordability": 1,
-        "speed": 2,
-        "quality": 4,
-        "provisional": [
-          "affordability",
-          "speed",
-          "quality"
-        ],
-        "inferred": [],
-        "qualityScope": "general_editing",
-        "realtimeCandidate": false
-      }
-    },
-    "fal-ai/nano-banana/edit": {
-      "ratings": {
-        "affordability": 4,
-        "speed": 4,
-        "quality": 3,
-        "provisional": [
-          "speed",
-          "quality"
-        ],
-        "inferred": [],
-        "qualityScope": "general_editing",
-        "realtimeCandidate": false
-      }
-    },
-    "fal-ai/nano-banana-2/edit": {
-      "ratings": {
-        "affordability": 3,
-        "speed": 4,
-        "quality": 4,
-        "provisional": [
-          "speed",
-          "quality"
-        ],
-        "inferred": [],
-        "qualityScope": "general_editing",
-        "realtimeCandidate": false
-      }
-    },
-    "google/nano-banana-lite/edit": {
-      "ratings": {
-        "affordability": 4,
-        "speed": 5,
-        "quality": 3,
-        "provisional": [
-          "affordability",
-          "speed",
-          "quality"
-        ],
-        "inferred": [
-          "affordability"
-        ],
-        "qualityScope": "general_editing",
-        "realtimeCandidate": false
-      }
-    },
-    "fal-ai/nano-banana-pro/edit": {
-      "ratings": {
-        "affordability": 2,
-        "speed": 3,
-        "quality": 4,
-        "provisional": [
-          "speed",
-          "quality"
-        ],
-        "inferred": [],
-        "qualityScope": "general_editing",
-        "realtimeCandidate": false
-      }
-    },
-    "fal-ai/phota/edit": {
-      "ratings": {
-        "affordability": 3,
-        "speed": 3,
-        "quality": 3,
-        "provisional": [
-          "speed",
-          "quality"
-        ],
-        "inferred": [],
-        "qualityScope": "general_editing",
-        "realtimeCandidate": false
-      }
-    },
-    "fal-ai/qwen-image-edit": {
-      "ratings": {
-        "affordability": 4,
-        "speed": 3,
-        "quality": 2,
-        "provisional": [
-          "speed",
-          "quality"
-        ],
-        "inferred": [],
-        "qualityScope": "general_editing",
-        "realtimeCandidate": false
-      }
-    },
-    "fal-ai/qwen-image-edit-2509": {
-      "ratings": {
-        "affordability": 4,
-        "speed": 3,
-        "quality": 3,
-        "provisional": [
-          "speed",
-          "quality"
-        ],
-        "inferred": [],
-        "qualityScope": "general_editing",
-        "realtimeCandidate": false
-      }
-    },
-    "fal-ai/qwen-image-edit-2509-lora": {
-      "ratings": {
-        "affordability": 4,
-        "speed": 3,
-        "quality": 3,
-        "provisional": [
-          "speed",
-          "quality"
-        ],
-        "inferred": [],
-        "qualityScope": "general_editing",
-        "realtimeCandidate": false
-      }
-    },
-    "fal-ai/qwen-image-edit-lora": {
-      "ratings": {
-        "affordability": 4,
-        "speed": 3,
-        "quality": 2,
-        "provisional": [
-          "speed",
-          "quality"
-        ],
-        "inferred": [],
-        "qualityScope": "general_editing",
-        "realtimeCandidate": false
-      }
-    },
-    "fal-ai/qwen-image-edit-plus": {
-      "ratings": {
-        "affordability": 4,
-        "speed": 3,
-        "quality": 3,
-        "provisional": [
-          "speed",
-          "quality"
-        ],
-        "inferred": [],
-        "qualityScope": "general_editing",
-        "realtimeCandidate": false
-      }
-    },
-    "fal-ai/qwen-image-edit-plus-lora": {
-      "ratings": {
-        "affordability": 4,
-        "speed": 3,
-        "quality": 3,
-        "provisional": [
-          "speed",
-          "quality"
-        ],
-        "inferred": [],
-        "qualityScope": "general_editing",
-        "realtimeCandidate": false
-      }
-    },
-    "fal-ai/qwen-image-max/edit": {
-      "ratings": {
-        "affordability": 3,
-        "speed": 2,
-        "quality": 3,
-        "provisional": [
-          "speed",
-          "quality"
-        ],
-        "inferred": [],
-        "qualityScope": "general_editing",
-        "realtimeCandidate": false
-      }
-    },
-    "bytedance/seedream/v5/lite/edit": {
-      "ratings": {
-        "affordability": 4,
-        "speed": 2,
-        "quality": 4,
-        "provisional": [
-          "speed",
-          "quality"
-        ],
-        "inferred": [],
-        "qualityScope": "general_editing",
-        "realtimeCandidate": false
-      }
-    },
-    "fal-ai/wan/v2.7/edit": {
-      "ratings": {
-        "affordability": 4,
-        "speed": 3,
-        "quality": 3,
-        "provisional": [
-          "speed",
-          "quality"
-        ],
-        "inferred": [],
-        "qualityScope": "general_editing",
-        "realtimeCandidate": false
-      }
-    },
-    "fal-ai/wan/v2.7/pro/edit": {
-      "ratings": {
-        "affordability": 3,
-        "speed": 2,
-        "quality": 3,
-        "provisional": [
-          "speed",
-          "quality"
-        ],
-        "inferred": [],
-        "qualityScope": "general_editing",
-        "realtimeCandidate": false
-      }
-    },
-    "fal-ai/flux-2/klein/realtime": {
-      "ratings": {
-        "affordability": 5,
-        "speed": 5,
-        "quality": 2,
-        "provisional": [
-          "affordability",
-          "speed",
-          "quality"
-        ],
-        "inferred": [
-          "affordability"
-        ],
-        "qualityScope": "general_editing",
-        "realtimeCandidate": true
-      }
-    },
     "fal-ai/flux-1/dev/image-to-image": {
       "ratings": {
         "affordability": 4,
@@ -986,20 +940,6 @@
         "realtimeCandidate": false
       }
     },
-    "fal-ai/flux/krea/image-to-image": {
-      "ratings": {
-        "affordability": 4,
-        "speed": 4,
-        "quality": 3,
-        "provisional": [
-          "speed",
-          "quality"
-        ],
-        "inferred": [],
-        "qualityScope": "image_conditioned_generation",
-        "realtimeCandidate": false
-      }
-    },
     "fal-ai/flux-1/srpo/image-to-image": {
       "ratings": {
         "affordability": 4,
@@ -1014,7 +954,645 @@
         "realtimeCandidate": false
       }
     },
-    "fal-ai/flux/srpo/image-to-image": {
+    "fal-ai/flux-2-flex/edit": {
+      "displayName": "Flux 2 Flex",
+      "description": "Image editing with FLUX.2 [flex] from Black Forest Labs. Supports multi-reference editing with customizable inference steps and enhanced text rendering.",
+      "tags": [],
+      "types": [
+        "general-editing"
+      ],
+      "imageField": "image_urls",
+      "outputField": "images",
+      "inputImages": 1,
+      "minimumInputImages": 1,
+      "promptField": "prompt",
+      "fields": {
+        "steps": "num_inference_steps",
+        "guidance": "guidance_scale",
+        "seed": "seed",
+        "outputFormat": "output_format",
+        "imageSize": "image_size",
+        "imageSizeObject": true
+      },
+      "capabilities": {
+        "size": {
+          "maxWidth": 14142,
+          "maxHeight": 14142
+        }
+      },
+      "ratings": {
+        "affordability": 3,
+        "speed": 4,
+        "quality": 3,
+        "provisional": [
+          "affordability",
+          "speed",
+          "quality"
+        ],
+        "inferred": [],
+        "qualityScope": "general_editing",
+        "realtimeCandidate": false
+      }
+    },
+    "fal-ai/flux-2-max/edit": {
+      "displayName": "Flux 2 Max",
+      "description": "FLUX.2 [max] delivers state-of-the-art image generation and advanced image editing with exceptional realism, precision, and consistency.",
+      "tags": [
+        "flux2",
+        "image-editing",
+        "high-quality"
+      ],
+      "types": [
+        "general-editing"
+      ],
+      "imageField": "image_urls",
+      "outputField": "images",
+      "inputImages": 1,
+      "minimumInputImages": 1,
+      "promptField": "prompt",
+      "fields": {
+        "seed": "seed",
+        "outputFormat": "output_format",
+        "imageSize": "image_size",
+        "imageSizeObject": true
+      },
+      "capabilities": {
+        "size": {
+          "maxWidth": 14142,
+          "maxHeight": 14142
+        }
+      },
+      "ratings": {
+        "affordability": 3,
+        "speed": 3,
+        "quality": 3,
+        "provisional": [
+          "speed",
+          "quality"
+        ],
+        "inferred": [],
+        "qualityScope": "general_editing",
+        "realtimeCandidate": false
+      }
+    },
+    "fal-ai/flux-2-pro/edit": {
+      "displayName": "FLUX 2 Pro Edit",
+      "description": "Text-to-image generation with FLUX.2 [pro] from Black Forest Labs. Optimized for maximum quality, exceptional photorealism and artistic images.",
+      "tags": [],
+      "types": [
+        "general-editing"
+      ],
+      "imageField": "image_urls",
+      "outputField": "images",
+      "inputImages": 1,
+      "minimumInputImages": 1,
+      "promptField": "prompt",
+      "fields": {
+        "seed": "seed",
+        "outputFormat": "output_format",
+        "imageSize": "image_size",
+        "imageSizeObject": true
+      },
+      "capabilities": {
+        "size": {
+          "maxWidth": 14142,
+          "maxHeight": 14142
+        }
+      },
+      "ratings": {
+        "affordability": 4,
+        "speed": 4,
+        "quality": 3,
+        "provisional": [
+          "speed",
+          "quality"
+        ],
+        "inferred": [],
+        "qualityScope": "general_editing",
+        "realtimeCandidate": false
+      }
+    },
+    "fal-ai/flux-2/edit": {
+      "fields": {
+        "imageSize": "image_size",
+        "imageSizeObject": true
+      },
+      "capabilities": {
+        "size": {
+          "maxWidth": 14142,
+          "maxHeight": 14142
+        }
+      },
+      "ratings": {
+        "affordability": 4,
+        "speed": 3,
+        "quality": 3,
+        "provisional": [
+          "speed",
+          "quality"
+        ],
+        "inferred": [],
+        "qualityScope": "general_editing",
+        "realtimeCandidate": false
+      }
+    },
+    "fal-ai/flux-2/flash/edit": {
+      "fields": {
+        "imageSize": "image_size",
+        "imageSizeObject": true
+      },
+      "capabilities": {
+        "size": {
+          "maxWidth": 14142,
+          "maxHeight": 14142
+        }
+      },
+      "ratings": {
+        "affordability": 5,
+        "speed": 5,
+        "quality": 3,
+        "provisional": [
+          "speed",
+          "quality"
+        ],
+        "inferred": [],
+        "qualityScope": "general_editing",
+        "realtimeCandidate": false
+      }
+    },
+    "fal-ai/flux-2/klein/4b/base/edit": {
+      "fields": {
+        "imageSize": "image_size",
+        "imageSizeObject": true
+      },
+      "capabilities": {
+        "size": {
+          "maxWidth": 14142,
+          "maxHeight": 14142
+        }
+      },
+      "ratings": {
+        "affordability": 5,
+        "speed": 4,
+        "quality": 2,
+        "provisional": [
+          "speed",
+          "quality"
+        ],
+        "inferred": [],
+        "qualityScope": "general_editing",
+        "realtimeCandidate": false
+      }
+    },
+    "fal-ai/flux-2/klein/4b/edit": {
+      "fields": {
+        "imageSize": "image_size",
+        "imageSizeObject": true
+      },
+      "capabilities": {
+        "size": {
+          "maxWidth": 14142,
+          "maxHeight": 14142
+        }
+      },
+      "ratings": {
+        "affordability": 5,
+        "speed": 5,
+        "quality": 2,
+        "provisional": [
+          "affordability",
+          "speed",
+          "quality"
+        ],
+        "inferred": [],
+        "qualityScope": "general_editing",
+        "realtimeCandidate": false
+      }
+    },
+    "fal-ai/flux-2/klein/4b/edit/lora": {
+      "fields": {
+        "imageSize": "image_size",
+        "imageSizeObject": true
+      },
+      "capabilities": {
+        "size": {
+          "maxWidth": 14142,
+          "maxHeight": 14142
+        }
+      },
+      "ratings": {
+        "affordability": 5,
+        "speed": 5,
+        "quality": 2,
+        "provisional": [
+          "speed",
+          "quality"
+        ],
+        "inferred": [],
+        "qualityScope": "general_editing",
+        "realtimeCandidate": false
+      }
+    },
+    "fal-ai/flux-2/klein/9b/base/edit": {
+      "fields": {
+        "imageSize": "image_size",
+        "imageSizeObject": true
+      },
+      "capabilities": {
+        "size": {
+          "maxWidth": 14142,
+          "maxHeight": 14142
+        }
+      },
+      "ratings": {
+        "affordability": 4,
+        "speed": 3,
+        "quality": 3,
+        "provisional": [
+          "speed",
+          "quality"
+        ],
+        "inferred": [],
+        "qualityScope": "general_editing",
+        "realtimeCandidate": false
+      }
+    },
+    "fal-ai/flux-2/klein/9b/edit": {
+      "fields": {
+        "imageSize": "image_size",
+        "imageSizeObject": true
+      },
+      "capabilities": {
+        "size": {
+          "maxWidth": 14142,
+          "maxHeight": 14142
+        }
+      },
+      "ratings": {
+        "affordability": 4,
+        "speed": 5,
+        "quality": 3,
+        "provisional": [
+          "speed",
+          "quality"
+        ],
+        "inferred": [],
+        "qualityScope": "general_editing",
+        "realtimeCandidate": false
+      }
+    },
+    "fal-ai/flux-2/klein/9b/edit/lora": {
+      "fields": {
+        "imageSize": "image_size",
+        "imageSizeObject": true
+      },
+      "capabilities": {
+        "size": {
+          "maxWidth": 14142,
+          "maxHeight": 14142
+        }
+      },
+      "ratings": {
+        "affordability": 4,
+        "speed": 5,
+        "quality": 3,
+        "provisional": [
+          "speed",
+          "quality"
+        ],
+        "inferred": [],
+        "qualityScope": "general_editing",
+        "realtimeCandidate": false
+      }
+    },
+    "fal-ai/flux-2/klein/realtime": {
+      "ratings": {
+        "affordability": 5,
+        "speed": 5,
+        "quality": 2,
+        "provisional": [
+          "affordability",
+          "speed",
+          "quality"
+        ],
+        "inferred": [
+          "affordability"
+        ],
+        "qualityScope": "general_editing",
+        "realtimeCandidate": true
+      }
+    },
+    "fal-ai/flux-2/turbo/edit": {
+      "fields": {
+        "imageSize": "image_size",
+        "imageSizeObject": true
+      },
+      "capabilities": {
+        "size": {
+          "maxWidth": 14142,
+          "maxHeight": 14142
+        }
+      },
+      "ratings": {
+        "affordability": 5,
+        "speed": 5,
+        "quality": 3,
+        "provisional": [
+          "speed",
+          "quality"
+        ],
+        "inferred": [],
+        "qualityScope": "general_editing",
+        "realtimeCandidate": false
+      }
+    },
+    "fal-ai/flux-general/inpainting": {
+      "displayName": "FLUX.1 [dev] with Controlnets and Loras",
+      "description": "FLUX General Inpainting is a versatile endpoint that enables precise image editing and completion, supporting multiple AI extensions including LoRA, ControlNet, and IP-Adapter for enhanced control over inpainting results and sophisticated image modifications.",
+      "tags": [
+        "lora",
+        "controlnet",
+        "ip-adapter"
+      ],
+      "types": [
+        "general-editing"
+      ],
+      "imageField": "image_url",
+      "outputField": "images",
+      "inputImages": 1,
+      "minimumInputImages": 1,
+      "promptField": "prompt",
+      "fields": {
+        "negativePrompt": "negative_prompt",
+        "steps": "num_inference_steps",
+        "guidance": "guidance_scale",
+        "seed": "seed",
+        "strength": "strength",
+        "mask": "mask_url",
+        "outputFormat": "output_format",
+        "imageSize": "image_size",
+        "numImages": "num_images",
+        "imageSizeObject": true
+      },
+      "capabilities": {
+        "maskRequired": true,
+        "size": {
+          "maxWidth": 14142,
+          "maxHeight": 14142
+        }
+      },
+      "ratings": {
+        "affordability": 3,
+        "speed": 3,
+        "quality": 3,
+        "provisional": [
+          "speed",
+          "quality"
+        ],
+        "inferred": [],
+        "qualityScope": "masked_inpainting",
+        "realtimeCandidate": false
+      }
+    },
+    "fal-ai/flux-kontext-lora/inpaint": {
+      "displayName": "Flux Kontext Lora",
+      "description": "Fast inpainting endpoint for the FLUX.1 Kontext [dev] model with LoRA support, enabling rapid and high-quality image inpainting with reference images, while using pre-trained LoRA adaptations for specific styles, brand identities, and product-specific outputs.",
+      "tags": [
+        "image-editing",
+        "image-inpainting",
+        "image-to-image"
+      ],
+      "types": [
+        "general-editing",
+        "generate-from-image"
+      ],
+      "imageField": "image_url",
+      "outputField": "images",
+      "inputImages": 1,
+      "minimumInputImages": 1,
+      "promptField": "prompt",
+      "fields": {
+        "steps": "num_inference_steps",
+        "guidance": "guidance_scale",
+        "seed": "seed",
+        "strength": "strength",
+        "mask": "mask_url",
+        "outputFormat": "output_format",
+        "numImages": "num_images"
+      },
+      "capabilities": {
+        "maskRequired": true
+      },
+      "ratings": {
+        "affordability": 4,
+        "speed": 3,
+        "quality": 2,
+        "provisional": [
+          "speed",
+          "quality"
+        ],
+        "inferred": [],
+        "qualityScope": "masked_inpainting",
+        "realtimeCandidate": false
+      }
+    },
+    "fal-ai/flux-kontext/dev": {
+      "ratings": {
+        "affordability": 4,
+        "speed": 4,
+        "quality": 2,
+        "provisional": [
+          "speed",
+          "quality"
+        ],
+        "inferred": [],
+        "qualityScope": "general_editing",
+        "realtimeCandidate": false
+      }
+    },
+    "fal-ai/flux-krea-lora/inpainting": {
+      "displayName": "FLUX.1 Krea [dev] Inpainting with LoRAs",
+      "description": "Super fast endpoint for the FLUX.1 [dev] inpainting model with LoRA support, enabling rapid and high-quality image inpaingting using pre-trained LoRA adaptations for personalization, specific styles, brand identities, and product-specific outputs.",
+      "tags": [
+        "lora",
+        "personalization"
+      ],
+      "types": [
+        "general-editing"
+      ],
+      "imageField": "image_url",
+      "outputField": "images",
+      "inputImages": 1,
+      "minimumInputImages": 1,
+      "promptField": "prompt",
+      "fields": {
+        "steps": "num_inference_steps",
+        "guidance": "guidance_scale",
+        "seed": "seed",
+        "strength": "strength",
+        "mask": "mask_url",
+        "outputFormat": "output_format",
+        "imageSize": "image_size",
+        "numImages": "num_images",
+        "imageSizeObject": true
+      },
+      "capabilities": {
+        "maskRequired": true,
+        "size": {
+          "maxWidth": 14142,
+          "maxHeight": 14142
+        }
+      },
+      "ratings": {
+        "affordability": 4,
+        "speed": 3,
+        "quality": 3,
+        "provisional": [
+          "speed",
+          "quality"
+        ],
+        "inferred": [],
+        "qualityScope": "masked_inpainting",
+        "realtimeCandidate": false
+      }
+    },
+    "fal-ai/flux-lora-fill": {
+      "displayName": "FLUX.1 [dev] Fill with LoRAs",
+      "description": "FLUX.1 [dev] Fill is a high-performance endpoint for the FLUX.1 [pro] model that enables rapid transformation of existing images, delivering high-quality style transfers and image modifications with the core FLUX capabilities.",
+      "tags": [
+        "editing",
+        "lora"
+      ],
+      "types": [
+        "general-editing"
+      ],
+      "imageField": "image_url",
+      "outputField": "images",
+      "inputImages": 1,
+      "minimumInputImages": 1,
+      "promptField": "prompt",
+      "fields": {
+        "steps": "num_inference_steps",
+        "guidance": "guidance_scale",
+        "seed": "seed",
+        "mask": "mask_url",
+        "outputFormat": "output_format",
+        "imageSize": "image_size",
+        "numImages": "num_images",
+        "imageSizeObject": true
+      },
+      "capabilities": {
+        "maskRequired": true,
+        "size": {
+          "maxWidth": 14142,
+          "maxHeight": 14142
+        }
+      },
+      "ratings": {
+        "affordability": 4,
+        "speed": 3,
+        "quality": 3,
+        "provisional": [
+          "speed",
+          "quality"
+        ],
+        "inferred": [],
+        "qualityScope": "masked_inpainting",
+        "realtimeCandidate": false
+      }
+    },
+    "fal-ai/flux-pro/v1/fill": {
+      "displayName": "FLUX.1 [pro] Fill",
+      "description": "FLUX.1 [pro] Fill is a high-performance endpoint for the FLUX.1 [pro] model that enables rapid transformation of existing images, delivering high-quality style transfers and image modifications with the core FLUX capabilities.",
+      "tags": [
+        "editing"
+      ],
+      "types": [
+        "general-editing"
+      ],
+      "imageField": "image_url",
+      "outputField": "images",
+      "inputImages": 1,
+      "minimumInputImages": 1,
+      "promptField": "prompt",
+      "fields": {
+        "seed": "seed",
+        "mask": "mask_url",
+        "outputFormat": "output_format",
+        "numImages": "num_images"
+      },
+      "capabilities": {
+        "maskRequired": true
+      },
+      "ratings": {
+        "affordability": 4,
+        "speed": 3,
+        "quality": 4,
+        "provisional": [
+          "speed",
+          "quality"
+        ],
+        "inferred": [],
+        "qualityScope": "masked_inpainting",
+        "realtimeCandidate": false
+      }
+    },
+    "fal-ai/flux-pro/v1/fill-finetuned": {
+      "displayName": "FLUX.1 [pro] Fill Fine-tuned",
+      "description": "FLUX.1 [pro] Fill Fine-tuned is a high-performance endpoint for the FLUX.1 [pro] model with a fine-tuned LoRA that enables rapid transformation of existing images, delivering high-quality style transfers and image modifications with the core FLUX capabilities.",
+      "tags": [
+        "editing"
+      ],
+      "types": [
+        "general-editing"
+      ],
+      "imageField": "image_url",
+      "outputField": "images",
+      "inputImages": 1,
+      "minimumInputImages": 1,
+      "promptField": "prompt",
+      "fields": {
+        "seed": "seed",
+        "mask": "mask_url",
+        "outputFormat": "output_format",
+        "numImages": "num_images"
+      },
+      "capabilities": {
+        "maskRequired": true
+      },
+      "ratings": {
+        "affordability": 3,
+        "speed": 3,
+        "quality": 4,
+        "provisional": [
+          "speed",
+          "quality"
+        ],
+        "inferred": [],
+        "qualityScope": "masked_inpainting",
+        "realtimeCandidate": false
+      }
+    },
+    "fal-ai/flux/krea/image-to-image": {
+      "displayName": "FLUX.1 Krea [dev]",
+      "description": "FLUX.1 Krea [dev] is a 12 billion parameter flow transformer that generates high-quality images from text with incredible aesthetics. It is suitable for personal and commercial use.\n",
+      "tags": [],
+      "types": [
+        "general-editing"
+      ],
+      "imageField": "image_url",
+      "outputField": "images",
+      "inputImages": 1,
+      "minimumInputImages": 1,
+      "promptField": "prompt",
+      "fields": {
+        "steps": "num_inference_steps",
+        "guidance": "guidance_scale",
+        "seed": "seed",
+        "strength": "strength",
+        "outputFormat": "output_format",
+        "numImages": "num_images"
+      },
       "ratings": {
         "affordability": 4,
         "speed": 4,
@@ -1028,7 +1606,298 @@
         "realtimeCandidate": false
       }
     },
+    "fal-ai/flux/srpo/image-to-image": {
+      "displayName": "FLUX.1 SRPO [dev]",
+      "description": "FLUX.1 SRPO [dev] is a 12 billion parameter flow transformer that generates high-quality images from text with incredible aesthetics. It is suitable for personal and commercial use.\n",
+      "tags": [],
+      "types": [
+        "general-editing"
+      ],
+      "imageField": "image_url",
+      "outputField": "images",
+      "inputImages": 1,
+      "minimumInputImages": 1,
+      "promptField": "prompt",
+      "fields": {
+        "steps": "num_inference_steps",
+        "guidance": "guidance_scale",
+        "seed": "seed",
+        "strength": "strength",
+        "outputFormat": "output_format",
+        "numImages": "num_images"
+      },
+      "ratings": {
+        "affordability": 4,
+        "speed": 4,
+        "quality": 3,
+        "provisional": [
+          "speed",
+          "quality"
+        ],
+        "inferred": [],
+        "qualityScope": "image_conditioned_generation",
+        "realtimeCandidate": false
+      }
+    },
+    "fal-ai/gemini-25-flash-image/edit": {
+      "displayName": "Gemini 2.5 Flash Image",
+      "description": "Google's famous original image generation and editing model, a.k.a Nano Banana",
+      "tags": [
+        "image-editing"
+      ],
+      "types": [
+        "general-editing"
+      ],
+      "imageField": "image_urls",
+      "outputField": "images",
+      "inputImages": 1,
+      "minimumInputImages": 1,
+      "promptField": "prompt",
+      "fields": {
+        "seed": "seed",
+        "outputFormat": "output_format",
+        "aspectRatio": "aspect_ratio",
+        "numImages": "num_images"
+      },
+      "capabilities": {
+        "size": {
+          "aspectRatios": [
+            "21:9",
+            "16:9",
+            "3:2",
+            "4:3",
+            "5:4",
+            "1:1",
+            "4:5",
+            "3:4",
+            "2:3",
+            "9:16"
+          ]
+        }
+      },
+      "ratings": {
+        "affordability": 4,
+        "speed": 4,
+        "quality": 3,
+        "provisional": [
+          "speed",
+          "quality"
+        ],
+        "inferred": [],
+        "qualityScope": "general_editing",
+        "realtimeCandidate": false
+      }
+    },
+    "fal-ai/gemini-3-pro-image-preview/edit": {
+      "displayName": "Gemini 3 Pro Image Preview",
+      "description": "Gemini 3 Pro Image (a.k.a Nano Banana Pro) is Google's state-of-the-art high-fidelity image generation and editing model",
+      "tags": [
+        "realism",
+        "typography"
+      ],
+      "types": [
+        "general-editing"
+      ],
+      "imageField": "image_urls",
+      "outputField": "images",
+      "inputImages": 1,
+      "minimumInputImages": 1,
+      "promptField": "prompt",
+      "fields": {
+        "seed": "seed",
+        "outputFormat": "output_format",
+        "aspectRatio": "aspect_ratio",
+        "resolution": "resolution",
+        "numImages": "num_images"
+      },
+      "capabilities": {
+        "size": {
+          "aspectRatios": [
+            "21:9",
+            "16:9",
+            "3:2",
+            "4:3",
+            "5:4",
+            "1:1",
+            "4:5",
+            "3:4",
+            "2:3",
+            "9:16"
+          ],
+          "pixelAreaBuckets": [
+            1048576,
+            4194304,
+            16777216
+          ]
+        }
+      },
+      "ratings": {
+        "affordability": 2,
+        "speed": 3,
+        "quality": 4,
+        "provisional": [
+          "speed",
+          "quality"
+        ],
+        "inferred": [],
+        "qualityScope": "general_editing",
+        "realtimeCandidate": false
+      }
+    },
+    "fal-ai/gemini-3.1-flash-image-preview/edit": {
+      "displayName": "Gemini 3.1 Flash Image Preview",
+      "description": "Gemini 3.1 Flash Image (a.k.a. Nano Banana 2) is Google's new state-of-the-art fast image generation and editing model",
+      "tags": [],
+      "types": [
+        "general-editing"
+      ],
+      "imageField": "image_urls",
+      "outputField": "images",
+      "inputImages": 1,
+      "minimumInputImages": 1,
+      "promptField": "prompt",
+      "fields": {
+        "seed": "seed",
+        "outputFormat": "output_format",
+        "aspectRatio": "aspect_ratio",
+        "resolution": "resolution",
+        "numImages": "num_images"
+      },
+      "capabilities": {
+        "size": {
+          "pixelAreaBuckets": [
+            262144,
+            1048576,
+            4194304,
+            16777216
+          ],
+          "aspectRatios": [
+            "21:9",
+            "16:9",
+            "3:2",
+            "4:3",
+            "5:4",
+            "1:1",
+            "4:5",
+            "3:4",
+            "2:3",
+            "9:16",
+            "4:1",
+            "1:4",
+            "8:1",
+            "1:8"
+          ]
+        }
+      },
+      "ratings": {
+        "affordability": 3,
+        "speed": 4,
+        "quality": 4,
+        "provisional": [
+          "speed",
+          "quality"
+        ],
+        "inferred": [],
+        "qualityScope": "general_editing",
+        "realtimeCandidate": false
+      }
+    },
+    "fal-ai/gpt-image-1-mini/edit": {
+      "displayName": "GPT Image 1 Mini",
+      "description": "GPT Image 1 mini combines OpenAI's advanced language capabilities, powered by GPT-5, with GPT Image 1 Mini for efficient image generation. ",
+      "tags": [
+        "image-to-image"
+      ],
+      "types": [
+        "generate-from-image"
+      ],
+      "imageField": "image_urls",
+      "outputField": "images",
+      "inputImages": 1,
+      "minimumInputImages": 1,
+      "promptField": "prompt",
+      "fields": {
+        "outputFormat": "output_format",
+        "imageSize": "image_size",
+        "numImages": "num_images"
+      },
+      "ratings": {
+        "affordability": 4,
+        "speed": 3,
+        "quality": 2,
+        "provisional": [
+          "affordability",
+          "speed",
+          "quality"
+        ],
+        "inferred": [],
+        "qualityScope": "general_editing",
+        "realtimeCandidate": false
+      }
+    },
+    "fal-ai/gpt-image-1/edit-image": {
+      "displayName": "gpt-image-1",
+      "description": "OpenAI's latest image generation and editing model: gpt-1-image.",
+      "tags": [],
+      "types": [
+        "general-editing"
+      ],
+      "imageField": "image_urls",
+      "outputField": "images",
+      "inputImages": 1,
+      "minimumInputImages": 1,
+      "promptField": "prompt",
+      "fields": {
+        "outputFormat": "output_format",
+        "imageSize": "image_size",
+        "numImages": "num_images"
+      },
+      "ratings": {
+        "affordability": 2,
+        "speed": 2,
+        "quality": 2,
+        "provisional": [
+          "affordability",
+          "speed",
+          "quality"
+        ],
+        "inferred": [],
+        "qualityScope": "general_editing",
+        "realtimeCandidate": false
+      }
+    },
     "fal-ai/hidream-i1-full/image-to-image": {
+      "displayName": "Hidream I1 Full",
+      "description": "HiDream-I1 full is a new open-source image generative foundation model with 17B parameters that achieves state-of-the-art image generation quality within seconds.",
+      "tags": [
+        "image-to-image",
+        "hidream"
+      ],
+      "types": [
+        "generate-from-image"
+      ],
+      "imageField": "image_url",
+      "outputField": "images",
+      "inputImages": 1,
+      "minimumInputImages": 1,
+      "promptField": "prompt",
+      "fields": {
+        "negativePrompt": "negative_prompt",
+        "steps": "num_inference_steps",
+        "guidance": "guidance_scale",
+        "seed": "seed",
+        "strength": "strength",
+        "outputFormat": "output_format",
+        "imageSize": "image_size",
+        "numImages": "num_images",
+        "imageSizeObject": true
+      },
+      "capabilities": {
+        "size": {
+          "maxWidth": 14142,
+          "maxHeight": 14142
+        }
+      },
       "ratings": {
         "affordability": 4,
         "speed": 2,
@@ -1042,7 +1911,425 @@
         "realtimeCandidate": false
       }
     },
+    "fal-ai/hunyuan-image/v3/instruct/edit": {
+      "fields": {
+        "imageSize": "image_size",
+        "imageSizeObject": true
+      },
+      "capabilities": {
+        "size": {
+          "maxWidth": 14142,
+          "maxHeight": 14142
+        }
+      },
+      "ratings": {
+        "affordability": 3,
+        "speed": 2,
+        "quality": 3,
+        "provisional": [
+          "speed",
+          "quality"
+        ],
+        "inferred": [],
+        "qualityScope": "general_editing",
+        "realtimeCandidate": false
+      }
+    },
+    "fal-ai/ideogram/object-removal": {
+      "displayName": "Ideogram Object Removal",
+      "description": "Prompt-free object removal from an image and mask, erasing objects with their shadows and reflections and reconstructing the scene cleanly.",
+      "tags": [
+        "utility",
+        "editing"
+      ],
+      "types": [
+        "general-editing"
+      ],
+      "imageField": "image_url",
+      "outputField": "image",
+      "inputImages": 1,
+      "minimumInputImages": 1,
+      "promptField": null,
+      "fields": {
+        "mask": "mask_url"
+      },
+      "capabilities": {
+        "maskRequired": true
+      },
+      "ratings": {
+        "affordability": 3,
+        "speed": null,
+        "quality": 5,
+        "provisional": [],
+        "inferred": [],
+        "qualityScope": "object_removal",
+        "realtimeCandidate": false
+      }
+    },
+    "fal-ai/ideogram/v2/edit": {
+      "displayName": "Ideogram V2 Edit",
+      "description": "Transform existing images with Ideogram V2's editing capabilities. Modify, adjust, and refine images while maintaining high fidelity and realistic outputs with precise prompt control.",
+      "tags": [
+        "realism",
+        "typography"
+      ],
+      "types": [
+        "general-editing"
+      ],
+      "imageField": "image_url",
+      "outputField": "images",
+      "inputImages": 1,
+      "minimumInputImages": 1,
+      "promptField": "prompt",
+      "fields": {
+        "seed": "seed",
+        "mask": "mask_url"
+      },
+      "capabilities": {
+        "maskRequired": true
+      },
+      "ratings": {
+        "affordability": 3,
+        "speed": 3,
+        "quality": 3,
+        "provisional": [
+          "speed",
+          "quality"
+        ],
+        "inferred": [],
+        "qualityScope": "masked_inpainting",
+        "realtimeCandidate": false
+      }
+    },
+    "fal-ai/ideogram/v2/remix": {
+      "displayName": "Ideogram V2 Remix",
+      "description": "Reimagine existing images with Ideogram V2's remix feature. Create variations and adaptations while preserving core elements and adding new creative directions through prompt guidance.",
+      "tags": [
+        "realism",
+        "typography"
+      ],
+      "types": [
+        "general-editing"
+      ],
+      "imageField": "image_url",
+      "outputField": "images",
+      "inputImages": 1,
+      "minimumInputImages": 1,
+      "promptField": "prompt",
+      "fields": {
+        "seed": "seed",
+        "strength": "strength",
+        "aspectRatio": "aspect_ratio"
+      },
+      "capabilities": {
+        "size": {
+          "aspectRatios": [
+            "10:16",
+            "16:10",
+            "9:16",
+            "16:9",
+            "4:3",
+            "3:4",
+            "1:1",
+            "1:3",
+            "3:1",
+            "3:2",
+            "2:3"
+          ]
+        }
+      },
+      "ratings": {
+        "affordability": 3,
+        "speed": 3,
+        "quality": 3,
+        "provisional": [
+          "speed",
+          "quality"
+        ],
+        "inferred": [],
+        "qualityScope": "general_editing",
+        "realtimeCandidate": false
+      }
+    },
+    "fal-ai/ideogram/v2/turbo/edit": {
+      "displayName": "Ideogram V2 Turbo Edit",
+      "description": "Edit images faster with Ideogram V2 Turbo. Quick modifications and adjustments while preserving the high-quality standards and realistic outputs of Ideogram.",
+      "tags": [
+        "realism",
+        "typography"
+      ],
+      "types": [
+        "general-editing"
+      ],
+      "imageField": "image_url",
+      "outputField": "images",
+      "inputImages": 1,
+      "minimumInputImages": 1,
+      "promptField": "prompt",
+      "fields": {
+        "seed": "seed",
+        "mask": "mask_url"
+      },
+      "capabilities": {
+        "maskRequired": true
+      },
+      "ratings": {
+        "affordability": 4,
+        "speed": 4,
+        "quality": 2,
+        "provisional": [
+          "speed",
+          "quality"
+        ],
+        "inferred": [],
+        "qualityScope": "masked_inpainting",
+        "realtimeCandidate": false
+      }
+    },
+    "fal-ai/ideogram/v2/turbo/remix": {
+      "displayName": "Ideogram V2 Turbo Remix",
+      "description": "Rapidly create image variations with Ideogram V2 Turbo Remix. Fast and efficient reimagining of existing images while maintaining creative control through prompt guidance.",
+      "tags": [
+        "realism",
+        "typography"
+      ],
+      "types": [
+        "general-editing"
+      ],
+      "imageField": "image_url",
+      "outputField": "images",
+      "inputImages": 1,
+      "minimumInputImages": 1,
+      "promptField": "prompt",
+      "fields": {
+        "seed": "seed",
+        "strength": "strength",
+        "aspectRatio": "aspect_ratio"
+      },
+      "capabilities": {
+        "size": {
+          "aspectRatios": [
+            "10:16",
+            "16:10",
+            "9:16",
+            "16:9",
+            "4:3",
+            "3:4",
+            "1:1",
+            "1:3",
+            "3:1",
+            "3:2",
+            "2:3"
+          ]
+        }
+      },
+      "ratings": {
+        "affordability": 4,
+        "speed": 4,
+        "quality": 2,
+        "provisional": [
+          "speed",
+          "quality"
+        ],
+        "inferred": [],
+        "qualityScope": "general_editing",
+        "realtimeCandidate": false
+      }
+    },
+    "fal-ai/ideogram/v2a/remix": {
+      "displayName": "Ideogram V2A Remix",
+      "description": "Create variations of existing images with Ideogram V2A Remix while maintaining creative control through prompt guidance.",
+      "tags": [
+        "realism",
+        "typography"
+      ],
+      "types": [
+        "general-editing"
+      ],
+      "imageField": "image_url",
+      "outputField": "images",
+      "inputImages": 1,
+      "minimumInputImages": 1,
+      "promptField": "prompt",
+      "fields": {
+        "seed": "seed",
+        "strength": "strength",
+        "aspectRatio": "aspect_ratio"
+      },
+      "capabilities": {
+        "size": {
+          "aspectRatios": [
+            "10:16",
+            "16:10",
+            "9:16",
+            "16:9",
+            "4:3",
+            "3:4",
+            "1:1",
+            "1:3",
+            "3:1",
+            "3:2",
+            "2:3"
+          ]
+        }
+      },
+      "ratings": {
+        "affordability": 4,
+        "speed": 3,
+        "quality": 3,
+        "provisional": [
+          "speed",
+          "quality"
+        ],
+        "inferred": [],
+        "qualityScope": "general_editing",
+        "realtimeCandidate": false
+      }
+    },
+    "fal-ai/ideogram/v2a/turbo/remix": {
+      "displayName": "Ideogram V2A Turbo Remix",
+      "description": "Rapidly create image variations with Ideogram V2A Turbo Remix. Fast and efficient reimagining of existing images while maintaining creative control through prompt guidance.",
+      "tags": [
+        "realism",
+        "typography"
+      ],
+      "types": [
+        "general-editing"
+      ],
+      "imageField": "image_url",
+      "outputField": "images",
+      "inputImages": 1,
+      "minimumInputImages": 1,
+      "promptField": "prompt",
+      "fields": {
+        "seed": "seed",
+        "strength": "strength",
+        "aspectRatio": "aspect_ratio"
+      },
+      "capabilities": {
+        "size": {
+          "aspectRatios": [
+            "10:16",
+            "16:10",
+            "9:16",
+            "16:9",
+            "4:3",
+            "3:4",
+            "1:1",
+            "1:3",
+            "3:1",
+            "3:2",
+            "2:3"
+          ]
+        }
+      },
+      "ratings": {
+        "affordability": 4,
+        "speed": 4,
+        "quality": 2,
+        "provisional": [
+          "speed",
+          "quality"
+        ],
+        "inferred": [],
+        "qualityScope": "general_editing",
+        "realtimeCandidate": false
+      }
+    },
+    "fal-ai/ideogram/v3/edit": {
+      "displayName": "Ideogram V3 Edit",
+      "description": "Transform existing images with Ideogram V3's editing capabilities. Modify, adjust, and refine images while maintaining high fidelity and realistic outputs with precise prompt control.",
+      "tags": [
+        "realism",
+        "typography"
+      ],
+      "types": [
+        "general-editing"
+      ],
+      "imageField": "image_urls",
+      "outputField": "images",
+      "inputImages": 1,
+      "minimumInputImages": 1,
+      "promptField": "prompt",
+      "fields": {
+        "seed": "seed",
+        "mask": "mask_url",
+        "numImages": "num_images"
+      },
+      "capabilities": {
+        "maskRequired": true
+      },
+      "ratings": {
+        "affordability": 3,
+        "speed": 3,
+        "quality": 3,
+        "provisional": [
+          "speed",
+          "quality"
+        ],
+        "inferred": [],
+        "qualityScope": "masked_inpainting",
+        "realtimeCandidate": false
+      }
+    },
+    "fal-ai/ideogram/v3/remix": {
+      "displayName": "Ideogram",
+      "description": "Reimagine existing images with Ideogram V3's remix feature. Create variations and adaptations while preserving core elements and adding new creative directions through prompt guidance.",
+      "tags": [
+        "realism",
+        "typography"
+      ],
+      "types": [
+        "general-editing"
+      ],
+      "imageField": "image_urls",
+      "outputField": "images",
+      "inputImages": 1,
+      "minimumInputImages": 1,
+      "promptField": "prompt",
+      "fields": {
+        "negativePrompt": "negative_prompt",
+        "seed": "seed",
+        "strength": "strength",
+        "imageSize": "image_size",
+        "numImages": "num_images",
+        "imageSizeObject": true
+      },
+      "capabilities": {
+        "size": {
+          "maxWidth": 14142,
+          "maxHeight": 14142
+        }
+      },
+      "ratings": {
+        "affordability": 3,
+        "speed": 3,
+        "quality": 3,
+        "provisional": [
+          "speed",
+          "quality"
+        ],
+        "inferred": [],
+        "qualityScope": "general_editing",
+        "realtimeCandidate": false
+      }
+    },
     "fal-ai/ideogram/v3/replace-background": {
+      "displayName": "Ideogram Replace Background",
+      "description": "Replace backgrounds existing images with Ideogram V3's replace background feature. Create variations and adaptations while preserving core elements and adding new creative directions through prompt guidance.",
+      "tags": [],
+      "types": [
+        "general-editing"
+      ],
+      "imageField": "image_urls",
+      "outputField": "images",
+      "inputImages": 1,
+      "minimumInputImages": 1,
+      "promptField": "prompt",
+      "fields": {
+        "seed": "seed",
+        "numImages": "num_images"
+      },
       "ratings": {
         "affordability": 3,
         "speed": 3,
@@ -1053,6 +2340,1750 @@
         ],
         "inferred": [],
         "qualityScope": "background_replacement",
+        "realtimeCandidate": false
+      }
+    },
+    "fal-ai/image-editing/object-removal": {
+      "displayName": "Object Removal",
+      "description": "Remove unwanted objects or people from an image.",
+      "tags": [
+        "image-to-image",
+        "object-removal"
+      ],
+      "types": [
+        "object-removal-prompt"
+      ],
+      "imageField": "image_url",
+      "outputField": "images",
+      "inputImages": 1,
+      "minimumInputImages": 1,
+      "promptField": "prompt",
+      "fields": {
+        "steps": "num_inference_steps",
+        "guidance": "guidance_scale",
+        "seed": "seed",
+        "outputFormat": "output_format",
+        "aspectRatio": "aspect_ratio"
+      },
+      "capabilities": {
+        "size": {
+          "aspectRatios": [
+            "21:9",
+            "16:9",
+            "4:3",
+            "3:2",
+            "1:1",
+            "2:3",
+            "3:4",
+            "9:16",
+            "9:21"
+          ],
+          "outputSizeBuckets": [
+            {
+              "width": 1568,
+              "height": 672
+            },
+            {
+              "width": 1360,
+              "height": 768
+            },
+            {
+              "width": 1184,
+              "height": 880
+            },
+            {
+              "width": 1248,
+              "height": 832
+            },
+            {
+              "width": 1024,
+              "height": 1024
+            },
+            {
+              "width": 832,
+              "height": 1248
+            },
+            {
+              "width": 880,
+              "height": 1184
+            },
+            {
+              "width": 768,
+              "height": 1360
+            },
+            {
+              "width": 672,
+              "height": 1568
+            }
+          ]
+        }
+      }
+    },
+    "fal-ai/inpaint": {
+      "displayName": "Inpainting sdxl and sd",
+      "description": "Inpaint images with SD and SDXL",
+      "tags": [
+        "editing",
+        "diffusion"
+      ],
+      "types": [
+        "general-editing"
+      ],
+      "imageField": "image_url",
+      "outputField": "image",
+      "inputImages": 1,
+      "minimumInputImages": 1,
+      "promptField": "prompt",
+      "fields": {
+        "negativePrompt": "negative_prompt",
+        "steps": "num_inference_steps",
+        "guidance": "guidance_scale",
+        "seed": "seed",
+        "mask": "mask_url"
+      },
+      "capabilities": {
+        "maskRequired": true
+      },
+      "ratings": {
+        "affordability": 5,
+        "speed": 4,
+        "quality": 2,
+        "provisional": [
+          "affordability",
+          "speed",
+          "quality"
+        ],
+        "inferred": [
+          "affordability"
+        ],
+        "qualityScope": "masked_inpainting",
+        "realtimeCandidate": false
+      }
+    },
+    "fal-ai/joyai-image-edit": {
+      "displayName": "Joyai Image Edit",
+      "description": "All-in-one image AI with JoyAI-Image. Understand, create, and edit images through natural language—the model's deep visual understanding powers more accurate generation and precise editing in a unified system.",
+      "tags": [
+        "image-to-image",
+        "image-editing"
+      ],
+      "types": [
+        "generate-from-image",
+        "general-editing"
+      ],
+      "imageField": "image_url",
+      "outputField": "images",
+      "inputImages": 1,
+      "minimumInputImages": 1,
+      "promptField": "prompt",
+      "fields": {
+        "negativePrompt": "negative_prompt",
+        "steps": "num_inference_steps",
+        "guidance": "guidance_scale",
+        "seed": "seed",
+        "outputFormat": "output_format"
+      },
+      "ratings": {
+        "affordability": 3,
+        "speed": 1,
+        "quality": 3,
+        "provisional": [
+          "speed",
+          "quality"
+        ],
+        "inferred": [],
+        "qualityScope": "general_editing",
+        "realtimeCandidate": false
+      }
+    },
+    "fal-ai/kling-image/o3/image-to-image": {
+      "displayName": "Kling Image",
+      "description": "Kling Omni 3: Top-tier image-to-image with flawless consistency.",
+      "tags": [
+        "image-to-image"
+      ],
+      "types": [
+        "generate-from-image"
+      ],
+      "imageField": "image_urls",
+      "outputField": "images",
+      "inputImages": 1,
+      "minimumInputImages": 1,
+      "promptField": "prompt",
+      "fields": {
+        "outputFormat": "output_format",
+        "aspectRatio": "aspect_ratio",
+        "resolution": "resolution",
+        "numImages": "num_images"
+      },
+      "capabilities": {
+        "size": {
+          "aspectRatios": [
+            "16:9",
+            "9:16",
+            "1:1",
+            "4:3",
+            "3:4",
+            "3:2",
+            "2:3",
+            "21:9"
+          ],
+          "pixelAreaBuckets": [
+            1048576,
+            4194304,
+            16777216
+          ]
+        }
+      },
+      "ratings": {
+        "affordability": 4,
+        "speed": 3,
+        "quality": 2,
+        "provisional": [
+          "speed",
+          "quality"
+        ],
+        "inferred": [],
+        "qualityScope": "general_editing",
+        "realtimeCandidate": false
+      }
+    },
+    "fal-ai/kling-image/v3/image-to-image": {
+      "displayName": "Kling Image",
+      "description": "Kling Image V3: Latest kling image model",
+      "tags": [
+        "image-to-image"
+      ],
+      "types": [
+        "generate-from-image"
+      ],
+      "imageField": "image_url",
+      "outputField": "images",
+      "inputImages": 1,
+      "minimumInputImages": 1,
+      "promptField": "prompt",
+      "fields": {
+        "outputFormat": "output_format",
+        "aspectRatio": "aspect_ratio",
+        "resolution": "resolution",
+        "numImages": "num_images"
+      },
+      "capabilities": {
+        "size": {
+          "aspectRatios": [
+            "16:9",
+            "9:16",
+            "1:1",
+            "4:3",
+            "3:4",
+            "3:2",
+            "2:3",
+            "21:9"
+          ],
+          "pixelAreaBuckets": [
+            1048576,
+            4194304
+          ]
+        }
+      },
+      "ratings": {
+        "affordability": 4,
+        "speed": 3,
+        "quality": 3,
+        "provisional": [
+          "speed",
+          "quality"
+        ],
+        "inferred": [],
+        "qualityScope": "general_editing",
+        "realtimeCandidate": false
+      }
+    },
+    "fal-ai/kolors/image-to-image": {
+      "displayName": "Kolors Image to Image",
+      "description": "Photorealistic Image-to-Image",
+      "tags": [
+        "realism",
+        "editing",
+        "diffusion"
+      ],
+      "types": [
+        "general-editing"
+      ],
+      "imageField": "image_url",
+      "outputField": "images",
+      "inputImages": 1,
+      "minimumInputImages": 1,
+      "promptField": "prompt",
+      "fields": {
+        "negativePrompt": "negative_prompt",
+        "steps": "num_inference_steps",
+        "guidance": "guidance_scale",
+        "seed": "seed",
+        "strength": "strength",
+        "outputFormat": "output_format",
+        "imageSize": "image_size",
+        "numImages": "num_images",
+        "imageSizeObject": true
+      },
+      "capabilities": {
+        "size": {
+          "maxWidth": 14142,
+          "maxHeight": 14142
+        }
+      },
+      "ratings": {
+        "affordability": 4,
+        "speed": 3,
+        "quality": 2,
+        "provisional": [
+          "affordability",
+          "speed",
+          "quality"
+        ],
+        "inferred": [
+          "affordability"
+        ],
+        "qualityScope": "image_conditioned_generation",
+        "realtimeCandidate": false
+      }
+    },
+    "fal-ai/longcat-image/edit": {
+      "displayName": "Longcat Image",
+      "description": "LongCat image Edit is a 6B parameter image editing model excelling at multilingual text rendering, photorealism and deployment efficiency.",
+      "tags": [],
+      "types": [
+        "general-editing"
+      ],
+      "imageField": "image_url",
+      "outputField": "images",
+      "inputImages": 1,
+      "minimumInputImages": 1,
+      "promptField": "prompt",
+      "fields": {
+        "steps": "num_inference_steps",
+        "guidance": "guidance_scale",
+        "seed": "seed",
+        "outputFormat": "output_format",
+        "numImages": "num_images"
+      },
+      "ratings": {
+        "affordability": 2,
+        "speed": 3,
+        "quality": 2,
+        "provisional": [
+          "speed",
+          "quality"
+        ],
+        "inferred": [],
+        "qualityScope": "general_editing",
+        "realtimeCandidate": false
+      }
+    },
+    "fal-ai/lora/image-to-image": {
+      "displayName": "Stable Diffusion with LoRAs",
+      "description": "Run Any Stable Diffusion model with customizable LoRA weights.",
+      "tags": [
+        "diffusion",
+        "lora",
+        "customization",
+        "fine-tuning"
+      ],
+      "types": [
+        "general-editing"
+      ],
+      "imageField": "image_url",
+      "outputField": "images",
+      "inputImages": 1,
+      "minimumInputImages": 1,
+      "promptField": "prompt",
+      "fields": {
+        "negativePrompt": "negative_prompt",
+        "steps": "num_inference_steps",
+        "guidance": "guidance_scale",
+        "seed": "seed",
+        "numImages": "num_images"
+      },
+      "ratings": {
+        "affordability": 5,
+        "speed": 4,
+        "quality": 2,
+        "provisional": [
+          "affordability",
+          "speed",
+          "quality"
+        ],
+        "inferred": [
+          "affordability"
+        ],
+        "qualityScope": "image_conditioned_generation",
+        "realtimeCandidate": false
+      }
+    },
+    "fal-ai/lora/inpaint": {
+      "displayName": "Stable Diffusion with LoRAs",
+      "description": "Run Any Stable Diffusion model with customizable LoRA weights.",
+      "tags": [
+        "diffusion",
+        "lora",
+        "customization",
+        "fine-tuning"
+      ],
+      "types": [
+        "general-editing"
+      ],
+      "imageField": "image_url",
+      "outputField": "images",
+      "inputImages": 1,
+      "minimumInputImages": 1,
+      "promptField": "prompt",
+      "fields": {
+        "negativePrompt": "negative_prompt",
+        "steps": "num_inference_steps",
+        "guidance": "guidance_scale",
+        "seed": "seed",
+        "mask": "mask_url",
+        "numImages": "num_images"
+      },
+      "ratings": {
+        "affordability": 5,
+        "speed": 4,
+        "quality": 2,
+        "provisional": [
+          "affordability",
+          "speed",
+          "quality"
+        ],
+        "inferred": [
+          "affordability"
+        ],
+        "qualityScope": "masked_inpainting",
+        "realtimeCandidate": false
+      }
+    },
+    "fal-ai/luma-photon/flash/modify": {
+      "displayName": "Luma Photon",
+      "description": "Edit images from your prompts using Luma Photon. Photon is the most creative, personalizable, and intelligent visual models for creatives, bringing a step-function change in the cost of high-quality image generation.",
+      "tags": [
+        "image-to-image"
+      ],
+      "types": [
+        "generate-from-image"
+      ],
+      "imageField": "image_url",
+      "outputField": "images",
+      "inputImages": 1,
+      "minimumInputImages": 1,
+      "promptField": "prompt",
+      "fields": {
+        "strength": "strength",
+        "aspectRatio": "aspect_ratio"
+      },
+      "capabilities": {
+        "size": {
+          "aspectRatios": [
+            "1:1",
+            "16:9",
+            "9:16",
+            "4:3",
+            "3:4",
+            "21:9",
+            "9:21"
+          ]
+        }
+      },
+      "ratings": {
+        "affordability": 5,
+        "speed": 5,
+        "quality": 2,
+        "provisional": [
+          "speed",
+          "quality"
+        ],
+        "inferred": [],
+        "qualityScope": "image_conditioned_generation",
+        "realtimeCandidate": false
+      }
+    },
+    "fal-ai/luma-photon/modify": {
+      "displayName": "Luma Photon",
+      "description": "Edit images from your prompts using Luma Photon. Photon is the most creative, personalizable, and intelligent visual models for creatives, bringing a step-function change in the cost of high-quality image generation.",
+      "tags": [
+        "image-to-image"
+      ],
+      "types": [
+        "generate-from-image"
+      ],
+      "imageField": "image_url",
+      "outputField": "images",
+      "inputImages": 1,
+      "minimumInputImages": 1,
+      "promptField": "prompt",
+      "fields": {
+        "strength": "strength",
+        "aspectRatio": "aspect_ratio"
+      },
+      "capabilities": {
+        "size": {
+          "aspectRatios": [
+            "1:1",
+            "16:9",
+            "9:16",
+            "4:3",
+            "3:4",
+            "21:9",
+            "9:21"
+          ]
+        }
+      },
+      "ratings": {
+        "affordability": 5,
+        "speed": 4,
+        "quality": 3,
+        "provisional": [
+          "speed",
+          "quality"
+        ],
+        "inferred": [],
+        "qualityScope": "image_conditioned_generation",
+        "realtimeCandidate": false
+      }
+    },
+    "fal-ai/nano-banana-2/edit": {
+      "displayName": "Nano Banana 2",
+      "description": "Nano Banana 2 is Google's new state-of-the-art image generation and editing model\n",
+      "tags": [],
+      "types": [
+        "general-editing"
+      ],
+      "imageField": "image_urls",
+      "outputField": "images",
+      "inputImages": 1,
+      "minimumInputImages": 1,
+      "promptField": "prompt",
+      "fields": {
+        "seed": "seed",
+        "outputFormat": "output_format",
+        "aspectRatio": "aspect_ratio",
+        "resolution": "resolution",
+        "numImages": "num_images"
+      },
+      "capabilities": {
+        "size": {
+          "pixelAreaBuckets": [
+            262144,
+            1048576,
+            4194304,
+            16777216
+          ],
+          "aspectRatios": [
+            "21:9",
+            "16:9",
+            "3:2",
+            "4:3",
+            "5:4",
+            "1:1",
+            "4:5",
+            "3:4",
+            "2:3",
+            "9:16",
+            "4:1",
+            "1:4",
+            "8:1",
+            "1:8"
+          ]
+        }
+      },
+      "ratings": {
+        "affordability": 3,
+        "speed": 4,
+        "quality": 4,
+        "provisional": [
+          "speed",
+          "quality"
+        ],
+        "inferred": [],
+        "qualityScope": "general_editing",
+        "realtimeCandidate": false
+      }
+    },
+    "fal-ai/nano-banana-pro/edit": {
+      "displayName": "Nano Banana Pro",
+      "description": "Nano Banana Pro is Google's new state-of-the-art image generation and editing model",
+      "tags": [
+        "realism",
+        "typography"
+      ],
+      "types": [
+        "general-editing"
+      ],
+      "imageField": "image_urls",
+      "outputField": "images",
+      "inputImages": 1,
+      "minimumInputImages": 1,
+      "promptField": "prompt",
+      "fields": {
+        "seed": "seed",
+        "outputFormat": "output_format",
+        "aspectRatio": "aspect_ratio",
+        "resolution": "resolution",
+        "numImages": "num_images"
+      },
+      "capabilities": {
+        "size": {
+          "aspectRatios": [
+            "21:9",
+            "16:9",
+            "3:2",
+            "4:3",
+            "5:4",
+            "1:1",
+            "4:5",
+            "3:4",
+            "2:3",
+            "9:16"
+          ],
+          "pixelAreaBuckets": [
+            1048576,
+            4194304,
+            16777216
+          ]
+        }
+      },
+      "ratings": {
+        "affordability": 2,
+        "speed": 3,
+        "quality": 4,
+        "provisional": [
+          "speed",
+          "quality"
+        ],
+        "inferred": [],
+        "qualityScope": "general_editing",
+        "realtimeCandidate": false
+      }
+    },
+    "fal-ai/nano-banana/edit": {
+      "displayName": "Nano Banana",
+      "description": "Google's famous original image generation and editing model",
+      "tags": [
+        "image-editing"
+      ],
+      "types": [
+        "general-editing"
+      ],
+      "imageField": "image_urls",
+      "outputField": "images",
+      "inputImages": 1,
+      "minimumInputImages": 1,
+      "promptField": "prompt",
+      "fields": {
+        "seed": "seed",
+        "outputFormat": "output_format",
+        "aspectRatio": "aspect_ratio",
+        "numImages": "num_images"
+      },
+      "capabilities": {
+        "size": {
+          "aspectRatios": [
+            "21:9",
+            "16:9",
+            "3:2",
+            "4:3",
+            "5:4",
+            "1:1",
+            "4:5",
+            "3:4",
+            "2:3",
+            "9:16"
+          ]
+        }
+      },
+      "ratings": {
+        "affordability": 4,
+        "speed": 4,
+        "quality": 3,
+        "provisional": [
+          "speed",
+          "quality"
+        ],
+        "inferred": [],
+        "qualityScope": "general_editing",
+        "realtimeCandidate": false
+      }
+    },
+    "fal-ai/phota/edit": {
+      "displayName": "Phota",
+      "description": "Phota's model enables personalized photo editing, preserving identity while erasing distractions seamlessly.",
+      "tags": [
+        "edit",
+        "personalization",
+        "typography",
+        "phota"
+      ],
+      "types": [
+        "general-editing"
+      ],
+      "imageField": "image_urls",
+      "outputField": "images",
+      "inputImages": 1,
+      "minimumInputImages": 1,
+      "promptField": "prompt",
+      "fields": {
+        "outputFormat": "output_format",
+        "aspectRatio": "aspect_ratio",
+        "resolution": "resolution",
+        "numImages": "num_images"
+      },
+      "capabilities": {
+        "size": {
+          "aspectRatios": [
+            "1:1",
+            "16:9",
+            "4:3",
+            "3:4",
+            "9:16"
+          ],
+          "pixelAreaBuckets": [
+            1048576,
+            16777216
+          ]
+        }
+      },
+      "ratings": {
+        "affordability": 3,
+        "speed": 3,
+        "quality": 3,
+        "provisional": [
+          "speed",
+          "quality"
+        ],
+        "inferred": [],
+        "qualityScope": "general_editing",
+        "realtimeCandidate": false
+      }
+    },
+    "fal-ai/playground-v25/inpainting": {
+      "displayName": "Playground v2.5",
+      "description": "State-of-the-art open-source model in aesthetic quality",
+      "tags": [
+        "inpaint",
+        "artistic",
+        "style"
+      ],
+      "types": [
+        "fill-inpaint"
+      ],
+      "imageField": "image_url",
+      "outputField": "images",
+      "inputImages": 1,
+      "minimumInputImages": 1,
+      "promptField": "prompt",
+      "fields": {
+        "negativePrompt": "negative_prompt",
+        "steps": "num_inference_steps",
+        "guidance": "guidance_scale",
+        "seed": "seed",
+        "strength": "strength",
+        "mask": "mask_url",
+        "imageSize": "image_size",
+        "numImages": "num_images",
+        "imageSizeObject": true
+      },
+      "capabilities": {
+        "maskRequired": true,
+        "size": {
+          "maxWidth": 14142,
+          "maxHeight": 14142
+        }
+      },
+      "ratings": {
+        "affordability": 5,
+        "speed": 4,
+        "quality": 3,
+        "provisional": [
+          "affordability",
+          "speed",
+          "quality"
+        ],
+        "inferred": [
+          "affordability"
+        ],
+        "qualityScope": "masked_inpainting",
+        "realtimeCandidate": false
+      }
+    },
+    "fal-ai/qwen-image-edit": {
+      "displayName": "Qwen Image Edit",
+      "description": "Endpoint for Qwen's Image Editing model. Has superior text editing capabilities.",
+      "tags": [
+        "image-editing",
+        "image-to-image",
+        "high-quality-text"
+      ],
+      "types": [
+        "general-editing",
+        "generate-from-image"
+      ],
+      "imageField": "image_url",
+      "outputField": "images",
+      "inputImages": 1,
+      "minimumInputImages": 1,
+      "promptField": "prompt",
+      "fields": {
+        "negativePrompt": "negative_prompt",
+        "steps": "num_inference_steps",
+        "guidance": "guidance_scale",
+        "seed": "seed",
+        "outputFormat": "output_format",
+        "imageSize": "image_size",
+        "numImages": "num_images",
+        "imageSizeObject": true
+      },
+      "capabilities": {
+        "size": {
+          "maxWidth": 14142,
+          "maxHeight": 14142
+        }
+      },
+      "ratings": {
+        "affordability": 4,
+        "speed": 3,
+        "quality": 2,
+        "provisional": [
+          "speed",
+          "quality"
+        ],
+        "inferred": [],
+        "qualityScope": "general_editing",
+        "realtimeCandidate": false
+      }
+    },
+    "fal-ai/qwen-image-edit-2509": {
+      "fields": {
+        "imageSize": "image_size",
+        "imageSizeObject": true
+      },
+      "capabilities": {
+        "size": {
+          "maxWidth": 14142,
+          "maxHeight": 14142
+        }
+      },
+      "ratings": {
+        "affordability": 4,
+        "speed": 3,
+        "quality": 3,
+        "provisional": [
+          "speed",
+          "quality"
+        ],
+        "inferred": [],
+        "qualityScope": "general_editing",
+        "realtimeCandidate": false
+      }
+    },
+    "fal-ai/qwen-image-edit-2509-lora": {
+      "fields": {
+        "imageSize": "image_size",
+        "imageSizeObject": true
+      },
+      "capabilities": {
+        "size": {
+          "maxWidth": 14142,
+          "maxHeight": 14142
+        }
+      },
+      "ratings": {
+        "affordability": 4,
+        "speed": 3,
+        "quality": 3,
+        "provisional": [
+          "speed",
+          "quality"
+        ],
+        "inferred": [],
+        "qualityScope": "general_editing",
+        "realtimeCandidate": false
+      }
+    },
+    "fal-ai/qwen-image-edit-lora": {
+      "displayName": "Qwen Image Edit Lora",
+      "description": "LoRA inference endpoint for the Qwen Image Editing model.",
+      "tags": [
+        "image-to-image",
+        "image-editing",
+        "lora"
+      ],
+      "types": [
+        "generate-from-image",
+        "general-editing"
+      ],
+      "imageField": "image_url",
+      "outputField": "images",
+      "inputImages": 1,
+      "minimumInputImages": 1,
+      "promptField": "prompt",
+      "fields": {
+        "negativePrompt": "negative_prompt",
+        "steps": "num_inference_steps",
+        "guidance": "guidance_scale",
+        "seed": "seed",
+        "outputFormat": "output_format",
+        "imageSize": "image_size",
+        "numImages": "num_images",
+        "imageSizeObject": true
+      },
+      "capabilities": {
+        "size": {
+          "maxWidth": 14142,
+          "maxHeight": 14142
+        }
+      },
+      "ratings": {
+        "affordability": 4,
+        "speed": 3,
+        "quality": 2,
+        "provisional": [
+          "speed",
+          "quality"
+        ],
+        "inferred": [],
+        "qualityScope": "general_editing",
+        "realtimeCandidate": false
+      }
+    },
+    "fal-ai/qwen-image-edit-plus": {
+      "displayName": "Qwen Image Edit Plus",
+      "description": "Endpoint for Qwen's Image Editing Plus model also known as Qwen-Image-Edit-2509. Has superior text editing capabilities and multi-image support.",
+      "tags": [
+        "image-editing",
+        "image-to-image",
+        "high-quality-text"
+      ],
+      "types": [
+        "general-editing",
+        "generate-from-image"
+      ],
+      "imageField": "image_urls",
+      "outputField": "images",
+      "inputImages": 1,
+      "minimumInputImages": 1,
+      "promptField": "prompt",
+      "fields": {
+        "negativePrompt": "negative_prompt",
+        "steps": "num_inference_steps",
+        "guidance": "guidance_scale",
+        "seed": "seed",
+        "outputFormat": "output_format",
+        "imageSize": "image_size",
+        "numImages": "num_images",
+        "imageSizeObject": true
+      },
+      "capabilities": {
+        "size": {
+          "maxWidth": 14142,
+          "maxHeight": 14142
+        }
+      },
+      "ratings": {
+        "affordability": 4,
+        "speed": 3,
+        "quality": 3,
+        "provisional": [
+          "speed",
+          "quality"
+        ],
+        "inferred": [],
+        "qualityScope": "general_editing",
+        "realtimeCandidate": false
+      }
+    },
+    "fal-ai/qwen-image-edit-plus-lora": {
+      "displayName": "Qwen Image Edit Plus Lora",
+      "description": "LoRA endpoint for the Qwen Image Edit Plus model.",
+      "tags": [
+        "image-to-image",
+        "image-editing"
+      ],
+      "types": [
+        "generate-from-image",
+        "general-editing"
+      ],
+      "imageField": "image_urls",
+      "outputField": "images",
+      "inputImages": 1,
+      "minimumInputImages": 1,
+      "promptField": "prompt",
+      "fields": {
+        "negativePrompt": "negative_prompt",
+        "steps": "num_inference_steps",
+        "guidance": "guidance_scale",
+        "seed": "seed",
+        "outputFormat": "output_format",
+        "imageSize": "image_size",
+        "numImages": "num_images",
+        "imageSizeObject": true
+      },
+      "capabilities": {
+        "size": {
+          "maxWidth": 14142,
+          "maxHeight": 14142
+        }
+      },
+      "ratings": {
+        "affordability": 4,
+        "speed": 3,
+        "quality": 3,
+        "provisional": [
+          "speed",
+          "quality"
+        ],
+        "inferred": [],
+        "qualityScope": "general_editing",
+        "realtimeCandidate": false
+      }
+    },
+    "fal-ai/qwen-image-edit/inpaint": {
+      "displayName": "Qwen Image Edit",
+      "description": "Inpainting Endpoint for the Qwen Edit Image editing model.",
+      "tags": [
+        "image-to-image",
+        "inpainting",
+        "qwen-image"
+      ],
+      "types": [
+        "generate-from-image",
+        "fill-inpaint"
+      ],
+      "imageField": "image_url",
+      "outputField": "images",
+      "inputImages": 1,
+      "minimumInputImages": 1,
+      "promptField": "prompt",
+      "fields": {
+        "negativePrompt": "negative_prompt",
+        "steps": "num_inference_steps",
+        "guidance": "guidance_scale",
+        "seed": "seed",
+        "strength": "strength",
+        "mask": "mask_url",
+        "outputFormat": "output_format",
+        "imageSize": "image_size",
+        "numImages": "num_images",
+        "imageSizeObject": true
+      },
+      "capabilities": {
+        "maskRequired": true,
+        "size": {
+          "maxWidth": 14142,
+          "maxHeight": 14142
+        }
+      },
+      "ratings": {
+        "affordability": 4,
+        "speed": 3,
+        "quality": 3,
+        "provisional": [
+          "speed",
+          "quality"
+        ],
+        "inferred": [],
+        "qualityScope": "masked_inpainting",
+        "realtimeCandidate": false
+      }
+    },
+    "fal-ai/qwen-image-max/edit": {
+      "displayName": "Qwen Image Max",
+      "description": "Image editing endpoint for Qwen-Image-Max. Qwen Image Max improves upon the Qwen Image Plus series by enhancing the realism and naturalness of images.",
+      "tags": [
+        "qwen-image",
+        "max"
+      ],
+      "types": [
+        "general-editing"
+      ],
+      "imageField": "image_urls",
+      "outputField": "images",
+      "inputImages": 3,
+      "minimumInputImages": 1,
+      "promptField": "prompt",
+      "fields": {
+        "negativePrompt": "negative_prompt",
+        "seed": "seed",
+        "outputFormat": "output_format",
+        "imageSize": "image_size",
+        "numImages": "num_images",
+        "imageSizeObject": true
+      },
+      "capabilities": {
+        "size": {
+          "maxWidth": 14142,
+          "maxHeight": 14142
+        }
+      },
+      "ratings": {
+        "affordability": 3,
+        "speed": 2,
+        "quality": 3,
+        "provisional": [
+          "speed",
+          "quality"
+        ],
+        "inferred": [],
+        "qualityScope": "general_editing",
+        "realtimeCandidate": false
+      }
+    },
+    "fal-ai/sdxl-controlnet-union/image-to-image": {
+      "displayName": "SDXL ControlNet Union",
+      "description": "An efficent SDXL multi-controlnet image-to-image model.",
+      "tags": [
+        "diffusion",
+        "controlnet",
+        "composition"
+      ],
+      "types": [
+        "general-editing"
+      ],
+      "imageField": "image_url",
+      "outputField": "images",
+      "inputImages": 1,
+      "minimumInputImages": 1,
+      "promptField": "prompt",
+      "fields": {
+        "negativePrompt": "negative_prompt",
+        "steps": "num_inference_steps",
+        "guidance": "guidance_scale",
+        "seed": "seed",
+        "strength": "strength",
+        "imageSize": "image_size",
+        "numImages": "num_images",
+        "imageSizeObject": true
+      },
+      "capabilities": {
+        "size": {
+          "maxWidth": 14142,
+          "maxHeight": 14142
+        }
+      },
+      "ratings": {
+        "affordability": 5,
+        "speed": 4,
+        "quality": 2,
+        "provisional": [
+          "affordability",
+          "speed",
+          "quality"
+        ],
+        "inferred": [
+          "affordability"
+        ],
+        "qualityScope": "image_conditioned_generation",
+        "realtimeCandidate": false
+      }
+    },
+    "fal-ai/sdxl-controlnet-union/inpainting": {
+      "displayName": "SDXL ControlNet Union",
+      "description": "An efficent SDXL multi-controlnet inpainting model.",
+      "tags": [
+        "diffusion",
+        "controlnet",
+        "composition"
+      ],
+      "types": [
+        "general-editing"
+      ],
+      "imageField": "image_url",
+      "outputField": "images",
+      "inputImages": 1,
+      "minimumInputImages": 1,
+      "promptField": "prompt",
+      "fields": {
+        "negativePrompt": "negative_prompt",
+        "steps": "num_inference_steps",
+        "guidance": "guidance_scale",
+        "seed": "seed",
+        "strength": "strength",
+        "mask": "mask_url",
+        "imageSize": "image_size",
+        "numImages": "num_images",
+        "imageSizeObject": true
+      },
+      "capabilities": {
+        "maskRequired": true,
+        "size": {
+          "maxWidth": 14142,
+          "maxHeight": 14142
+        }
+      },
+      "ratings": {
+        "affordability": 5,
+        "speed": 4,
+        "quality": 2,
+        "provisional": [
+          "affordability",
+          "speed",
+          "quality"
+        ],
+        "inferred": [
+          "affordability"
+        ],
+        "qualityScope": "masked_inpainting",
+        "realtimeCandidate": false
+      }
+    },
+    "fal-ai/uno": {
+      "displayName": "Uno",
+      "description": "An AI model that transforms input images into new ones based on text prompts, blending reference visuals with your creative directions.",
+      "tags": [
+        "image-to-image"
+      ],
+      "types": [
+        "generate-from-image"
+      ],
+      "imageField": "input_image_urls",
+      "outputField": "images",
+      "inputImages": 1,
+      "minimumInputImages": 1,
+      "promptField": "prompt",
+      "fields": {
+        "steps": "num_inference_steps",
+        "guidance": "guidance_scale",
+        "seed": "seed",
+        "outputFormat": "output_format",
+        "imageSize": "image_size",
+        "numImages": "num_images",
+        "imageSizeObject": true
+      },
+      "capabilities": {
+        "size": {
+          "maxWidth": 14142,
+          "maxHeight": 14142
+        }
+      },
+      "ratings": {
+        "affordability": 4,
+        "speed": 3,
+        "quality": 3,
+        "provisional": [
+          "speed",
+          "quality"
+        ],
+        "inferred": [],
+        "qualityScope": "image_conditioned_generation",
+        "realtimeCandidate": false
+      }
+    },
+    "fal-ai/vidu/q2/reference-to-image": {
+      "displayName": "Vidu",
+      "description": "Vidu Reference-to-Image creates images by using a reference images and combining them with a prompt.",
+      "tags": [
+        "images-to-imag",
+        "reference-to-image"
+      ],
+      "types": [
+        "general-editing"
+      ],
+      "imageField": "reference_image_urls",
+      "outputField": "image",
+      "inputImages": 1,
+      "minimumInputImages": 1,
+      "promptField": "prompt",
+      "fields": {
+        "seed": "seed",
+        "aspectRatio": "aspect_ratio"
+      },
+      "capabilities": {
+        "size": {
+          "aspectRatios": [
+            "16:9",
+            "9:16",
+            "1:1"
+          ]
+        }
+      },
+      "ratings": {
+        "affordability": 3,
+        "speed": 2,
+        "quality": 2,
+        "provisional": [
+          "speed",
+          "quality"
+        ],
+        "inferred": [],
+        "qualityScope": "image_conditioned_generation",
+        "realtimeCandidate": false
+      }
+    },
+    "fal-ai/vidu/reference-to-image": {
+      "displayName": "Vidu",
+      "description": "Vidu Reference-to-Image creates images by using a reference images and combining them with a prompt.",
+      "tags": [
+        "images-to-image"
+      ],
+      "types": [
+        "general-editing"
+      ],
+      "imageField": "reference_image_urls",
+      "outputField": "image",
+      "inputImages": 1,
+      "minimumInputImages": 1,
+      "promptField": "prompt",
+      "fields": {
+        "seed": "seed",
+        "aspectRatio": "aspect_ratio"
+      },
+      "capabilities": {
+        "size": {
+          "aspectRatios": [
+            "16:9",
+            "9:16",
+            "1:1"
+          ]
+        }
+      },
+      "ratings": {
+        "affordability": 3,
+        "speed": 2,
+        "quality": 2,
+        "provisional": [
+          "speed",
+          "quality"
+        ],
+        "inferred": [],
+        "qualityScope": "image_conditioned_generation",
+        "realtimeCandidate": false
+      }
+    },
+    "fal-ai/wan-25-preview/image-to-image": {
+      "displayName": "Wan 2.5 Image to Image",
+      "description": "Wan 2.5 image-to-image model.",
+      "tags": [],
+      "types": [
+        "general-editing"
+      ],
+      "imageField": "image_urls",
+      "outputField": "images",
+      "inputImages": 1,
+      "minimumInputImages": 1,
+      "promptField": "prompt",
+      "fields": {
+        "negativePrompt": "negative_prompt",
+        "seed": "seed",
+        "imageSize": "image_size",
+        "numImages": "num_images",
+        "imageSizeObject": true
+      },
+      "capabilities": {
+        "size": {
+          "maxWidth": 14142,
+          "maxHeight": 14142
+        }
+      },
+      "ratings": {
+        "affordability": 4,
+        "speed": 3,
+        "quality": 3,
+        "provisional": [
+          "speed",
+          "quality"
+        ],
+        "inferred": [],
+        "qualityScope": "image_conditioned_generation",
+        "realtimeCandidate": false
+      }
+    },
+    "fal-ai/wan/v2.2-a14b/image-to-image": {
+      "displayName": "Wan",
+      "description": "Wan 2.2's 14B model edit high-resolution, photorealistic images with powerful prompt understanding and fine-grained visual detail",
+      "tags": [
+        "image-to-image"
+      ],
+      "types": [
+        "generate-from-image"
+      ],
+      "imageField": "image_url",
+      "outputField": "image",
+      "inputImages": 1,
+      "minimumInputImages": 1,
+      "promptField": "prompt",
+      "fields": {
+        "negativePrompt": "negative_prompt",
+        "steps": "num_inference_steps",
+        "guidance": "guidance_scale",
+        "seed": "seed",
+        "strength": "strength",
+        "imageSize": "image_size",
+        "aspectRatio": "aspect_ratio",
+        "imageSizeObject": true
+      },
+      "capabilities": {
+        "size": {
+          "aspectRatios": [
+            "16:9",
+            "9:16",
+            "1:1"
+          ],
+          "maxWidth": 14142,
+          "maxHeight": 14142
+        }
+      },
+      "ratings": {
+        "affordability": 4,
+        "speed": 3,
+        "quality": 2,
+        "provisional": [
+          "speed",
+          "quality"
+        ],
+        "inferred": [],
+        "qualityScope": "image_conditioned_generation",
+        "realtimeCandidate": false
+      }
+    },
+    "fal-ai/wan/v2.7/edit": {
+      "fields": {
+        "imageSize": "image_size",
+        "imageSizeObject": true
+      },
+      "capabilities": {
+        "size": {
+          "maxWidth": 14142,
+          "maxHeight": 14142
+        }
+      },
+      "ratings": {
+        "affordability": 4,
+        "speed": 3,
+        "quality": 3,
+        "provisional": [
+          "speed",
+          "quality"
+        ],
+        "inferred": [],
+        "qualityScope": "general_editing",
+        "realtimeCandidate": false
+      }
+    },
+    "fal-ai/wan/v2.7/pro/edit": {
+      "fields": {
+        "imageSize": "image_size",
+        "imageSizeObject": true
+      },
+      "capabilities": {
+        "size": {
+          "maxWidth": 14142,
+          "maxHeight": 14142
+        }
+      },
+      "ratings": {
+        "affordability": 3,
+        "speed": 2,
+        "quality": 3,
+        "provisional": [
+          "speed",
+          "quality"
+        ],
+        "inferred": [],
+        "qualityScope": "general_editing",
+        "realtimeCandidate": false
+      }
+    },
+    "fal-ai/z-image/turbo/image-to-image": {
+      "displayName": "Z Image Turbo Image To Image",
+      "description": "Generate images from text and images using Z-Image Turbo, Tongyi-MAI's super-fast 6B model.",
+      "tags": [
+        "turbo",
+        "z-image",
+        "fast"
+      ],
+      "types": [
+        "general-editing"
+      ],
+      "imageField": "image_url",
+      "outputField": "images",
+      "inputImages": 1,
+      "minimumInputImages": 1,
+      "promptField": "prompt",
+      "fields": {
+        "steps": "num_inference_steps",
+        "seed": "seed",
+        "strength": "strength",
+        "outputFormat": "output_format",
+        "imageSize": "image_size",
+        "numImages": "num_images",
+        "imageSizeObject": true
+      },
+      "capabilities": {
+        "size": {
+          "maxWidth": 14142,
+          "maxHeight": 14142
+        }
+      },
+      "ratings": {
+        "affordability": 5,
+        "speed": 5,
+        "quality": 3,
+        "provisional": [
+          "speed",
+          "quality"
+        ],
+        "inferred": [],
+        "qualityScope": "image_conditioned_generation",
+        "realtimeCandidate": false
+      }
+    },
+    "fal-ai/z-image/turbo/image-to-image/lora": {
+      "displayName": "Z Image Turbo Image To Image Lora",
+      "description": "Generate images from text and images using custom LoRA and Z-Image Turbo, Tongyi-MAI's super-fast 6B model.",
+      "tags": [
+        "turbo",
+        "z-image",
+        "fast",
+        "lora"
+      ],
+      "types": [
+        "general-editing"
+      ],
+      "imageField": "image_url",
+      "outputField": "images",
+      "inputImages": 1,
+      "minimumInputImages": 1,
+      "promptField": "prompt",
+      "fields": {
+        "steps": "num_inference_steps",
+        "seed": "seed",
+        "strength": "strength",
+        "outputFormat": "output_format",
+        "imageSize": "image_size",
+        "numImages": "num_images",
+        "imageSizeObject": true
+      },
+      "capabilities": {
+        "size": {
+          "maxWidth": 14142,
+          "maxHeight": 14142
+        }
+      },
+      "ratings": {
+        "affordability": 5,
+        "speed": 5,
+        "quality": 3,
+        "provisional": [
+          "speed",
+          "quality"
+        ],
+        "inferred": [],
+        "qualityScope": "image_conditioned_generation",
+        "realtimeCandidate": false
+      }
+    },
+    "fal-ai/z-image/turbo/inpaint": {
+      "displayName": "Z Image Turbo Inpaint",
+      "description": "Generate images from text, an image and a mask using Z-Image Turbo, Tongyi-MAI's super-fast 6B model.",
+      "tags": [
+        "inpainting"
+      ],
+      "types": [
+        "fill-inpaint"
+      ],
+      "imageField": "image_url",
+      "outputField": "images",
+      "inputImages": 1,
+      "minimumInputImages": 1,
+      "promptField": "prompt",
+      "fields": {
+        "steps": "num_inference_steps",
+        "seed": "seed",
+        "strength": "strength",
+        "mask": "mask_image_url",
+        "outputFormat": "output_format",
+        "imageSize": "image_size",
+        "numImages": "num_images",
+        "imageSizeObject": true
+      },
+      "capabilities": {
+        "maskRequired": true,
+        "size": {
+          "maxWidth": 14142,
+          "maxHeight": 14142
+        }
+      },
+      "ratings": {
+        "affordability": 5,
+        "speed": 5,
+        "quality": 3,
+        "provisional": [
+          "speed",
+          "quality"
+        ],
+        "inferred": [],
+        "qualityScope": "masked_inpainting",
+        "realtimeCandidate": false
+      }
+    },
+    "fal-ai/z-image/turbo/inpaint/lora": {
+      "displayName": "Z Image Turbo Inpaint Lora",
+      "description": "Generate images from text, an image, a mask and custom LoRA using Z-Image Turbo, Tongyi-MAI's super-fast 6B model.",
+      "tags": [
+        "inpainting"
+      ],
+      "types": [
+        "fill-inpaint"
+      ],
+      "imageField": "image_url",
+      "outputField": "images",
+      "inputImages": 1,
+      "minimumInputImages": 1,
+      "promptField": "prompt",
+      "fields": {
+        "steps": "num_inference_steps",
+        "seed": "seed",
+        "strength": "strength",
+        "mask": "mask_image_url",
+        "outputFormat": "output_format",
+        "imageSize": "image_size",
+        "numImages": "num_images",
+        "imageSizeObject": true
+      },
+      "capabilities": {
+        "maskRequired": true,
+        "size": {
+          "maxWidth": 14142,
+          "maxHeight": 14142
+        }
+      },
+      "ratings": {
+        "affordability": 5,
+        "speed": 5,
+        "quality": 3,
+        "provisional": [
+          "speed",
+          "quality"
+        ],
+        "inferred": [],
+        "qualityScope": "masked_inpainting",
+        "realtimeCandidate": false
+      }
+    },
+    "google/nano-banana-lite/edit": {
+      "fields": {
+        "aspectRatio": "aspect_ratio"
+      },
+      "capabilities": {
+        "size": {
+          "aspectRatios": [
+            "21:9",
+            "16:9",
+            "3:2",
+            "4:3",
+            "5:4",
+            "1:1",
+            "4:5",
+            "3:4",
+            "2:3",
+            "9:16",
+            "4:1",
+            "1:4",
+            "8:1",
+            "1:8"
+          ]
+        }
+      },
+      "ratings": {
+        "affordability": 4,
+        "speed": 5,
+        "quality": 3,
+        "provisional": [
+          "affordability",
+          "speed",
+          "quality"
+        ],
+        "inferred": [
+          "affordability"
+        ],
+        "qualityScope": "general_editing",
+        "realtimeCandidate": false
+      }
+    },
+    "microsoft/mai-image-2.5-pro/edit": {
+      "fields": {
+        "aspectRatio": "aspect_ratio"
+      },
+      "capabilities": {
+        "size": {
+          "aspectRatios": [
+            "1:1",
+            "4:3",
+            "3:4",
+            "16:9",
+            "9:16",
+            "3:2",
+            "2:3"
+          ]
+        }
+      },
+      "ratings": {
+        "affordability": 1,
+        "speed": 2,
+        "quality": 4,
+        "provisional": [
+          "affordability",
+          "speed",
+          "quality"
+        ],
+        "inferred": [],
+        "qualityScope": "general_editing",
+        "realtimeCandidate": false
+      }
+    },
+    "openai/gpt-image-2/edit": {
+      "fields": {
+        "imageSize": "image_size",
+        "imageSizeObject": true
+      },
+      "capabilities": {
+        "size": {
+          "maxWidth": 14142,
+          "maxHeight": 14142
+        }
+      },
+      "ratings": {
+        "affordability": 1,
+        "speed": 3,
+        "quality": 5,
+        "provisional": [
+          "affordability",
+          "speed",
+          "quality"
+        ],
+        "inferred": [],
+        "qualityScope": "general_editing",
+        "realtimeCandidate": false
+      }
+    },
+    "rundiffusion-fal/juggernaut-flux-lora/inpainting": {
+      "fields": {
+        "imageSize": "image_size",
+        "imageSizeObject": true
+      },
+      "capabilities": {
+        "size": {
+          "maxWidth": 14142,
+          "maxHeight": 14142
+        }
+      },
+      "ratings": {
+        "affordability": 4,
+        "speed": 3,
+        "quality": 3,
+        "provisional": [
+          "speed",
+          "quality"
+        ],
+        "inferred": [],
+        "qualityScope": "masked_inpainting",
         "realtimeCandidate": false
       }
     },
@@ -1084,179 +4115,17 @@
         "realtimeCandidate": false
       }
     },
-    "fal-ai/kolors/image-to-image": {
-      "ratings": {
-        "affordability": 4,
-        "speed": 3,
-        "quality": 2,
-        "provisional": [
-          "affordability",
-          "speed",
-          "quality"
-        ],
-        "inferred": [
-          "affordability"
-        ],
-        "qualityScope": "image_conditioned_generation",
-        "realtimeCandidate": false
-      }
-    },
-    "fal-ai/fast-lcm-diffusion/image-to-image": {
-      "ratings": {
-        "affordability": 5,
-        "speed": 5,
-        "quality": 2,
-        "provisional": [
-          "affordability",
-          "speed",
-          "quality"
-        ],
-        "inferred": [
-          "affordability"
-        ],
-        "qualityScope": "image_conditioned_generation",
-        "realtimeCandidate": true
-      }
-    },
-    "fal-ai/sdxl-controlnet-union/image-to-image": {
-      "ratings": {
-        "affordability": 5,
-        "speed": 4,
-        "quality": 2,
-        "provisional": [
-          "affordability",
-          "speed",
-          "quality"
-        ],
-        "inferred": [
-          "affordability"
-        ],
-        "qualityScope": "image_conditioned_generation",
-        "realtimeCandidate": false
-      }
-    },
-    "fal-ai/lora/image-to-image": {
-      "ratings": {
-        "affordability": 5,
-        "speed": 4,
-        "quality": 2,
-        "provisional": [
-          "affordability",
-          "speed",
-          "quality"
-        ],
-        "inferred": [
-          "affordability"
-        ],
-        "qualityScope": "image_conditioned_generation",
-        "realtimeCandidate": false
-      }
-    },
-    "fal-ai/fast-sdxl/image-to-image": {
-      "ratings": {
-        "affordability": 5,
-        "speed": 4,
-        "quality": 2,
-        "provisional": [
-          "affordability",
-          "speed",
-          "quality"
-        ],
-        "inferred": [
-          "affordability"
-        ],
-        "qualityScope": "image_conditioned_generation",
-        "realtimeCandidate": false
-      }
-    },
-    "fal-ai/fast-lightning-sdxl/image-to-image": {
-      "ratings": {
-        "affordability": 5,
-        "speed": 5,
-        "quality": 2,
-        "provisional": [
-          "affordability",
-          "speed",
-          "quality"
-        ],
-        "inferred": [
-          "affordability"
-        ],
-        "qualityScope": "image_conditioned_generation",
-        "realtimeCandidate": false
-      }
-    },
-    "fal-ai/uno": {
-      "ratings": {
-        "affordability": 4,
-        "speed": 3,
-        "quality": 3,
-        "provisional": [
-          "speed",
-          "quality"
-        ],
-        "inferred": [],
-        "qualityScope": "image_conditioned_generation",
-        "realtimeCandidate": false
-      }
-    },
-    "fal-ai/vidu/q2/reference-to-image": {
-      "ratings": {
-        "affordability": 3,
-        "speed": 2,
-        "quality": 2,
-        "provisional": [
-          "speed",
-          "quality"
-        ],
-        "inferred": [],
-        "qualityScope": "image_conditioned_generation",
-        "realtimeCandidate": false
-      }
-    },
-    "fal-ai/vidu/reference-to-image": {
-      "ratings": {
-        "affordability": 3,
-        "speed": 2,
-        "quality": 2,
-        "provisional": [
-          "speed",
-          "quality"
-        ],
-        "inferred": [],
-        "qualityScope": "image_conditioned_generation",
-        "realtimeCandidate": false
-      }
-    },
-    "fal-ai/wan/v2.2-a14b/image-to-image": {
-      "ratings": {
-        "affordability": 4,
-        "speed": 3,
-        "quality": 2,
-        "provisional": [
-          "speed",
-          "quality"
-        ],
-        "inferred": [],
-        "qualityScope": "image_conditioned_generation",
-        "realtimeCandidate": false
-      }
-    },
-    "fal-ai/wan-25-preview/image-to-image": {
-      "ratings": {
-        "affordability": 4,
-        "speed": 3,
-        "quality": 3,
-        "provisional": [
-          "speed",
-          "quality"
-        ],
-        "inferred": [],
-        "qualityScope": "image_conditioned_generation",
-        "realtimeCandidate": false
-      }
-    },
     "wan/v2.6/image-to-image": {
+      "fields": {
+        "imageSize": "image_size",
+        "imageSizeObject": true
+      },
+      "capabilities": {
+        "size": {
+          "maxWidth": 14142,
+          "maxHeight": 14142
+        }
+      },
       "ratings": {
         "affordability": 4,
         "speed": 3,
@@ -1270,371 +4139,85 @@
         "realtimeCandidate": false
       }
     },
-    "fal-ai/z-image/turbo/image-to-image": {
-      "ratings": {
-        "affordability": 5,
-        "speed": 5,
-        "quality": 3,
-        "provisional": [
-          "speed",
-          "quality"
-        ],
-        "inferred": [],
-        "qualityScope": "image_conditioned_generation",
-        "realtimeCandidate": false
-      }
-    },
-    "fal-ai/z-image/turbo/image-to-image/lora": {
-      "ratings": {
-        "affordability": 5,
-        "speed": 5,
-        "quality": 3,
-        "provisional": [
-          "speed",
-          "quality"
-        ],
-        "inferred": [],
-        "qualityScope": "image_conditioned_generation",
-        "realtimeCandidate": false
-      }
-    },
-    "fal-ai/bria/genfill": {
+    "xai/grok-imagine-image/edit": {
+      "fields": {
+        "aspectRatio": "aspect_ratio",
+        "resolution": "resolution"
+      },
+      "capabilities": {
+        "size": {
+          "aspectRatios": [
+            "2:1",
+            "20:9",
+            "19.5:9",
+            "16:9",
+            "4:3",
+            "3:2",
+            "1:1",
+            "2:3",
+            "3:4",
+            "9:16",
+            "9:19.5",
+            "9:20",
+            "1:2"
+          ],
+          "pixelAreaBuckets": [
+            1048576,
+            4194304
+          ]
+        }
+      },
       "ratings": {
         "affordability": 4,
         "speed": 4,
-        "quality": 3,
-        "provisional": [
-          "speed",
-          "quality"
-        ],
-        "inferred": [],
-        "qualityScope": "masked_inpainting",
-        "realtimeCandidate": false
-      }
-    },
-    "fal-ai/fast-sdxl-controlnet-canny/inpainting": {
-      "ratings": {
-        "affordability": 5,
-        "speed": 4,
-        "quality": 2,
-        "provisional": [
-          "affordability",
-          "speed",
-          "quality"
-        ],
-        "inferred": [
-          "affordability"
-        ],
-        "qualityScope": "masked_inpainting",
-        "realtimeCandidate": false
-      }
-    },
-    "fal-ai/finegrain-eraser": {
-      "ratings": {
-        "affordability": 1,
-        "speed": 2,
         "quality": 4,
         "provisional": [
           "speed",
           "quality"
         ],
         "inferred": [],
-        "qualityScope": "object_removal",
+        "qualityScope": "general_editing",
         "realtimeCandidate": false
       }
     },
-    "fal-ai/flux-kontext-lora/inpaint": {
-      "ratings": {
-        "affordability": 4,
-        "speed": 3,
-        "quality": 2,
-        "provisional": [
-          "speed",
-          "quality"
-        ],
-        "inferred": [],
-        "qualityScope": "masked_inpainting",
-        "realtimeCandidate": false
-      }
-    },
-    "fal-ai/flux-lora-fill": {
-      "ratings": {
-        "affordability": 4,
-        "speed": 3,
-        "quality": 3,
-        "provisional": [
-          "speed",
-          "quality"
-        ],
-        "inferred": [],
-        "qualityScope": "masked_inpainting",
-        "realtimeCandidate": false
-      }
-    },
-    "fal-ai/flux-general/inpainting": {
+    "xai/grok-imagine-image/v2.0/edit": {
+      "fields": {
+        "aspectRatio": "aspect_ratio",
+        "resolution": "resolution"
+      },
+      "capabilities": {
+        "size": {
+          "aspectRatios": [
+            "2:1",
+            "20:9",
+            "19.5:9",
+            "16:9",
+            "4:3",
+            "3:2",
+            "1:1",
+            "2:3",
+            "3:4",
+            "9:16",
+            "9:19.5",
+            "9:20",
+            "1:2"
+          ],
+          "pixelAreaBuckets": [
+            1048576,
+            4194304
+          ]
+        }
+      },
       "ratings": {
         "affordability": 3,
         "speed": 3,
-        "quality": 3,
-        "provisional": [
-          "speed",
-          "quality"
-        ],
-        "inferred": [],
-        "qualityScope": "masked_inpainting",
-        "realtimeCandidate": false
-      }
-    },
-    "fal-ai/flux-pro/v1/fill": {
-      "ratings": {
-        "affordability": 4,
-        "speed": 3,
-        "quality": 4,
-        "provisional": [
-          "speed",
-          "quality"
-        ],
-        "inferred": [],
-        "qualityScope": "masked_inpainting",
-        "realtimeCandidate": false
-      }
-    },
-    "fal-ai/flux-pro/v1/fill-finetuned": {
-      "ratings": {
-        "affordability": 3,
-        "speed": 3,
-        "quality": 4,
-        "provisional": [
-          "speed",
-          "quality"
-        ],
-        "inferred": [],
-        "qualityScope": "masked_inpainting",
-        "realtimeCandidate": false
-      }
-    },
-    "fal-ai/flux-krea-lora/inpainting": {
-      "ratings": {
-        "affordability": 4,
-        "speed": 3,
-        "quality": 3,
-        "provisional": [
-          "speed",
-          "quality"
-        ],
-        "inferred": [],
-        "qualityScope": "masked_inpainting",
-        "realtimeCandidate": false
-      }
-    },
-    "bria/genfill/v2": {
-      "ratings": {
-        "affordability": 4,
-        "speed": 3,
-        "quality": 3,
-        "provisional": [
-          "speed",
-          "quality"
-        ],
-        "inferred": [],
-        "qualityScope": "masked_inpainting",
-        "realtimeCandidate": false
-      }
-    },
-    "fal-ai/inpaint": {
-      "ratings": {
-        "affordability": 5,
-        "speed": 4,
-        "quality": 2,
-        "provisional": [
-          "affordability",
-          "speed",
-          "quality"
-        ],
-        "inferred": [
-          "affordability"
-        ],
-        "qualityScope": "masked_inpainting",
-        "realtimeCandidate": false
-      }
-    },
-    "rundiffusion-fal/juggernaut-flux-lora/inpainting": {
-      "ratings": {
-        "affordability": 4,
-        "speed": 3,
-        "quality": 3,
-        "provisional": [
-          "speed",
-          "quality"
-        ],
-        "inferred": [],
-        "qualityScope": "masked_inpainting",
-        "realtimeCandidate": false
-      }
-    },
-    "fal-ai/fast-lcm-diffusion/inpainting": {
-      "ratings": {
-        "affordability": 5,
-        "speed": 5,
-        "quality": 2,
-        "provisional": [
-          "affordability",
-          "speed",
-          "quality"
-        ],
-        "inferred": [
-          "affordability"
-        ],
-        "qualityScope": "masked_inpainting",
-        "realtimeCandidate": true
-      }
-    },
-    "fal-ai/playground-v25/inpainting": {
-      "ratings": {
-        "affordability": 5,
-        "speed": 4,
-        "quality": 3,
-        "provisional": [
-          "affordability",
-          "speed",
-          "quality"
-        ],
-        "inferred": [
-          "affordability"
-        ],
-        "qualityScope": "masked_inpainting",
-        "realtimeCandidate": false
-      }
-    },
-    "fal-ai/qwen-image-edit/inpaint": {
-      "ratings": {
-        "affordability": 4,
-        "speed": 3,
-        "quality": 3,
-        "provisional": [
-          "speed",
-          "quality"
-        ],
-        "inferred": [],
-        "qualityScope": "masked_inpainting",
-        "realtimeCandidate": false
-      }
-    },
-    "fal-ai/sdxl-controlnet-union/inpainting": {
-      "ratings": {
-        "affordability": 5,
-        "speed": 4,
-        "quality": 2,
-        "provisional": [
-          "affordability",
-          "speed",
-          "quality"
-        ],
-        "inferred": [
-          "affordability"
-        ],
-        "qualityScope": "masked_inpainting",
-        "realtimeCandidate": false
-      }
-    },
-    "fal-ai/lora/inpaint": {
-      "ratings": {
-        "affordability": 5,
-        "speed": 4,
-        "quality": 2,
-        "provisional": [
-          "affordability",
-          "speed",
-          "quality"
-        ],
-        "inferred": [
-          "affordability"
-        ],
-        "qualityScope": "masked_inpainting",
-        "realtimeCandidate": false
-      }
-    },
-    "fal-ai/fast-sdxl/inpainting": {
-      "ratings": {
-        "affordability": 5,
-        "speed": 4,
-        "quality": 2,
-        "provisional": [
-          "affordability",
-          "speed",
-          "quality"
-        ],
-        "inferred": [
-          "affordability"
-        ],
-        "qualityScope": "masked_inpainting",
-        "realtimeCandidate": false
-      }
-    },
-    "fal-ai/fast-lightning-sdxl/inpainting": {
-      "ratings": {
-        "affordability": 5,
-        "speed": 5,
-        "quality": 2,
-        "provisional": [
-          "affordability",
-          "speed",
-          "quality"
-        ],
-        "inferred": [
-          "affordability"
-        ],
-        "qualityScope": "masked_inpainting",
-        "realtimeCandidate": false
-      }
-    },
-    "fal-ai/z-image/turbo/inpaint": {
-      "ratings": {
-        "affordability": 5,
-        "speed": 5,
-        "quality": 3,
-        "provisional": [
-          "speed",
-          "quality"
-        ],
-        "inferred": [],
-        "qualityScope": "masked_inpainting",
-        "realtimeCandidate": false
-      }
-    },
-    "fal-ai/z-image/turbo/inpaint/lora": {
-      "ratings": {
-        "affordability": 5,
-        "speed": 5,
-        "quality": 3,
-        "provisional": [
-          "speed",
-          "quality"
-        ],
-        "inferred": [],
-        "qualityScope": "masked_inpainting",
-        "realtimeCandidate": false
-      }
-    },
-    "fal-ai/bria/eraser": {
-      "ratings": {
-        "affordability": 3,
-        "speed": null,
         "quality": 5,
-        "provisional": [],
+        "provisional": [
+          "speed",
+          "quality"
+        ],
         "inferred": [],
-        "qualityScope": "object_removal",
-        "realtimeCandidate": false
-      }
-    },
-    "fal-ai/ideogram/object-removal": {
-      "ratings": {
-        "affordability": 3,
-        "speed": null,
-        "quality": 5,
-        "provisional": [],
-        "inferred": [],
-        "qualityScope": "object_removal",
+        "qualityScope": "general_editing",
         "realtimeCandidate": false
       }
     }

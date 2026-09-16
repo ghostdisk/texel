@@ -6,6 +6,33 @@ export interface GenerationModelRatings {
   qualityScope?: string;
 }
 
+export interface GenerationSizeBucket {
+  width: number;
+  height: number;
+  value?: string;
+}
+
+export interface GenerationSizeConstraints {
+  minAspectRatio?: number;
+  maxAspectRatio?: number;
+  aspectRatios?: string[];
+  minWidth?: number;
+  maxWidth?: number;
+  minHeight?: number;
+  maxHeight?: number;
+  minShortSide?: number;
+  maxShortSide?: number;
+  minLongSide?: number;
+  maxLongSide?: number;
+  minPixels?: number;
+  maxPixels?: number;
+  shortSideBuckets?: number[];
+  pixelAreaBuckets?: number[];
+  sizeBuckets?: GenerationSizeBucket[];
+  outputSizeBuckets?: GenerationSizeBucket[];
+  granularity?: number | { width: number; height: number };
+}
+
 export type GenerationModelType =
   | 'general-editing'
   | 'generate-from-image'
@@ -34,11 +61,7 @@ export interface GenerationModelCapabilities {
   seed: boolean;
   denoiseStrength: boolean;
   partialPreview: boolean;
-  dimensionMultiple?: number;
-  maxDimension?: number;
-  maxShortDimension?: number;
-  minAspectRatio?: number;
-  maxAspectRatio?: number;
+  size?: GenerationSizeConstraints;
 }
 
 export interface GenerationModel {

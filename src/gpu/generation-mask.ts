@@ -3,7 +3,6 @@ import type { Gpu } from './device';
 import { createSurface, TILE_SIZE } from './surface';
 import type { Surface } from './surface';
 import { dispatchLocal } from './local';
-import { resizeMaskSupport } from './mask-support';
 
 const shader = `
 @group(0) @binding(1) var destination: texture_storage_2d<rgba16float, write>;
@@ -20,13 +19,6 @@ const shader = `
 
 export class GenerationMask {
   constructor(private readonly gpu: Gpu) {}
-
-  support(selection: Surface, width: number, height: number): Surface {
-    const output = createSurface('Removal support mask', { x: 0, y: 0, width, height });
-    const frame = this.gpu.beginFrame();
-    try { resizeMaskSupport(frame, selection, output); frame.submit(); return output; }
-    catch (error) { output.destroy(); frame.release(); throw error; }
-  }
 
   create(selection: Surface | null, target: GenerationFrame, feather: number, fallback: Surface): Surface | null {
     if (feather <= 0) return selection;

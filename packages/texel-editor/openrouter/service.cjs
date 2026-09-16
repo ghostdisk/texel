@@ -6,6 +6,45 @@ const API = 'https://openrouter.ai/api/v1';
 const MODEL_DEFS = MODEL_DATABASE.models ?? {};
 const CAPABILITY_PROFILES = MODEL_DATABASE.profiles ?? {};
 
+function enumValues(parameter) { return parameter?.type === 'enum' && Array.isArray(parameter.values) ? parameter.values : []; }
+
+function pixelArea(value) {
+  const match = String(value).match(/^(512|1K|2K|4K)$/i);
+  if (!match) return null;
+  const side = match[1].toUpperCase() === '512' ? 512 : Number(match[1][0]) * 1024;
+  return side * side;
+}
+
+function remoteSizeConstraints(parameters) {
+  const aspectRatios = enumValues(parameters.aspect_ratio).filter((value) => value !== 'auto');
+  const pixelAreaBuckets = enumValues(parameters.resolution).map(pixelArea).filter((value) => value !== null);
+  return {
+    ...(aspectRatios.length ? { aspectRatios } : {}),
+    ...(pixelAreaBuckets.length ? { pixelAreaBuckets } : {}),
+  };
+}
+
+function ratioValue(value) {
+  const match = String(value).match(/^(\d+(?:\.\d+)?):(\d+(?:\.\d+)?)$/);
+  return match ? Number(match[1]) / Number(match[2]) : NaN;
+}
+
+function resolutionValue(value) {
+  const pixels = pixelArea(value);
+  return pixels ? Math.sqrt(pixels) : NaN;
+}
+
+function closestValue(values, target, measure) {
+  let closest = null, distance = Infinity;
+  for (const value of values) {
+    const measured = measure(value);
+    if (!Number.isFinite(measured) || measured <= 0) continue;
+    const difference = Math.abs(Math.log(measured / target));
+    if (difference < distance) { closest = value; distance = difference; }
+  }
+  return closest;
+}
+
 function modelFromRemote(remote) {
   if (!remote?.id || !remote.architecture?.output_modalities?.includes('image')) return null;
   const definition = MODEL_DEFS[remote.id] ?? {};
@@ -13,6 +52,7 @@ function modelFromRemote(remote) {
   const parameters = remote.supported_parameters ?? {};
   const references = parameters.input_references;
   const imageInput = remote.architecture.input_modalities?.includes('image');
+  const size = { ...remoteSizeConstraints(parameters), ...profile.capabilities?.size, ...definition.capabilities?.size };
   return {
     id: `openrouter/${remote.id}`,
     label: definition.displayName || remote.name || remote.id,
@@ -31,6 +71,11 @@ function modelFromRemote(remote) {
       partialPreview: !!remote.supports_streaming,
       ...profile.capabilities,
       ...definition.capabilities,
+      size,
+    },
+    sizing: {
+      aspectRatios: enumValues(parameters.aspect_ratio),
+      resolutions: enumValues(parameters.resolution),
     },
   };
 }
@@ -38,6 +83,7 @@ function modelFromRemote(remote) {
 function registerOpenRouter({ app, ipcMain, safeStorage, keyStore, emit }, ownerOf) {
   const jobs = new Map();
   let catalogPromise = null;
+  let modelsById = new Map();
 
   function keyPath() { return path.join(app.getPath('userData'), 'openrouter-key.bin'); }
   function modelCachePath() { return path.join(app.getPath('userData'), 'openrouter-model-catalog.json'); }
@@ -102,7 +148,9 @@ function registerOpenRouter({ app, ipcMain, safeStorage, keyStore, emit }, owner
         response = await readModelCache();
         if (!response?.data) throw error;
       }
-      return { data: (response.data ?? []).map(modelFromRemote).filter(Boolean) };
+      const data = (response.data ?? []).map(modelFromRemote).filter(Boolean);
+      modelsById = new Map(data.map((model) => [model.id.slice('openrouter/'.length), model]));
+      return { data };
     })();
     return catalogPromise;
   }
@@ -137,7 +185,15 @@ function registerOpenRouter({ app, ipcMain, safeStorage, keyStore, emit }, owner
     }
     const key = await readKey();
     if (!key) throw new Error('Add an OpenRouter API key in Settings before generating.');
-    const body = { model, prompt, size: `${width}x${height}`, output_format: 'png', stream: !!stream };
+    const entry = modelsById.get(model);
+    const body = { model, prompt, output_format: 'png', stream: !!stream };
+    const aspectRatios = entry?.sizing?.aspectRatios ?? [];
+    const resolutions = entry?.sizing?.resolutions ?? [];
+    const aspectRatio = closestValue(aspectRatios, width / height, ratioValue);
+    const resolution = closestValue(resolutions, Math.sqrt(width * height), resolutionValue);
+    if (aspectRatio) body.aspect_ratio = aspectRatio;
+    if (resolution) body.resolution = resolution;
+    if (!aspectRatio && !resolution) body.size = `${width}x${height}`;
     if (input instanceof Uint8Array && input.byteLength) {
       body.input_references = [{ type: 'image_url', image_url: { url: `data:image/png;base64,${Buffer.from(input).toString('base64')}` } }];
     }

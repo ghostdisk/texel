@@ -46,7 +46,6 @@ function modelFromCatalog(record) {
     ratings: definition.ratings,
     promptField: hasPromptField ? definition.promptField : fallbackPromptField(types),
     fields,
-    sizing: definition.sizing ?? {},
     capabilities: definition.capabilities ?? {},
   };
 }
@@ -72,20 +71,31 @@ function assignSize(body, model, width, height) {
   if (!Number.isInteger(width) || !Number.isInteger(height) || width < 1 || height < 1) {
     throw new Error('fal generation dimensions must be positive whole numbers.');
   }
-  const { fields, sizing } = model;
-  if (fields.imageSize && sizing.customImageSize) body[fields.imageSize] = { width, height };
+  const { fields } = model;
+  const constraints = model.capabilities.size ?? {};
+  if (fields.imageSize && fields.imageSizeObject) body[fields.imageSize] = { width, height };
+  else if (fields.imageSize && constraints.sizeBuckets?.some((bucket) => bucket.value)) {
+    const presets = constraints.sizeBuckets.filter((bucket) => bucket.value);
+    const preset = closestSize(presets, width / height, (value) => value.width / value.height);
+    if (preset) body[fields.imageSize] = preset.value;
+  }
   else if (fields.width && fields.height) { body[fields.width] = width; body[fields.height] = height; }
   else if (fields.aspectRatio) {
-    const ratio = closestSize(sizing.aspectRatios, width / height, (value) => {
+    const ratio = closestSize(constraints.aspectRatios ?? [], width / height, (value) => {
       const match = typeof value === 'string' && value.match(/^(\d+(?:\.\d+)?):(\d+(?:\.\d+)?)$/);
       return match ? Number(match[1]) / Number(match[2]) : NaN;
     });
     if (ratio !== null) body[fields.aspectRatio] = ratio;
   }
   if (fields.resolution) {
-    // K presets describe approximate square-equivalent resolution, not the longest side.
-    const resolution = closestSize(sizing.resolutions, Math.sqrt(width * height), (value) => {
-      const match = String(value).match(/^(\d+(?:\.\d+)?)(K|px)?$/i);
+    // K presets are square-equivalent resolution; p presets describe the short side.
+    const shortSideBuckets = constraints.shortSideBuckets ?? [];
+    const areaBuckets = constraints.pixelAreaBuckets ?? [];
+    const resolutions = shortSideBuckets.length ? shortSideBuckets.map((value) => `${value}p`) :
+      areaBuckets.map((value) => Math.sqrt(value) === 512 ? '0.5K' : `${Math.sqrt(value) / 1024}K`);
+    const target = shortSideBuckets.length ? Math.min(width, height) : Math.sqrt(width * height);
+    const resolution = closestSize(resolutions, target, (value) => {
+      const match = String(value).match(/^(\d+(?:\.\d+)?)(K|p|px)?$/i);
       return match ? Number(match[1]) * (match[2]?.toLowerCase() === 'k' ? 1024 : 1) : NaN;
     });
     if (resolution !== null) body[fields.resolution] = resolution;

@@ -10,7 +10,7 @@ import { ImageGenerator } from './image-generator';
 import { InpaintGenerator } from './inpaint-generator';
 import { ObjectRemovalGenerator } from './object-removal-generator';
 import type { GenerationLens } from '../generation/lens';
-import { multiply } from '../model/geometry';
+import { multiply, transformPoint } from '../model/geometry';
 import type { Matrix } from '../model/geometry';
 
 export class GeneratorManager {
@@ -112,7 +112,22 @@ export class GeneratorManager {
     return true;
   }
 
-  drawOverlay(): void { if (this.current) this.controls.drawOverlay(); }
+  drawOverlay(): void {
+    const generator = this.current;
+    if (!generator) return;
+    const frame = generator.frame;
+    if (frame.canonicalWidth > generator.lens.width + 0.0001 || frame.canonicalHeight > generator.lens.height + 0.0001) {
+      const corners = [
+        { x: 0, y: 0 }, { x: frame.width, y: 0 },
+        { x: frame.width, y: frame.height }, { x: 0, y: frame.height },
+      ].map((point) => this.editor.viewport.worldToScreen(transformPoint(frame.transform, point)));
+      const rectangle = document.createElementNS(this.editor.overlay.namespaceURI, 'polygon');
+      rectangle.setAttribute('points', corners.map((point) => `${point.x},${point.y}`).join(' '));
+      rectangle.setAttribute('class', 'generation-expanded-lens');
+      this.editor.overlay.append(rectangle);
+    }
+    this.controls.drawOverlay();
+  }
 
   documentChanging(): void {
     if (this.current) this.close();

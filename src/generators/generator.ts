@@ -89,7 +89,7 @@ export abstract class Generator {
     return !this.busy && !this.resolvingModel && !!this.model && (!this.requiresPrompt || !!this.prompt.trim()) &&
       (!this.requiresSelection || !!this.editor.image.selectionMask) && !this.sizeError && !this.requirementError;
   }
-  get frame(): GenerationFrame { return this.lens.frame(this.scale, this.selectedModel?.capabilities.dimensionMultiple); }
+  get frame(): GenerationFrame { return this.lens.frame(this.scale, this.selectedModel?.capabilities.size); }
   get resultSize(): Pick<GenerationFrame, 'width' | 'height'> | null {
     const source = this.result?.source;
     return source ? { width: source.width, height: source.height } : null;
@@ -104,18 +104,9 @@ export abstract class Generator {
   get sizeError(): string {
     const { width, height } = this.frame;
     const capabilities = this.selectedModel?.capabilities;
-    const limit = capabilities?.maxDimension ?? this.editor.gpu.device.limits.maxTextureDimension2D;
+    const limit = this.editor.gpu.device.limits.maxTextureDimension2D;
     if (!Number.isFinite(width) || !Number.isFinite(height) || width > limit || height > limit) {
-      return 'Generation is limited to ' + limit + ' px per side. Reduce Scale or resize the lens.';
-    }
-    const shortLimit = capabilities?.maxShortDimension;
-    if (shortLimit && Math.min(width, height) > shortLimit) {
-      return 'The shorter image side is limited to ' + shortLimit + ' px. Reduce Scale or resize the lens.';
-    }
-    const ratio = width / height;
-    if (capabilities?.minAspectRatio && ratio < capabilities.minAspectRatio ||
-        capabilities?.maxAspectRatio && ratio > capabilities.maxAspectRatio) {
-      return 'This model does not support the lens aspect ratio.';
+      return 'Generation is limited to ' + limit + ' px per side by this GPU. Reduce Scale or resize the lens.';
     }
     return '';
   }
@@ -274,62 +265,48 @@ export abstract class Generator {
       const sourceInput = capture.input;
       const feathered = run.mask ? this.masks.create(run.mask, run.frame, this.feather, sourceInput) : null;
       if (feathered !== run.mask) { run.mask?.destroy(); run.mask = feathered; }
-      const requestScale = model.task === 'remove' ? Math.min(1, 2048 / Math.max(run.frame.width, run.frame.height)) : 1;
-      const requestFrame = requestScale < 1 ? this.lens.frame(this.scale * requestScale, model.capabilities.dimensionMultiple) : run.frame;
-      let inputSurface = sourceInput;
-      let maskSurface = run.mask;
-      try {
-        if (requestFrame.width !== run.frame.width || requestFrame.height !== run.frame.height) {
-          const bounds = { x: 0, y: 0, width: requestFrame.width, height: requestFrame.height };
-          inputSurface = this.editor.layerReframer.normalize(sourceInput, bounds, [bounds.width / run.frame.width, 0, 0, bounds.height / run.frame.height, 0, 0]);
-          if (run.mask) maskSurface = this.masks.support(run.mask, requestFrame.width, requestFrame.height);
-        }
-        const requiresInput = !!model.capabilities.minimumInputImages;
-        const requiresMask = !!model.capabilities.maskRequired || this.requiresSelection;
-        const includeInput = requiresInput || this.sendInput;
-        const [input, mask] = await Promise.all([
-          model.capabilities.inputImages && includeInput ? this.editor.readback.rgba(inputSurface) : Promise.resolve(null),
-          maskSurface && includeInput && (requiresMask || this.sendMask) ? this.editor.readback.rgba(maskSurface, true) : Promise.resolve(null),
-        ]);
-        if (!this.valid(run)) throw new DOMException('Generation cancelled.', 'AbortError');
-        if (this.requiresSelection && (!mask || !mask.some((value, index) => index % 4 === 0 && value > 0))) {
-          throw new Error('The selection does not cover the generator lens.');
-        }
-        const result = await this.service.request({
-          id: run.id,
-          model: model.id,
-          operation: this.operation,
-          prompt: this.prompt,
-          negativePrompt: this.negativePrompt,
-          width: requestFrame.width,
-          height: requestFrame.height,
-          steps: this.steps,
-          guidance: this.guidance,
-          strength: this.strength,
-          seed: this.seed,
-          input,
-          mask,
-        }, {
-          progress: (progress) => {
-            if (!this.valid(run)) return;
-            this.progress = progress;
-            this.onChange?.();
-          },
-          preview: (blob) => {
-            if (!this.valid(run) || run.finishing) return;
-            run.pendingPreview = blob;
-            this.setResultPreview(blob);
-            void this.drainPreviews(run);
-          },
-        }, run.controller.signal);
-        run.finishing = true;
-        await this.installResult(run, result);
-        const steps = this.progress.steps || this.steps;
-        this.progress = { phase: 'Complete', step: steps, steps };
-      } finally {
-        if (inputSurface !== sourceInput) inputSurface.destroy();
-        if (maskSurface !== run.mask) maskSurface?.destroy();
+      const requiresInput = !!model.capabilities.minimumInputImages;
+      const requiresMask = !!model.capabilities.maskRequired || this.requiresSelection;
+      const includeInput = requiresInput || this.sendInput;
+      const [input, mask] = await Promise.all([
+        model.capabilities.inputImages && includeInput ? this.editor.readback.rgba(sourceInput) : Promise.resolve(null),
+        run.mask && includeInput && (requiresMask || this.sendMask) ? this.editor.readback.rgba(run.mask, true) : Promise.resolve(null),
+      ]);
+      if (!this.valid(run)) throw new DOMException('Generation cancelled.', 'AbortError');
+      if (this.requiresSelection && (!mask || !mask.some((value, index) => index % 4 === 0 && value > 0))) {
+        throw new Error('The selection does not cover the generator lens.');
       }
+      const result = await this.service.request({
+        id: run.id,
+        model: model.id,
+        operation: this.operation,
+        prompt: this.prompt,
+        negativePrompt: this.negativePrompt,
+        width: run.frame.width,
+        height: run.frame.height,
+        steps: this.steps,
+        guidance: this.guidance,
+        strength: this.strength,
+        seed: this.seed,
+        input,
+        mask,
+      }, {
+        progress: (progress) => {
+          if (!this.valid(run)) return;
+          this.progress = progress;
+          this.onChange?.();
+        },
+        preview: (blob) => {
+          if (!this.valid(run) || run.finishing) return;
+          run.pendingPreview = blob;
+          this.setResultPreview(blob);
+          void this.drainPreviews(run);
+        },
+      }, run.controller.signal);
+      run.finishing = true;
+      await this.installResult(run, result);
+      const steps = this.progress.steps || this.steps;
+      this.progress = { phase: 'Complete', step: steps, steps };
     } catch (error) {
       const cancelled = run.controller.signal.aborted || error instanceof DOMException && error.name === 'AbortError';
       this.progress = { phase: cancelled ? 'Cancelled' : 'Generation failed', step: 0, steps: 0 };

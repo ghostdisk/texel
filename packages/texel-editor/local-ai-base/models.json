@@ -19,8 +19,13 @@
         "seed": true,
         "denoiseStrength": true,
         "partialPreview": true,
-        "dimensionMultiple": 16,
-        "maxDimension": 2048
+        "size": {
+          "minWidth": 64,
+          "maxWidth": 2048,
+          "minHeight": 64,
+          "maxHeight": 2048,
+          "granularity": 16
+        }
       }
     },
     {
@@ -45,7 +50,11 @@
         "seed": false,
         "denoiseStrength": false,
         "partialPreview": true,
-        "maxDimension": 2048
+        "size": {
+          "sizeBuckets": [
+            { "width": 512, "height": 512 }
+          ]
+        }
       }
     }
   ]
