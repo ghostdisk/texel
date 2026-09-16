@@ -1,4 +1,4 @@
-export type ActionMenuName = 'File' | 'Edit' | 'Layer' | 'View' | 'Select' | 'Filter' | 'Tools' | 'Help';
+export type ActionMenuName = 'File' | 'Edit' | 'Layer' | 'View' | 'Select' | 'Filter' | 'Tools' | 'Generators' | 'Help';
 
 export interface Action {
   id: string;
@@ -192,7 +192,7 @@ export class ActionRegistry {
       const binding = this.binding(chord, context);
       if (binding && !shortcuts.has(binding.actionId)) shortcuts.set(binding.actionId, chord);
     }
-    const menus: ActionMenuName[] = ['File', 'Edit', 'Layer', 'View', 'Select', 'Filter', 'Tools', 'Help'];
+    const menus: ActionMenuName[] = ['File', 'Edit', 'Layer', 'View', 'Select', 'Filter', 'Tools', 'Generators', 'Help'];
     return menus.map((label) => ({ label, items: [...this.actions.values()]
       .filter((action) => action.menu === label && (action.visible?.() ?? true))
       .map((action) => ({

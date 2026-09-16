@@ -18,14 +18,27 @@ interface SeparatorRow {
 
 type MenuRow = ActionRow | SubmenuRow | SeparatorRow;
 
+const GENERATOR_ICONS: Record<string, string> = {
+  'generator.image': new URL('../../assets/icons/icon-generate-image.png', import.meta.url).href,
+  'generator.background-removal': new URL('../../assets/icons/icon-remove-background.png', import.meta.url).href,
+  'generator.object-removal': new URL('../../assets/icons/icon-remove-object.png', import.meta.url).href,
+  'generator.inpaint': new URL('../../assets/icons/icon-inpaint.png', import.meta.url).href,
+  'generator.enhance': new URL('../../assets/icons/icon-enhance.png', import.meta.url).href,
+  'generator.expand': new URL('../../assets/icons/icon-uncrop.png', import.meta.url).href,
+  'generator.extract-structure': new URL('../../assets/icons/icon-extract.png', import.meta.url).href,
+  'generator.relight-recolor': new URL('../../assets/icons/icon-relight.png', import.meta.url).href,
+};
+
 export class TitleBar {
   private readonly buttons: HTMLButtonElement[];
+  private readonly generatorButton: HTMLButtonElement | null;
   private readonly popup = document.createElement('div');
   private activeButton: HTMLButtonElement | null = null;
   private submenuTimer = 0;
 
   constructor(private readonly actions: ActionRegistry) {
     this.buttons = [...document.querySelectorAll<HTMLButtonElement>('[data-menu]')];
+    this.generatorButton = document.querySelector<HTMLButtonElement>('#generator-menu-button');
     this.popup.className = 'app-menu-popup';
     this.popup.setAttribute('role', 'menu');
     this.popup.hidden = true;
@@ -47,9 +60,17 @@ export class TitleBar {
         if ([' ', 'Enter', 'ArrowDown', 'ArrowLeft', 'ArrowRight', 'Escape'].includes(event.key)) event.stopPropagation();
       };
     }
+    if (this.generatorButton) {
+      this.generatorButton.onclick = () => this.toggle(this.generatorButton!);
+      this.generatorButton.onkeydown = (event) => {
+        if (event.key === 'ArrowDown') { event.preventDefault(); this.open(this.generatorButton!, true); }
+        else if (event.key === 'Escape') this.close();
+        if ([' ', 'Enter', 'ArrowDown', 'Escape'].includes(event.key)) event.stopPropagation();
+      };
+    }
     document.addEventListener('pointerdown', (event) => {
       const target = event.target;
-      if (target instanceof Node && (this.popup.contains(target) || this.buttons.some((button) => button.contains(target)))) return;
+      if (target instanceof Node && (this.popup.contains(target) || this.buttons.some((button) => button.contains(target)) || this.generatorButton?.contains(target))) return;
       this.close();
     });
     window.addEventListener('keydown', (event) => {
@@ -92,7 +113,17 @@ export class TitleBar {
     button.role = 'menuitem';
     button.disabled = !action.enabled;
     const label = document.createElement('span');
-    label.textContent = action.label;
+    label.className = 'app-menu-item-label';
+    const iconName = GENERATOR_ICONS[action.id];
+    if (iconName) {
+      button.classList.add('generator-menu-item');
+      const icon = document.createElement('img');
+      icon.className = 'generator-menu-icon';
+      icon.src = iconName;
+      icon.alt = '';
+      label.append(icon);
+    }
+    label.append(document.createTextNode(action.label));
     const shortcut = document.createElement('kbd');
     shortcut.textContent = action.shortcut;
     button.append(label, shortcut);
@@ -149,23 +180,26 @@ export class TitleBar {
   }
 
   private open(button: HTMLButtonElement, focusFirst = false): void {
-    window.clearTimeout(this.switchTimer);
     window.clearTimeout(this.submenuTimer);
     this.activeButton?.setAttribute('aria-expanded', 'false');
     this.activeButton = button;
     button.setAttribute('aria-expanded', 'true');
-    const menu = this.actions.menus().find((candidate) => candidate.label === button.dataset.menu);
+    const menu = this.actions.menus().find((candidate) => candidate.label === (button === this.generatorButton ? 'Generators' : button.dataset.menu));
     this.popup.replaceChildren();
     if (menu) this.renderRows(this.popup, this.rows(menu.items));
     const bounds = button.getBoundingClientRect();
-    this.popup.style.left = `${Math.round(bounds.left)}px`;
-    this.popup.style.top = `${Math.round(bounds.bottom)}px`;
     this.popup.hidden = false;
+    if (button === this.generatorButton) {
+      this.popup.style.left = `${Math.round(Math.min(bounds.right, window.innerWidth - this.popup.offsetWidth - 4))}px`;
+      this.popup.style.top = `${Math.round(Math.max(4, Math.min(bounds.top, window.innerHeight - this.popup.offsetHeight - 4)))}px`;
+    } else {
+      this.popup.style.left = `${Math.round(Math.min(bounds.left, window.innerWidth - this.popup.offsetWidth - 4))}px`;
+      this.popup.style.top = `${Math.round(bounds.bottom)}px`;
+    }
     if (focusFirst) this.popup.querySelector<HTMLButtonElement>('.app-menu-item:not(:disabled)')?.focus();
   }
 
   private close(): void {
-    window.clearTimeout(this.switchTimer);
     window.clearTimeout(this.submenuTimer);
     this.activeButton?.setAttribute('aria-expanded', 'false');
     this.activeButton = null;

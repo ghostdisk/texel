@@ -9,6 +9,7 @@ import { BackgroundRemovalGenerator } from './background-removal-generator';
 import { ImageGenerator } from './image-generator';
 import { InpaintGenerator } from './inpaint-generator';
 import { ObjectRemovalGenerator } from './object-removal-generator';
+import { ModelTypeGenerator } from './model-type-generator';
 import type { GenerationLens } from '../generation/lens';
 import { multiply, transformPoint } from '../model/geometry';
 import type { Matrix } from '../model/geometry';
@@ -26,6 +27,10 @@ export class GeneratorManager {
       new BackgroundRemovalGenerator(editor, this.service),
       new ObjectRemovalGenerator(editor, this.service),
       new InpaintGenerator(editor, this.service),
+      new ModelTypeGenerator(editor, this.service, { id: 'enhance', label: 'Upscale / Enhance', resultName: 'Enhanced image', modelTypes: ['restore', 'upscale'] }),
+      new ModelTypeGenerator(editor, this.service, { id: 'expand', label: 'Outpaint / Expand', resultName: 'Expanded image', modelTypes: ['expand-reframe'], prompt: 'Prompt' }),
+      new ModelTypeGenerator(editor, this.service, { id: 'extract-structure', label: 'Extract Structure', resultName: 'Extracted structure', modelTypes: ['structure-extraction'] }),
+      new ModelTypeGenerator(editor, this.service, { id: 'relight-recolor', label: 'Relight / Recolor', resultName: 'Relit image', modelTypes: ['lighting-color'], prompt: 'Prompt' }),
     ]) this.generators.set(generator.id, generator);
     this.controls = new TransformControls(editor, () => this.active!.lens, () => !!this.active && !this.active.busy, undefined, false);
     this.window = new GeneratorWindow(editor, this);

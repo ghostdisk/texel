@@ -42,6 +42,9 @@ h2 { display: flex; align-items: center; gap: 7px; font-weight: 600; font-size: 
 .app-menu-item:hover:not(:disabled), .app-menu-item:focus-visible, .app-menu-submenu-row.open > .app-menu-item { background: var(--accent-soft); outline: none; }
 .app-menu-item:disabled { color: var(--text-faint); }
 .app-menu-item kbd { color: var(--text-muted); font: inherit; }
+.app-menu-item-label { display: flex; align-items: center; gap: 8px; min-width: 0; }
+.generator-menu-item { height: 34px; }
+.generator-menu-icon { width: 24px; height: 24px; flex-shrink: 0; object-fit: contain; }
 .app-menu-separator { height: 1px; margin: 4px 5px; background: var(--border); }
 .app-menu-submenu-row { position: relative; }
 .app-menu-arrow { padding-left: 12px; color: var(--text-muted); font-size: 17px; line-height: 1; }
@@ -81,6 +84,7 @@ h2 { display: flex; align-items: center; gap: 7px; font-weight: 600; font-size: 
 .tool[data-action="drawing.erase"].active { color: var(--danger); border-color: var(--danger); background: var(--danger-surface); }
 .tool-modes { display: flex; flex-direction: column; gap: 4px; border-top: 1px solid var(--border); padding-top: 6px; margin-top: 3px; }
 .generative-tools .tool:hover { background: var(--accent-surface); }
+.generative-tools .tool[aria-expanded="true"] { background: var(--accent-surface); border-color: var(--accent); }
 .color-palette { position: relative; width: 35px; height: 57px; flex-shrink: 0; margin-top: 10px; }
 .color-palette input { position: absolute; width: 26px; height: 26px; padding: 1px; border: 1px solid var(--border-strong); border-radius: 2px; background: var(--surface-bg); cursor: pointer; }
 .color-palette .primary-color { left: 0; top: 0; z-index: 1; }
@@ -121,7 +125,8 @@ h2 { display: flex; align-items: center; gap: 7px; font-weight: 600; font-size: 
 .no-document .app-menus button[data-menu="View"],
 .no-document .app-menus button[data-menu="Select"],
 .no-document .app-menus button[data-menu="Filter"],
-.no-document .app-menus button[data-menu="Tools"] { display: none; }
+.no-document .app-menus button[data-menu="Tools"],
+.no-document .app-menus button[data-menu="Generators"] { display: none; }
 .no-document .workspace { padding: 0; gap: 0; }
 .no-document .workarea { width: 100%; }
 .no-document .document-heading { height: 34px; padding: 0 8px; border-bottom: 1px solid var(--border); background: var(--panel-gradient); }

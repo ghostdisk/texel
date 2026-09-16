@@ -1250,7 +1250,7 @@ export class Editor {
   }
 
   private registerActions(): void {
-    const documentMenus = new Set(['Edit', 'Layer', 'View', 'Select', 'Filter', 'Tools']);
+    const documentMenus = new Set(['Edit', 'Layer', 'View', 'Select', 'Filter', 'Tools', 'Generators']);
     const register = (action: Action) => {
       const contextualDocumentAction = !action.menu && action.id !== 'settings.canvas-background';
       const documentBound = contextualDocumentAction ||
@@ -1424,28 +1424,32 @@ export class Editor {
       id: 'colors.swap', label: 'Swap primary / secondary colors', menu: 'Tools', submenu: 'Colors',
       execute: () => this.setColors(this.secondaryColor, this.primaryColor),
     });
-    register({ id: 'generator.image', label: 'Image generator', menu: 'Tools', submenu: 'Generators', execute: () => this.generators.open('image') });
-    register({ id: 'generator.background-removal', label: 'Remove background', menu: 'Tools', submenu: 'Generators', execute: () => this.generators.open('background-removal') });
-    register({ id: 'generator.object-removal', label: 'Object removal', menu: 'Tools', submenu: 'Generators', execute: () => this.generators.open('object-removal') });
-    register({ id: 'generator.inpaint', label: 'Inpaint', menu: 'Tools', submenu: 'Generators', execute: () => this.generators.open('inpaint') });
+    register({ id: 'generator.image', label: 'Generate image', menu: 'Generators', execute: () => this.generators.open('image') });
+    register({ id: 'generator.background-removal', label: 'Remove background', menu: 'Generators', execute: () => this.generators.open('background-removal') });
+    register({ id: 'generator.object-removal', label: 'Remove object', menu: 'Generators', execute: () => this.generators.open('object-removal') });
+    register({ id: 'generator.inpaint', label: 'Inpaint', menu: 'Generators', execute: () => this.generators.open('inpaint') });
+    register({ id: 'generator.enhance', label: 'Upscale / Enhance', menu: 'Generators', execute: () => this.generators.open('enhance') });
+    register({ id: 'generator.expand', label: 'Outpaint / Expand', menu: 'Generators', execute: () => this.generators.open('expand') });
+    register({ id: 'generator.extract-structure', label: 'Extract Structure', menu: 'Generators', execute: () => this.generators.open('extract-structure') });
+    register({ id: 'generator.relight-recolor', label: 'Relight / Recolor', menu: 'Generators', execute: () => this.generators.open('relight-recolor') });
     register({
-      id: 'generator.generate', label: 'Generate', menu: 'Tools', submenu: 'Generators',
+      id: 'generator.generate', label: 'Generate',
       enabled: () => !!this.generators.active?.canGenerate, execute: () => this.generators.generate(),
     });
     register({
-      id: 'generator.apply', label: 'Apply generator result', menu: 'Tools', submenu: 'Generators',
+      id: 'generator.apply', label: 'Apply generator result',
       enabled: () => !!this.generators.active?.canApply, execute: () => this.generators.apply(),
     });
     register({
-      id: 'generator.cancel', label: 'Cancel generator request', menu: 'Tools', submenu: 'Generators',
+      id: 'generator.cancel', label: 'Cancel generator request',
       enabled: () => this.generators.busy, execute: () => this.generators.cancel(),
     });
     register({
-      id: 'generator.close', label: 'Close generator', menu: 'Tools', submenu: 'Generators',
+      id: 'generator.close', label: 'Close generator',
       enabled: () => !!this.generators.active, execute: () => this.generators.close(),
     });
-    register({ id: 'generator.fit', label: 'Fit generator lens to canvas', menu: 'Tools', submenu: 'Generators', enabled: () => !!this.generators.active && !this.generators.busy, execute: () => this.generators.fitLens() });
-    register({ id: 'generator.models', label: 'Refresh AI models', menu: 'Tools', submenu: 'Generators', execute: () => this.generators.refreshModels() });
+    register({ id: 'generator.fit', label: 'Fit generator lens to canvas', enabled: () => !!this.generators.active && !this.generators.busy, execute: () => this.generators.fitLens() });
+    register({ id: 'generator.models', label: 'Refresh AI models', execute: () => this.generators.refreshModels() });
     register({ id: 'tool.brush', label: 'Brush', menu: 'Tools', execute: () => this.switchTool('brush') });
     register({ id: 'tool.rectangle', label: 'Rectangle', menu: 'Tools', execute: () => this.switchTool('rectangle') });
     register({ id: 'tool.ellipse', label: 'Ellipse', menu: 'Tools', execute: () => this.switchTool('ellipse') });

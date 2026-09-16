@@ -1,6 +1,6 @@
 import sprite from '../assets/icons.svg?raw';
 
-export type IconName = 'brush' | 'clone-stamp' | 'healing-brush' | 'rectangle' | 'ellipse' | 'freehand-lasso' | 'polygon-lasso' | 'crop' | 'transform' | 'eyedropper' | 'selection' | 'eraser' | 'generate' | 'remove' |
+export type IconName = 'brush' | 'clone-stamp' | 'healing-brush' | 'rectangle' | 'ellipse' | 'freehand-lasso' | 'polygon-lasso' | 'crop' | 'transform' | 'eyedropper' | 'selection' | 'eraser' | 'generate' | 'generators' | 'remove' |
   'eye' | 'eye-off' | 'layers' | 'history' | 'document' | 'folder' | 'plus' | 'trash' | 'undo' | 'redo' |
   'up' | 'down' | 'chevron-down' | 'close' | 'check' | 'settings' | 'grip' | 'swap' | 'colors' | 'image' | 'fill' | 'text' | 'bold' | 'italic';
 
