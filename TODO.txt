@@ -1,0 +1,12 @@
+masks:
+- promote to mask is not great - we should probably have an option to mask layer by selection instead
+- global masks moving with layers
+- better mask previews
+
+
+ai:
+- allow brush in the middle of the lens, figure out a good UX to allow moving lens and using tools
+
+general:
+- allow V tool to select layers
+- there's holes in layer dragging hitboxes

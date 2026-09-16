@@ -1565,6 +1565,7 @@ export class Editor {
     this.actions.bind('I', 'tool.eyedropper');
     this.actions.bind('Alt', 'tool.eyedropper', { hold: true });
     this.actions.bind('Ctrl+I', 'filter.invert');
+    this.actions.bind('Ctrl+U', 'filter.hue-saturation');
     this.actions.bind('Delete', 'layer.delete', { when: '!hasSelection' });
     this.actions.bind('Delete', 'selection.clear', { when: 'hasSelection' });
     this.actions.bind('Ctrl+J', 'layer.duplicate');
